@@ -1,0 +1,13 @@
+packages:
+  - apps/*
+  - packages/*
+
+# pnpm 11 defaults kept on purpose (supply-chain protection):
+#   minimumReleaseAge: 1440   newly published versions are not resolved for 24 hours
+#   blockExoticSubdeps: true  transitive git/tarball dependencies are refused
+#   strictDepBuilds: true     dependency install scripts must be explicitly allowed below
+# Review a package's install script before allowing it. Native binaries should come from
+# platform-specific optional dependencies, not from download-at-install fallbacks.
+allowBuilds:
+  # Fallback downloader for the native binding; the binding ships as an optional dependency.
+  unrs-resolver: false

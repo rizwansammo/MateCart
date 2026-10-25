@@ -1,0 +1,19 @@
+{
+  "name": "@matecart/shared-contracts",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Typed data contracts shared by MateCart frontends and tooling.",
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "typescript": "~6.0.3",
+    "vitest": "^5.0.5"
+  }
+}

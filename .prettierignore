@@ -1,0 +1,7 @@
+pnpm-lock.yaml
+node_modules/
+.next/
+coverage/
+
+# Python services are formatted by ruff; generated OpenAPI schemas are checked for drift, not reformatted.
+services/

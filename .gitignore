@@ -1,0 +1,37 @@
+# --- Secrets and local environment (never commit) ---
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# --- Node / Next.js ---
+node_modules/
+.next/
+out/
+*.tsbuildinfo
+next-env.d.ts
+.pnpm-store/
+npm-debug.log*
+pnpm-debug.log*
+coverage/
+
+# --- Python ---
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+staticfiles/
+media/
+
+# --- Editors / OS ---
+.DS_Store
+Thumbs.db
+.idea/
+*.swp
+.vscode/*
+!.vscode/extensions.json

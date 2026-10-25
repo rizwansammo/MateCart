@@ -1,0 +1,198 @@
+# MateCart local development stack.
+#
+# Isolation rules (other projects share this Docker Desktop):
+#   - Compose project "matecart-dev": every container is prefixed matecart-dev-*.
+#   - Dedicated, explicitly named volumes and networks; nothing external is reused.
+#   - All ports are published on 127.0.0.1 only and configurable through .env.
+#   - Commerce and control services sit on separate networks: control-api cannot reach the
+#     commerce database, mirroring the production boundary between client stores and the console.
+#
+# Usage: pnpm stack:up | stack:down | stack:logs | stack:ps (see docs/DEVELOPMENT_SETUP.md).
+# The Next.js apps run on the host (pnpm dev) for fast reloads on Windows.
+
+name: matecart-dev
+
+x-commerce-api-environment: &commerce-api-environment
+  DJANGO_SETTINGS_MODULE: config.settings.development
+  DJANGO_SECRET_KEY: ${MATECART_COMMERCE_SECRET_KEY:?run `pnpm setup:env` to create .env}
+  DJANGO_LOG_FORMAT: console
+  DATABASE_URL: postgres://matecart_commerce:${MATECART_COMMERCE_DB_PASSWORD:?run `pnpm setup:env`}@commerce-db:5432/matecart_commerce
+  REDIS_URL: redis://:${MATECART_COMMERCE_REDIS_PASSWORD:?run `pnpm setup:env`}@commerce-redis:6379/0
+  CELERY_BROKER_URL: redis://:${MATECART_COMMERCE_REDIS_PASSWORD}@commerce-redis:6379/1
+  CELERY_RESULT_BACKEND: redis://:${MATECART_COMMERCE_REDIS_PASSWORD}@commerce-redis:6379/2
+
+x-commerce-api-build: &commerce-api-build
+  context: ./services/commerce-api
+  target: dev
+
+services:
+  # ---------------------------------------------------------------- commerce (client store)
+  commerce-db:
+    image: postgres:18.6-alpine3.24
+    environment:
+      POSTGRES_DB: matecart_commerce
+      POSTGRES_USER: matecart_commerce
+      POSTGRES_PASSWORD: ${MATECART_COMMERCE_DB_PASSWORD:?run `pnpm setup:env`}
+    ports:
+      - '127.0.0.1:${MATECART_COMMERCE_DB_PORT:-15440}:5432'
+    volumes:
+      # PostgreSQL 18+ images keep data under /var/lib/postgresql/<major>/docker.
+      - commerce-db-data:/var/lib/postgresql
+    networks: [commerce]
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U matecart_commerce -d matecart_commerce']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  commerce-redis:
+    image: redis:8.10.2-alpine
+    environment:
+      REDIS_PASSWORD: ${MATECART_COMMERCE_REDIS_PASSWORD:?run `pnpm setup:env`}
+    command: ['sh', '-c', 'exec redis-server --requirepass "$$REDIS_PASSWORD" --appendonly yes']
+    ports:
+      - '127.0.0.1:${MATECART_COMMERCE_REDIS_PORT:-16380}:6379'
+    volumes:
+      - commerce-redis-data:/data
+    networks: [commerce]
+    healthcheck:
+      test: ['CMD-SHELL', 'REDISCLI_AUTH="$$REDIS_PASSWORD" redis-cli ping | grep -q PONG']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  commerce-api:
+    build: *commerce-api-build
+    image: matecart-dev/commerce-api:dev
+    command:
+      [
+        'sh',
+        '-c',
+        'python manage.py migrate --noinput && exec python manage.py runserver 0.0.0.0:8000',
+      ]
+    environment: *commerce-api-environment
+    ports:
+      - '127.0.0.1:${MATECART_COMMERCE_API_PORT:-8400}:8000'
+    volumes:
+      - ./services/commerce-api:/app
+    networks: [commerce]
+    depends_on:
+      commerce-db: { condition: service_healthy }
+      commerce-redis: { condition: service_healthy }
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'python',
+          '-c',
+          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/health/live/', timeout=3)",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 30s
+    restart: unless-stopped
+
+  commerce-worker:
+    build: *commerce-api-build
+    image: matecart-dev/commerce-api:dev
+    command:
+      [
+        'celery',
+        '-A',
+        'config',
+        'worker',
+        '--loglevel=INFO',
+        '--concurrency=2',
+        '--hostname=commerce-worker@%h',
+      ]
+    environment: *commerce-api-environment
+    volumes:
+      - ./services/commerce-api:/app
+    networks: [commerce]
+    depends_on:
+      commerce-db: { condition: service_healthy }
+      commerce-redis: { condition: service_healthy }
+    healthcheck:
+      test:
+        [
+          'CMD-SHELL',
+          'celery -A config inspect ping --destination commerce-worker@$$HOSTNAME --timeout 5',
+        ]
+      interval: 30s
+      timeout: 15s
+      retries: 3
+      start_period: 30s
+    restart: unless-stopped
+
+  # ---------------------------------------------------------------- control (NetaMate console)
+  control-db:
+    image: postgres:18.6-alpine3.24
+    environment:
+      POSTGRES_DB: matecart_control
+      POSTGRES_USER: matecart_control
+      POSTGRES_PASSWORD: ${MATECART_CONTROL_DB_PASSWORD:?run `pnpm setup:env`}
+    ports:
+      - '127.0.0.1:${MATECART_CONTROL_DB_PORT:-15441}:5432'
+    volumes:
+      - control-db-data:/var/lib/postgresql
+    networks: [control]
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U matecart_control -d matecart_control']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  control-api:
+    build:
+      context: ./services/control-api
+      target: dev
+    image: matecart-dev/control-api:dev
+    command:
+      [
+        'sh',
+        '-c',
+        'python manage.py migrate --noinput && exec python manage.py runserver 0.0.0.0:8000',
+      ]
+    environment:
+      DJANGO_SETTINGS_MODULE: config.settings.development
+      DJANGO_SECRET_KEY: ${MATECART_CONTROL_SECRET_KEY:?run `pnpm setup:env`}
+      DJANGO_LOG_FORMAT: console
+      DATABASE_URL: postgres://matecart_control:${MATECART_CONTROL_DB_PASSWORD}@control-db:5432/matecart_control
+    ports:
+      - '127.0.0.1:${MATECART_CONTROL_API_PORT:-8410}:8000'
+    volumes:
+      - ./services/control-api:/app
+    networks: [control]
+    depends_on:
+      control-db: { condition: service_healthy }
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'python',
+          '-c',
+          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/health/live/', timeout=3)",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 30s
+    restart: unless-stopped
+
+volumes:
+  commerce-db-data:
+    name: matecart-dev-commerce-db-data
+  commerce-redis-data:
+    name: matecart-dev-commerce-redis-data
+  control-db-data:
+    name: matecart-dev-control-db-data
+
+networks:
+  commerce:
+    name: matecart-dev-commerce
+  control:
+    name: matecart-dev-control

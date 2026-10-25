@@ -1,0 +1,45 @@
+{
+  "name": "matecart",
+  "version": "0.1.0",
+  "private": true,
+  "description": "MateCart white-label e-commerce platform by NetaMate Solutions (monorepo root).",
+  "packageManager": "pnpm@11.18.0",
+  "engines": {
+    "node": ">=24.0.0"
+  },
+  "scripts": {
+    "setup:env": "node scripts/setup-env.mjs",
+    "dev": "pnpm --parallel --filter @matecart/commerce-web --filter @matecart/platform-console dev",
+    "dev:web": "pnpm --filter @matecart/commerce-web dev",
+    "dev:console": "pnpm --filter @matecart/platform-console dev",
+    "build": "pnpm -r build",
+    "lint": "eslint .",
+    "typecheck": "pnpm -r typecheck",
+    "test": "pnpm -r test",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "check": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm test",
+    "health": "node scripts/check-health.mjs",
+    "stack:up": "docker compose up -d --build --wait",
+    "stack:down": "docker compose down",
+    "stack:ps": "docker compose ps",
+    "stack:logs": "docker compose logs -f --tail=200",
+    "stack:rebuild": "docker compose build --pull && docker compose up -d --wait --force-recreate",
+    "api:test": "pnpm api:test:commerce && pnpm api:test:control",
+    "api:test:commerce": "docker compose run --rm commerce-api pytest",
+    "api:test:control": "docker compose run --rm control-api pytest",
+    "api:lint": "pnpm api:lint:commerce && pnpm api:lint:control",
+    "api:lint:commerce": "docker compose run --rm --no-deps commerce-api sh -c \"ruff check . && ruff format --check . && mypy .\"",
+    "api:lint:control": "docker compose run --rm --no-deps control-api sh -c \"ruff check . && ruff format --check . && mypy .\"",
+    "api:format": "docker compose run --rm --no-deps commerce-api ruff format . && docker compose run --rm --no-deps control-api ruff format .",
+    "api:schema": "docker compose run --rm --no-deps commerce-api python manage.py spectacular --file openapi.yaml --validate --fail-on-warn && docker compose run --rm --no-deps control-api python manage.py spectacular --file openapi.yaml --validate --fail-on-warn",
+    "api:celery-check": "docker compose exec commerce-api python manage.py check_celery"
+  },
+  "devDependencies": {
+    "eslint": "^9.39.5",
+    "eslint-config-next": "^16.4.3",
+    "prettier": "^3.9.10",
+    "prettier-plugin-tailwindcss": "^0.8.1",
+    "typescript": "~6.0.3"
+  }
+}

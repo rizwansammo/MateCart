@@ -1,0 +1,14 @@
+# Normalise all text files to LF in the repository and the working tree.
+# Required on Windows (core.autocrlf=true): files bind-mounted into Linux containers must use LF.
+* text=auto eol=lf
+
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.webp binary
+*.ico binary
+*.otf binary
+*.ttf binary
+*.woff binary
+*.woff2 binary

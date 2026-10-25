@@ -1,0 +1,57 @@
+/*
+ * MateCart core design tokens (Tailwind CSS v4 theme).
+ *
+ * Source of truth: the approved UI prototype, "Design system · v1.0" (MateCart-UI, read-only).
+ * Only the shared core is defined here. Preset palettes and typography (Fashion, Grocery,
+ * Electronics, General, Bookstore) belong to Phase 05 and must come from the same prototype.
+ *
+ * Font variables (--font-geist, --font-geist-mono, --font-hind-siliguri) are provided by each
+ * app's root layout via next/font, so fonts are self-hosted and never fetched from Google at runtime.
+ * Spacing uses Tailwind's default 4px scale, which matches the prototype's space-1..space-18 tokens.
+ */
+
+/* Register this package's components as Tailwind class sources for every app that imports the theme. */
+@source './';
+
+@theme {
+  /* Core neutrals */
+  --color-ink: #0d0f0e;
+  --color-ink-2: #2a2e2c;
+  --color-muted: #5e6662;
+  --color-subtle: #8a928e;
+  --color-line: #e4e7e5;
+  --color-canvas: #f4f5f3;
+  --color-surface: #ffffff;
+
+  /* Brand */
+  --color-brand: #00b050;
+  --color-brand-deep: #00843c;
+  --color-brand-tint: #e6f6ec;
+
+  /* Semantic (foreground on tinted background) */
+  --color-success-fg: #00843c;
+  --color-success-bg: #e6f6ec;
+  --color-warning-fg: #8a5300;
+  --color-warning-bg: #fff3dc;
+  --color-danger-fg: #c8312b;
+  --color-danger-bg: #fdecea;
+  --color-info-fg: #2457c5;
+  --color-info-bg: #eaf0fd;
+
+  /* Typography. Every var() has a fallback: an app that does not load a font (the console has no
+     Bangla font) must still get a valid stack, because one undefined var() voids the whole value. */
+  --font-sans:
+    var(--font-geist, system-ui), var(--font-hind-siliguri, system-ui), system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono, ui-monospace), ui-monospace, monospace;
+  --font-bangla: var(--font-hind-siliguri, sans-serif), sans-serif;
+  /* The prototype wordmark uses "Optimus Custom"; it is not bundled until its licence is confirmed. */
+  --font-brand: var(--font-geist, system-ui), system-ui, sans-serif;
+
+  /* Corners: badges 3px, everything else (buttons, inputs, cards, panels, modals) 4px */
+  --radius-badge: 3px;
+  --radius-base: 4px;
+
+  /* Elevation */
+  --shadow-card: 0 1px 2px rgb(13 15 14 / 0.06);
+  --shadow-overlay: 0 24px 60px -20px rgb(13 15 14 / 0.35);
+}

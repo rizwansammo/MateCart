@@ -1,0 +1,102 @@
+openapi: 3.0.3
+info:
+  title: MateCart Commerce API
+  version: 0.1.0
+  description: Storefront, checkout and merchant API for a single MateCart store deployment.
+paths:
+  /api/health/live/:
+    get:
+      operationId: health_live
+      description: The process is up and serving requests. Never touches dependencies.
+      tags:
+      - health
+      security:
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Liveness'
+          description: ''
+  /api/health/ready/:
+    get:
+      operationId: health_ready
+      description: 'The service can do useful work: database, cache and broker are
+        reachable.'
+      tags:
+      - health
+      security:
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Readiness'
+          description: ''
+        '503':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Readiness'
+          description: ''
+components:
+  schemas:
+    CheckStateEnum:
+      enum:
+      - ok
+      - error
+      type: string
+      description: |-
+        * `ok` - ok
+        * `error` - error
+    Liveness:
+      type: object
+      properties:
+        status:
+          $ref: '#/components/schemas/LivenessStatusEnum'
+        service:
+          type: string
+      required:
+      - service
+      - status
+    LivenessStatusEnum:
+      enum:
+      - ok
+      type: string
+      description: '* `ok` - ok'
+    Readiness:
+      type: object
+      properties:
+        status:
+          $ref: '#/components/schemas/ReadinessStatusEnum'
+        service:
+          type: string
+        checks:
+          $ref: '#/components/schemas/ReadinessChecks'
+      required:
+      - checks
+      - service
+      - status
+    ReadinessChecks:
+      type: object
+      properties:
+        database:
+          $ref: '#/components/schemas/CheckStateEnum'
+        cache:
+          $ref: '#/components/schemas/CheckStateEnum'
+        broker:
+          $ref: '#/components/schemas/CheckStateEnum'
+      required:
+      - broker
+      - cache
+      - database
+    ReadinessStatusEnum:
+      enum:
+      - ok
+      - unavailable
+      type: string
+      description: |-
+        * `ok` - ok
+        * `unavailable` - unavailable
