@@ -1,10 +1,10 @@
 """Querysets and managers for tenant-owned models.
 
 ``Model.objects`` returns only the active tenant's rows and raises TenantContextMissing when no
-tenant is active. Django's ``_base_manager`` stays unfiltered on purpose: Django uses it to follow
-foreign keys from rows that were already loaded through a scoped query, and the database-level
-tenant foreign keys (TenantForeignKeyConstraint) guarantee those targets share the tenant. Writes
-that target existing rows are tenant-qualified in SQL (see TenantOwnedModel and bulk_update).
+tenant is active. It is also each tenant-owned model's ``_base_manager`` (D-038), which Django
+uses for refreshes, deferred fields and forward relations, so those reads stay inside the active
+tenant as well. Only ``unscoped_access(reason)`` lifts the filter. Writes that target existing
+rows are tenant-qualified in SQL (see TenantOwnedModel and bulk_update).
 """
 
 import uuid

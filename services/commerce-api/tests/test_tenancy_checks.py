@@ -5,6 +5,9 @@ from typing import ClassVar
 from django.db import models
 from django.test.utils import isolate_apps
 
+from commerce.audit.models import AuditEvent
+from commerce.identity.models import User
+from commerce.stores.models import StoreSettings
 from commerce.tenancy.checks import check_tenant_owned_model, check_tenant_owned_models
 from commerce.tenancy.constraints import TenantForeignKeyConstraint
 from commerce.tenancy.models import TenantOwnedModel
@@ -51,6 +54,25 @@ def test_guarded_foreign_keys_pass() -> None:
             ]
 
     assert _ids(Child) == []
+
+
+@isolate_apps("commerce.tenancy")
+def test_unscoped_default_or_base_managers_are_flagged() -> None:
+    class PlainManager(TenantOwnedModel):
+        objects = models.Manager()  # type: ignore[assignment]
+
+        class Meta(TenantOwnedModel.Meta):
+            app_label = "tenancy"
+
+    assert _ids(PlainManager) == ["tenancy.E005", "tenancy.E005"]
+
+
+def test_project_models_read_through_scoped_managers() -> None:
+    from commerce.tenancy.managers import TenantScopedManager
+
+    for model in (User, StoreSettings, AuditEvent):
+        assert isinstance(model._base_manager, TenantScopedManager)
+        assert isinstance(model._default_manager, TenantScopedManager)
 
 
 @isolate_apps("commerce.tenancy")

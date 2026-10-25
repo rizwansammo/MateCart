@@ -13,6 +13,7 @@ from django.core import checks
 from django.db import models
 
 from .constraints import TenantForeignKeyConstraint
+from .managers import TenantScopedManager
 from .models import TenantOwnedModel
 
 
@@ -56,6 +57,18 @@ def check_tenant_owned_model(model: type[models.Model]) -> list[checks.CheckMess
                 id="tenancy.E002",
             )
         )
+
+    for role, manager in (("default", meta.default_manager), ("base", meta.base_manager)):
+        if not isinstance(manager, TenantScopedManager):
+            errors.append(
+                checks.Error(
+                    f"The {role} manager must be a TenantScopedManager.",
+                    hint="Subclass TenantScopedManager for custom managers and keep "
+                    "TenantOwnedModel.Meta.base_manager_name.",
+                    obj=model,
+                    id="tenancy.E005",
+                )
+            )
 
     guarded = {c.field for c in meta.constraints if isinstance(c, TenantForeignKeyConstraint)}
     for field in meta.get_fields(include_hidden=False):

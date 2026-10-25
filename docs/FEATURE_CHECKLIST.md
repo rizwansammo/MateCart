@@ -38,6 +38,13 @@ Update the status in the same change that completes a feature.
 - [x] Identifier policy: generated keys UUIDv7, external ids any RFC 9562 UUID (nil/max rejected); `setup:env` generates UUIDv7
 - [x] Exposed local development secret rotated; secret-printing rule added to AGENTS.md
 
+## Tenant read isolation (Phase 02.2)
+
+- [x] Refreshes governed by the active tenant (forged, foreign-loaded and caller-queryset reads refused; no context fails closed)
+- [x] Scoped base manager: deferred fields, forward relations, generic relations and FK validation confined to the active tenant
+- [x] Async refresh covered; protection verified on more than one tenant-owned model
+- [x] System check E005 (scoped default and base managers); state-only migrations verified as no-ops
+
 ## Commerce core
 
 - [ ] Store modules, theme and branding; preset engine (05)

@@ -84,6 +84,9 @@ class TenantOwnedModel(UUIDModel):
 
     class Meta:
         abstract = True
+        # Django reads related objects, deferred fields and refreshes through the base manager.
+        # Making it the scoped manager keeps those reads inside the active tenant too (D-038).
+        base_manager_name = "objects"
         constraints = [
             # Target of TenantForeignKeyConstraint: lets children reference (tenant_id, id).
             models.UniqueConstraint(
@@ -125,14 +128,15 @@ class TenantOwnedModel(UUIDModel):
 
     # The tenant id on an instance built in code proves nothing about the row its primary key
     # points at, and Django targets existing rows by primary key alone. Every statement that
-    # touches an existing row is therefore qualified by tenant at the database (Phase 02.1, D-034).
+    # touches an existing row is therefore qualified by tenant at the database (D-034), and every
+    # read is governed by the active tenant context, never by the instance (D-038).
 
     def _do_update(self, base_qs: models.QuerySet[Any], *args: Any, **kwargs: Any) -> bool:
         """The UPDATE issued by every save() path: ``WHERE id = %s AND tenant_id = %s``."""
         updated: bool = super()._do_update(
             base_qs.filter(tenant_id=self.tenant_id), *args, **kwargs
         )
-        if not updated and base_qs.filter(pk=self.pk).exclude(tenant_id=self.tenant_id).exists():
+        if not updated and self._stored_tenant_id(base_qs.db) not in (None, self.tenant_id):
             raise CrossTenantAccessError(
                 f"{type(self).__name__} {self.pk} belongs to another tenant."
             )
@@ -145,15 +149,7 @@ class TenantOwnedModel(UUIDModel):
         using = using or router.db_for_write(type(self), instance=self)
         with transaction.atomic(using=using):
             # Lock the stored row and check *its* tenant before Django deletes by primary key.
-            stored_tenant_id = (
-                type(self)
-                ._base_manager.using(using)
-                .select_for_update()
-                .filter(pk=self.pk)
-                .values_list("tenant_id", flat=True)
-                .first()
-            )
-            if stored_tenant_id is not None and stored_tenant_id != self.tenant_id:
+            if self._stored_tenant_id(using, lock=True) not in (None, self.tenant_id):
                 raise CrossTenantAccessError(
                     f"{type(self).__name__} {self.pk} belongs to another tenant."
                 )
@@ -165,17 +161,44 @@ class TenantOwnedModel(UUIDModel):
         fields: Iterable[str] | None = None,
         from_queryset: models.QuerySet[Self] | None = None,
     ) -> None:
-        if from_queryset is None:
-            # Read only a row stored under this instance's tenant (or the active tenant while the
-            # instance's own tenant is deferred). __dict__ avoids re-entering deferred loading.
-            tenant_id = self.__dict__.get("tenant_id") or get_active_tenant_id_or_none()
-            if tenant_id is not None:
-                from_queryset = (
-                    type(self)
-                    ._base_manager.db_manager(using, hints={"instance": self})
-                    .filter(tenant_id=tenant_id)
+        """Reload from the active tenant's rows only (also used for deferred fields and by
+        ``arefresh_from_db``). The instance's tenant and a caller's queryset cannot widen it."""
+        active = get_active_tenant_id_or_none()
+        claimed = self.__dict__.get("tenant_id")  # __dict__: never re-enter deferred loading
+        tenant_id: uuid.UUID | None
+        if active is not None:
+            if claimed is not None and claimed != active:
+                raise CrossTenantAccessError(
+                    f"{type(self).__name__} {self.pk} belongs to another tenant."
                 )
-        super().refresh_from_db(using=using, fields=fields, from_queryset=from_queryset)
+            tenant_id = active
+        elif in_unscoped_access():
+            tenant_id = claimed  # privileged: still only the row stored under its own tenant
+        else:
+            raise TenantContextMissing(
+                f"Cannot read {type(self).__name__} without an active tenant."
+            )
+        queryset = (
+            from_queryset
+            if from_queryset is not None
+            else type(self)._base_manager.db_manager(using, hints={"instance": self}).all()
+        )
+        if tenant_id is not None:
+            queryset = queryset.filter(tenant_id=tenant_id)
+        super().refresh_from_db(using=using, fields=fields, from_queryset=queryset)
+
+    def _stored_tenant_id(self, using: str | None, *, lock: bool = False) -> uuid.UUID | None:
+        """The tenant the row with this primary key is stored under, whatever the active scope.
+
+        Used only for ownership checks: a manager-free queryset, so a scoped manager cannot hide
+        another tenant's row from the check. Never returns row data to callers.
+        """
+        rows: models.QuerySet[Any] = models.QuerySet(model=type(self), using=using)
+        rows = rows.filter(pk=self.pk)
+        if lock:
+            rows = rows.select_for_update()
+        tenant_id: uuid.UUID | None = rows.values_list("tenant_id", flat=True).first()
+        return tenant_id
 
     def _check_tenant_access(self, tenant_id: uuid.UUID, active: uuid.UUID | None) -> None:
         if active is not None:

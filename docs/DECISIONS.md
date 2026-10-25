@@ -199,6 +199,8 @@ Owner-confirmed product decisions (from the Phase 01 brief): multi-tenant-aware 
 
 ### D-034 · Writes to existing rows are tenant-qualified in SQL (2026-10-25, Phase 02.1)
 
+- **Status:** complemented by D-038 for reads (refresh, deferred fields, relations).
+
 - **Finding (confirmed, high):** Django targets existing rows by primary key alone, and Phase 02 checked only the tenant id on the Python instance. An instance built in code with another tenant's primary key passed that check. Reproduced against PostgreSQL: `save(force_update=True)` overwrote the other tenant's row **and moved it into the active tenant**; `save()` / `save(update_fields=...)` on an instance marked as stored updated it; `delete()` deleted it; `refresh_from_db()` read it; `bulk_create(update_conflicts=True)` overwrote it; with `unscoped_access`, `bulk_update` and `delete` acted on it under a wrong tenant claim. (`save()` and `save(update_fields=...)` on a new instance were already safe: Django inserts, and the duplicate key fails.)
 - **Decision:** never trust an instance's tenant as proof of ownership; qualify every statement that touches an existing row by tenant:
   - `TenantOwnedModel._do_update` adds `AND tenant_id = %s` to the UPDATE every `save()` path issues (atomic, no extra query) and raises `CrossTenantAccessError` when the key exists under another tenant.
@@ -228,6 +230,23 @@ Owner-confirmed product decisions (from the Phase 01 brief): multi-tenant-aware 
 - **Incident:** during Phase 02 a command printed the full local `MATECART_CONTROL_SECRET_KEY`. It was never committed (verified).
 - **Action:** rotated in `.env` with a script that prints no values, `control-api` alone recreated, verified by fingerprint comparison that it uses the new key and that no container still holds the old one, readiness 200. Phase 01 output had shown only masked 8-character prefixes of the local secrets (32 of 256 bits), which is not a usable exposure, so they were not rotated.
 - **Rule (AGENTS.md):** never print secret values or `.env` lines; check secrets by presence, format or fingerprint comparison. Rotating a value does not erase it from old transcripts, so the old value must simply never be used again.
+
+### D-038 · Reads of tenant-owned rows follow the active tenant, never the instance (2026-10-25, Phase 02.2)
+
+- **Finding (confirmed, high):** the read side still trusted untrusted input. Reproduced against PostgreSQL with tenant A active and the row owned by tenant B:
+  - `refresh_from_db()` read B's row for an instance built with B's id and for an instance loaded earlier under B;
+  - a caller-supplied `from_queryset` (manager-free, built under `unscoped_access`, or filtered to B) was used as given;
+  - without any tenant context, refreshes and deferred-field loads read the row (fail-open);
+  - `arefresh_from_db()` (which delegates to the sync method) and a second model (`StoreSettings`) behaved the same;
+  - **forward relation traversal** on an instance built in code (`AuditEvent(actor_user_id=<B's user>).actor_user`) read B's user through Django's unscoped `_base_manager`.
+- **Root cause:** `refresh_from_db` took the tenant from the instance before the active context and never checked one against the other. Django reads related objects, deferred fields and refreshes through `_base_manager`, which Phase 02 had left unscoped.
+- **Decision:**
+  1. `TenantOwnedModel.Meta.base_manager_name = "objects"`: the base manager is the scoped manager. Every Django-internal read (refresh, deferred fields, forward foreign keys and one-to-ones, generic relations, foreign-key validation, deletion collection) is confined to the active tenant, fails closed without a context, and is unfiltered only inside `unscoped_access`.
+  2. `refresh_from_db()`: the active tenant decides. An instance claiming another tenant raises `CrossTenantAccessError` before any query; a caller's `from_queryset` is always filtered to the active tenant; no context raises `TenantContextMissing`; under `unscoped_access` it reads only the row stored under the instance's own tenant.
+  3. Ownership checks on write paths (D-034) use `_stored_tenant_id()`, a manager-free query, so the scoped base manager can never hide another tenant's row from them.
+  4. System check `tenancy.E005`: a tenant-owned model's default and base managers must be `TenantScopedManager`s.
+- **Migration:** Django records `base_manager_name` in migration state, so three **state-only** `AlterModelOptions` migrations were added (`audit.0003`, `identity.0002`, `stores.0002`); `sqlmigrate` shows each as `(no-op)`, with no SQL. Rejected alternatives: a custom model metaclass, a custom foreign-key field class (also a migration) or patching Django's cached `_meta` internals. All are obscure and fragile.
+- **Consequences:** `dumpdata` and `loaddata` of tenant-owned data need a tenant context or `unscoped_access`. A queryset built directly with `QuerySet(model=...)` bypasses every manager and is reserved for ownership checks inside `tenancy`; application code must not use it.
 
 ---
 

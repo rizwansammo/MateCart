@@ -85,7 +85,8 @@ Details and reasoning: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
   - Every business model extends `TenantOwnedModel`; extend `TenantOwnedModel.Meta.constraints`, never replace them.
   - Every FK from a tenant-owned model to another tenant-owned model gets a `TenantForeignKeyConstraint`. The `tenancy` system checks fail the build otherwise.
   - Business keys are unique per tenant, for example `UniqueConstraint(fields=['tenant', 'sku'])`.
-  - Never take a tenant from request data. Never use `_base_manager`, raw SQL or `unscoped_access()` in request paths. `unscoped_access(reason)` is for reviewed platform maintenance only.
+  - Never take a tenant from request data. Never use raw SQL, querysets built directly with `QuerySet(model=...)` or `unscoped_access()` in request paths. `unscoped_access(reason)` is for reviewed platform maintenance only.
+  - Reads are governed by the active tenant: the base manager is scoped, and `refresh_from_db()` refuses instances or querysets from another tenant (D-038). Keep `TenantOwnedModel.Meta.base_manager_name` when extending Meta (check E005).
   - Load rows through the scoped manager before changing them. Writes to existing rows are tenant-qualified in SQL (D-034), so a hand-built instance with someone else's primary key fails instead of writing; do not work around that. Upserts must use a conflict key that includes `tenant`.
   - Celery tasks touching tenant data use `base=TenantTask` and receive `tenant_id` explicitly.
   - Cache keys use `tenant_cache_key()`; uploaded files use `tenant_storage_path`.
