@@ -108,6 +108,16 @@ class StaffView(CsrfProtectedAPIView):
         return user
 
 
+class SensitiveTeamMutationView(StaffView):
+    """Owner-only team changes also require a recent password confirmation."""
+
+    permission_classes = (IsAuthenticated, CanManageStaff)
+
+    def initial(self, request: Request, *args: Any, **kwargs: Any) -> None:
+        super().initial(request, *args, **kwargs)
+        sessions.require_recent_authentication(self.staff.session)
+
+
 # --- Sign-in --------------------------------------------------------------------------------------
 
 
@@ -299,9 +309,7 @@ class TeamView(StaffView):
         return Response(TeamSerializer(_team_payload()).data)
 
 
-class InvitationCreateView(StaffView):
-    permission_classes = (IsAuthenticated, CanManageStaff)
-
+class InvitationCreateView(SensitiveTeamMutationView):
     @extend_schema(
         operation_id="manage_invitation_create",
         tags=TEAM_TAGS,
@@ -316,9 +324,7 @@ class InvitationCreateView(StaffView):
         )
 
 
-class InvitationResendView(StaffView):
-    permission_classes = (IsAuthenticated, CanManageStaff)
-
+class InvitationResendView(SensitiveTeamMutationView):
     @extend_schema(
         operation_id="manage_invitation_resend",
         tags=TEAM_TAGS,
@@ -330,9 +336,7 @@ class InvitationResendView(StaffView):
         return Response(InvitationSerializer(issued.invitation).data)
 
 
-class InvitationRevokeView(StaffView):
-    permission_classes = (IsAuthenticated, CanManageStaff)
-
+class InvitationRevokeView(SensitiveTeamMutationView):
     @extend_schema(
         operation_id="manage_invitation_revoke", tags=TEAM_TAGS, request=None, responses={204: None}
     )
@@ -341,9 +345,7 @@ class InvitationRevokeView(StaffView):
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 
-class MemberRoleView(StaffView):
-    permission_classes = (IsAuthenticated, CanManageStaff)
-
+class MemberRoleView(SensitiveTeamMutationView):
     @extend_schema(
         operation_id="manage_member_role",
         tags=TEAM_TAGS,
@@ -358,8 +360,7 @@ class MemberRoleView(StaffView):
         return Response(MemberSerializer(membership).data)
 
 
-class _MemberStatusView(StaffView):
-    permission_classes = (IsAuthenticated, CanManageStaff)
+class _MemberStatusView(SensitiveTeamMutationView):
     target_status: str
 
     def post(self, request: Request, membership_id: uuid.UUID) -> Response:

@@ -75,6 +75,14 @@ Closed a confirmed read-isolation gap: refreshes, deferred fields and relation t
 
 Customer, merchant and central administrator authentication (separate boundaries); RBAC and staff permissions; MFA; session management; secure APIs; CORS and CSRF strategy; rate limiting foundations.
 
+#### Phase 03.1 — Authentication security and final closeout (corrective subphase)
+
+Independent review corrections: enforce recent password confirmation on every
+Owner team mutation at the backend, validate Google browser binding before OIDC
+state consumption, and normalize expected Google provider/JWKS failures without
+hiding programmer errors. Implemented and verified locally; owner commit, CI and
+independent final acceptance are pending. The 19 main phases are unchanged.
+
 ### Phase 04 — Product & Inventory Engine
 
 Catalogue, categories, variants, SKUs, stock movements, pricing, and preset-specific product data (fashion variants, grocery weight, expiry and batch, electronics specs, warranty and serials, bookstore ISBN and edition data).

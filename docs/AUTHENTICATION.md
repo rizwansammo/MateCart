@@ -46,6 +46,9 @@ The first command requires a provisioned store and refuses once an Owner exists.
 The owner chooses their password from the invitation email. The owner can invite,
 change roles, suspend/reactivate staff and revoke/resend invitations through Team.
 Only Owner can manage staff. Owner cannot be assigned by an invitation or role edit.
+Every Team mutation also requires a sign-in or successful password confirmation
+within the last ten minutes. The backend enforces this independently of the clear
+password dialog, which keeps the selected action available for retry.
 Console administrators choose a password from their activation link and must finish
 MFA enrollment before accessing even the minimal console shell.
 
@@ -116,6 +119,11 @@ them to backend `GOOGLE_OIDC_*`. Recreate only commerce-api after changing these
 values. No Google credentials were supplied or requested for this phase. The UI
 shows Google unavailable until both values exist. Tests use signed tokens and a
 controlled HTTP/JWKS transport; live Google exchange has not been verified.
+
+An incorrect or missing browser-binding cookie cannot consume another browser's
+pending authorization. Expected Google transport, JWKS and token-validation
+failures return the same friendly sign-in error and never create a session or link.
+The user starts a fresh Google attempt after an actual provider failure.
 
 ## SMS and email delivery
 

@@ -10,6 +10,7 @@ by Google's stable ``sub``; email addresses are never used to merge accounts.
 import base64
 import hashlib
 import hmac
+import http.client
 import json
 import time
 import urllib.parse
@@ -23,7 +24,7 @@ from django.conf import settings
 from django.db import transaction
 from django.utils import timezone
 
-from commerce.core.security import decrypt, encrypt, hash_token, new_token
+from commerce.core.security import DecryptionError, decrypt, encrypt, hash_token, new_token
 
 from .models import IdentityProvider, OidcAuthorization, User
 
@@ -81,6 +82,14 @@ def http_json(url: str, data: dict[str, str] | None = None) -> Any:
         return json.loads(response.read())
 
 
+def _provider_json(url: str, data: dict[str, str] | None = None) -> Any:
+    """Normalize expected provider transport/decoding failures without hiding code defects."""
+    try:
+        return http_json(url, data)
+    except (OSError, http.client.HTTPException, json.JSONDecodeError, UnicodeError) as exc:
+        raise GoogleSignInFailed("Google provider request failed.") from exc
+
+
 _jwks: dict[str, Any] = {"set": None, "fetched": 0.0}
 
 
@@ -93,7 +102,14 @@ def _find_key(kid: str) -> Any:
 
 
 def _refresh_keys() -> None:
-    _jwks["set"] = jwt.PyJWKSet.from_dict(http_json(JWKS_URI))
+    payload = _provider_json(JWKS_URI)
+    if not isinstance(payload, dict):
+        raise GoogleSignInFailed("Invalid signing key response.")
+    try:
+        keyset = jwt.PyJWKSet.from_dict(payload)
+    except (jwt.PyJWTError, AttributeError, KeyError, TypeError, ValueError) as exc:
+        raise GoogleSignInFailed("Invalid signing key response.") from exc
+    _jwks["set"] = keyset
     _jwks["fetched"] = time.monotonic()
 
 
@@ -160,12 +176,13 @@ def _claim(authorization_state: str, binding: str | None) -> OidcAuthorization:
         )
         if row is None:
             raise GoogleSignInFailed("Unknown or used state.")
-        row.used_at = timezone.now()
+        now = timezone.now()
+        if row.expires_at <= now:
+            raise GoogleSignInFailed("Authorization expired.")
+        if not binding or not hmac.compare_digest(row.browser_binding_hash, hash_token(binding)):
+            raise GoogleSignInFailed("Browser binding mismatch.")
+        row.used_at = now
         row.save(update_fields=["used_at"])
-    if row.expires_at <= timezone.now():
-        raise GoogleSignInFailed("Authorization expired.")
-    if not binding or not hmac.compare_digest(row.browser_binding_hash, hash_token(binding)):
-        raise GoogleSignInFailed("Browser binding mismatch.")
     return row
 
 
@@ -206,19 +223,20 @@ def complete(*, state: str, code: str, binding: str | None) -> CompletedAuthoriz
     if not code:
         raise GoogleSignInFailed("Missing code.")
     try:
-        tokens = http_json(
-            TOKEN_ENDPOINT,
-            {
-                "grant_type": "authorization_code",
-                "code": code,
-                "redirect_uri": redirect_uri(),
-                "client_id": settings.GOOGLE_OIDC_CLIENT_ID,
-                "client_secret": settings.GOOGLE_OIDC_CLIENT_SECRET,
-                "code_verifier": decrypt(row.code_verifier_encrypted),
-            },
-        )
-    except Exception as exc:
-        raise GoogleSignInFailed("Code exchange failed.") from exc
+        verifier = decrypt(row.code_verifier_encrypted)
+    except DecryptionError as exc:
+        raise GoogleSignInFailed("Authorization data is invalid.") from exc
+    tokens = _provider_json(
+        TOKEN_ENDPOINT,
+        {
+            "grant_type": "authorization_code",
+            "code": code,
+            "redirect_uri": redirect_uri(),
+            "client_id": settings.GOOGLE_OIDC_CLIENT_ID,
+            "client_secret": settings.GOOGLE_OIDC_CLIENT_SECRET,
+            "code_verifier": verifier,
+        },
+    )
     id_token = tokens.get("id_token") if isinstance(tokens, dict) else None
     if not isinstance(id_token, str):
         raise GoogleSignInFailed("No ID token.")

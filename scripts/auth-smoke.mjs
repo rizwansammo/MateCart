@@ -193,12 +193,39 @@ async function run() {
       201,
     );
     await staff.request('/api/manage/team/', undefined, 403);
+    // A freshly signed-in non-Owner is refused by permission, not by the step-up window.
+    const nonOwner = await staff.request(
+      '/api/manage/team/invitations/',
+      { email: `review-blocked-${id}@example.test`, role: 'manager' },
+      403,
+    );
+    assert.equal(nonOwner.error.code, 'permission_denied');
     await staff.request(
       '/api/manage/invitation/accept/',
       { token: invitation, full_name: 'Local Review Editor', password },
       400,
     );
     pass('Staff invitation activation, single use and owner-only team permission');
+    command(
+      'commerce-api',
+      'shell',
+      '-c',
+      "from datetime import timedelta; from django.utils import timezone; from commerce.tenancy.context import tenant_context; from commerce.tenancy.resolution import configured_tenant_id; from commerce.identity.models import AuthSession; c=tenant_context(configured_tenant_id()); c.__enter__(); AuthSession.objects.filter(user__email='review-owner@example.test', status='active').update(authenticated_at=timezone.now()-timedelta(minutes=30), reauthenticated_at=None)",
+    );
+    const stepUpEmail = `review-step-up-${id}@example.test`;
+    const denied = await owner.request(
+      '/api/manage/team/invitations/',
+      { email: stepUpEmail, role: 'manager' },
+      403,
+    );
+    assert.equal(denied.error.code, 'reauthentication_required');
+    await owner.request('/api/manage/account/reauthenticate/', { password });
+    await owner.request(
+      '/api/manage/team/invitations/',
+      { email: stepUpEmail, role: 'manager' },
+      201,
+    );
+    pass('Merchant team changes require a recent password confirmation');
     const setup = await owner.request('/api/manage/account/mfa/totp/setup/', {});
     assert.ok(setup.qr_svg.startsWith('data:image/svg+xml;base64,'));
     const oldCookie = owner.cookies.get('mc_staff').value;

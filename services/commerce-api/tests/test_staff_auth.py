@@ -12,6 +12,7 @@ from django.core.management import call_command
 from django.utils import timezone
 
 from commerce.audit.models import AuditEvent
+from commerce.identity import sessions
 from commerce.identity.models import AccountType, AuthSession, RecoveryCode, TotpDevice, User
 from commerce.staff.models import StaffInvitation, StaffMembership
 from commerce.staff.permissions import StaffRole
@@ -19,6 +20,7 @@ from commerce.staff.services import invite_owner
 from commerce.tenancy.context import tenant_context
 from commerce.tenancy.models import Tenant
 
+from .factories import make_user
 from .helpers import Api, last_code
 
 pytestmark = pytest.mark.usefixtures("store")
@@ -69,6 +71,14 @@ def member_api(
 
 def sign_in(api: Api, email: str = OWNER_EMAIL, password: str = PASSWORD) -> Any:
     return api.post("/api/manage/auth/login/", {"email": email, "password": password})
+
+
+def expire_recent_authentication(tenant: Tenant, user: User) -> None:
+    with tenant_context(tenant):
+        AuthSession.objects.filter(user=user, status="active").update(
+            authenticated_at=timezone.now() - timedelta(minutes=30),
+            reauthenticated_at=None,
+        )
 
 
 def enable_totp(api: Api) -> tuple[pyotp.TOTP, list[str]]:
@@ -202,10 +212,109 @@ def test_only_the_owner_manages_staff(api: Api, make_api: Callable[[], Api], own
     assert manager.get("/api/manage/team/").status_code == 403
     assert (
         manager.post(
+            "/api/manage/account/reauthenticate/", {"password": "member-passphrase-22"}
+        ).status_code
+        == 200
+    )
+    assert (
+        manager.post(
             "/api/manage/team/invitations/", {"email": "x@example.com", "role": "manager"}
         ).status_code
         == 403
     )
+
+
+def test_customer_session_cannot_reach_team_mutations(
+    api: Api, owner: User, deployment_tenant: Tenant
+) -> None:
+    customer = make_user(
+        deployment_tenant,
+        account_type=AccountType.CUSTOMER,
+        email="customer@example.com",
+        password="customer-passphrase-44",
+    )
+    with tenant_context(deployment_tenant):
+        _, token = sessions.start(customer)
+    api.client.cookies[STAFF_COOKIE] = token
+
+    response = api.post(
+        "/api/manage/team/invitations/", {"email": "staff@example.com", "role": "manager"}
+    )
+
+    assert response.status_code == 401
+
+
+def test_team_mutations_require_recent_owner_authentication(
+    api: Api,
+    make_api: Callable[[], Api],
+    owner: User,
+    deployment_tenant: Tenant,
+) -> None:
+    invite_member(api, "pending-step-up@example.com")
+    member_api(api, make_api, "step-up-member@example.com", StaffRole.ORDER_HANDLER)
+    team = api.get("/api/manage/team/").json()
+    invitation_id = team["invitations"][0]["id"]
+    member_id = next(
+        member["id"]
+        for member in team["members"]
+        if member["user"]["email"] == "step-up-member@example.com"
+    )
+    with tenant_context(deployment_tenant):
+        invitation = StaffInvitation.objects.get(pk=invitation_id)
+        invitation_snapshot = (
+            invitation.token_hash,
+            invitation.expires_at,
+            invitation.revoked_at,
+        )
+        membership = StaffMembership.objects.get(pk=member_id)
+        event_count = AuditEvent.objects.count()
+    sent_count = len(mail.outbox)
+    expire_recent_authentication(deployment_tenant, owner)
+
+    attempts = (
+        api.post(
+            "/api/manage/team/invitations/",
+            {"email": "blocked-step-up@example.com", "role": "manager"},
+        ),
+        api.post(f"/api/manage/team/invitations/{invitation_id}/resend/"),
+        api.post(f"/api/manage/team/invitations/{invitation_id}/revoke/"),
+        api.post(f"/api/manage/team/members/{member_id}/role/", {"role": "content_editor"}),
+        api.post(f"/api/manage/team/members/{member_id}/suspend/"),
+        api.post(f"/api/manage/team/members/{member_id}/reactivate/"),
+    )
+
+    assert all(response.status_code == 403 for response in attempts)
+    assert all(
+        response.json()["error"]["code"] == "reauthentication_required" for response in attempts
+    )
+    with tenant_context(deployment_tenant):
+        invitation.refresh_from_db()
+        membership.refresh_from_db()
+        assert (
+            invitation.token_hash,
+            invitation.expires_at,
+            invitation.revoked_at,
+        ) == invitation_snapshot
+        assert membership.role == StaffRole.ORDER_HANDLER
+        assert membership.status == "active"
+        assert AuditEvent.objects.count() == event_count
+    assert len(mail.outbox) == sent_count
+
+    wrong = api.post("/api/manage/account/reauthenticate/", {"password": "wrong-password"})
+    still_blocked = api.post(
+        "/api/manage/team/invitations/",
+        {"email": "still-blocked@example.com", "role": "manager"},
+    )
+    right = api.post("/api/manage/account/reauthenticate/", {"password": PASSWORD})
+    allowed = api.post(
+        "/api/manage/team/invitations/",
+        {"email": "allowed-step-up@example.com", "role": "manager"},
+    )
+
+    assert wrong.status_code == 401
+    assert still_blocked.json()["error"]["code"] == "reauthentication_required"
+    assert right.status_code == 200
+    assert allowed.status_code == 201
 
 
 def test_role_changes_and_their_limits(

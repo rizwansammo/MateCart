@@ -62,8 +62,12 @@ Update the status in the same change that completes a feature.
 - [x] Preserve forged-instance, refresh/deferred relation and append-only audit regressions
 - [x] Local email capture, separate control Redis, auth response/logging protections
 - [x] Customer account, `/manage` login/team/security and separate console account interfaces
+- [x] Backend recent-auth enforcement for every Owner team mutation (03.1)
+- [x] OIDC binding-before-consumption and safe Google provider/JWKS failures (03.1)
+- [x] Phase 03 owner commit and GitHub CI run 40230926210 (4/4, 449 tests)
+- [~] Phase 03.1 locally verified; owner CI and independent final acceptance pending
 - [ ] Live Google, SMS and external SMTP acceptance (requires genuine provider configuration)
-- [ ] Independent owner/security review and pushed Phase 03 CI run
+- [ ] Independent owner/security acceptance of the Phase 03.1 corrective diff
 
 ## Commerce core
 

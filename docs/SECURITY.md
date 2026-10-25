@@ -1,8 +1,9 @@
 # Authentication security and deployment follow-up
 
-Implemented scope: Phase 03. This is engineering guidance, not a claim that the
-application has completed the final Phase 18 security audit. Owner review and an
-independent authentication/tenant audit precede acceptance.
+Implemented scope: Phase 03 plus the locally verified Phase 03.1 audit corrections.
+This is engineering guidance, not a claim that the application has completed the
+final Phase 18 security audit. Owner review, post-push CI and independent final
+acceptance of 03.1 remain required.
 
 ## Trust boundaries
 
@@ -64,9 +65,16 @@ tokens are kept in localStorage, sessionStorage or URL fragments.
 - Email reset/invitation/activation tokens are random, hashed, expiring and
   single-use. Owner invitations are provisioning-only; only Owner manages staff.
   Clients cannot assign Owner, change tenant, or invent permissions.
+- Every Owner team mutation requires both `staff.manage` and a sign-in or password
+  confirmation within ten minutes. This is enforced by the backend before the
+  service is called; the frontend dialog is guidance, not the security boundary.
 - Google state and browser binding, PKCE and nonce prevent callback substitution;
   signed ID token validation and stable subjects prevent email-based impersonation.
   Linking requires current account control plus verification of the new method.
+  State remains unused when expiry or browser binding fails and is consumed only
+  after those checks while the row is locked. Expected token/JWKS transport,
+  decoding, key and signature failures return one generic result and issue no
+  session or identity. Unrelated programmer errors are not suppressed.
 
 ## Audit and logging
 

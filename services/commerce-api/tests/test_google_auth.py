@@ -1,14 +1,17 @@
 """'Continue with Google' against a controlled fake of Google's endpoints and keys (no network)."""
 
 import json
+import threading
 import time
 from collections.abc import Callable
+from concurrent.futures import ThreadPoolExecutor
 from typing import Any
 from urllib.parse import parse_qs, urlparse
 
 import jwt
 import pytest
 from cryptography.hazmat.primitives.asymmetric import rsa
+from django.db import connections
 from django.utils import timezone
 from pytest_django.fixtures import Settings
 
@@ -212,7 +215,7 @@ def test_tokens_signed_by_another_key_are_refused(
     assert response["Location"] == "/account/sign-in?error=google_failed"
 
 
-def test_state_is_single_use_and_bound_to_the_browser(
+def test_wrong_browser_binding_does_not_consume_valid_state(
     api: Api, make_api: Callable[[], Api], fake_google: FakeGoogle
 ) -> None:
     query = start(api, fake_google)
@@ -221,9 +224,145 @@ def test_state_is_single_use_and_bound_to_the_browser(
     stolen = callback(other_browser, query)
     assert stolen["Location"] == "/account/sign-in?error=google_failed"
 
-    # The stolen attempt used the state up: the original browser must start again.
+    original = callback(api, query)
     replay = callback(api, query)
+
+    assert original["Location"] == "/account"
     assert replay["Location"] == "/account/sign-in?error=google_failed"
+
+
+def test_missing_browser_binding_does_not_consume_valid_state(
+    api: Api, fake_google: FakeGoogle, deployment_tenant: Tenant
+) -> None:
+    query = start(api, fake_google)
+    binding = api.client.cookies[google.BINDING_COOKIE].value
+    del api.client.cookies[google.BINDING_COOKIE]
+
+    missing = callback(api, query)
+
+    assert missing["Location"] == "/account/sign-in?error=google_failed"
+    with tenant_context(deployment_tenant):
+        assert OidcAuthorization.objects.get().used_at is None
+
+    api.client.cookies[google.BINDING_COOKIE] = binding
+    assert callback(api, query)["Location"] == "/account"
+
+
+@pytest.mark.django_db(transaction=True)
+def test_concurrent_callbacks_can_claim_an_authorization_only_once(
+    fake_google: FakeGoogle, deployment_tenant: Tenant
+) -> None:
+    with tenant_context(deployment_tenant):
+        url, binding = google.begin(purpose="sign_in", next_path="/account")
+    state = parse_qs(urlparse(url).query)["state"][0]
+    barrier = threading.Barrier(2)
+
+    def claim() -> bool:
+        connections.close_all()
+        try:
+            with tenant_context(deployment_tenant):
+                barrier.wait(timeout=5)
+                google._claim(state, binding)
+            return True
+        except google.GoogleSignInFailed:
+            return False
+        finally:
+            connections.close_all()
+
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        results = list(pool.map(lambda _index: claim(), range(2)))
+
+    assert sorted(results) == [False, True]
+    with tenant_context(deployment_tenant):
+        assert OidcAuthorization.objects.get().used_at is not None
+
+
+@pytest.mark.parametrize(
+    "failure",
+    ["timeout", "connection", "invalid_json", "non_object", "empty_keys", "invalid_key"],
+)
+def test_jwks_provider_failures_are_safe(
+    api: Api,
+    fake_google: FakeGoogle,
+    monkeypatch: pytest.MonkeyPatch,
+    deployment_tenant: Tenant,
+    failure: str,
+) -> None:
+    query = start(api, fake_google)
+
+    def provider(url: str, data: dict[str, str] | None = None) -> Any:
+        if url != google.JWKS_URI:
+            return fake_google(url, data)
+        if failure == "timeout":
+            raise TimeoutError("provider timed out")
+        if failure == "connection":
+            raise ConnectionError("provider unavailable")
+        if failure == "invalid_json":
+            raise json.JSONDecodeError("invalid provider JSON", "", 0)
+        if failure == "non_object":
+            return []
+        if failure == "empty_keys":
+            return {"keys": []}
+        return {"keys": [{"kid": KID, "kty": "unsupported"}]}
+
+    monkeypatch.setattr(google, "http_json", provider)
+    response = callback(api, query)
+
+    assert response.status_code == 302
+    assert response["Location"] == "/account/sign-in?error=google_failed"
+    assert api.get("/api/account/me/").status_code == 401
+    with tenant_context(deployment_tenant):
+        assert not ExternalIdentity.objects.exists()
+
+
+def test_malformed_id_token_is_a_safe_failure(
+    api: Api, fake_google: FakeGoogle, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    query = start(api, fake_google)
+
+    def malformed_token(url: str, data: dict[str, str] | None = None) -> Any:
+        if url == google.TOKEN_ENDPOINT:
+            return {"id_token": "not-a-jwt"}
+        return fake_google(url, data)
+
+    monkeypatch.setattr(google, "http_json", malformed_token)
+
+    response = callback(api, query)
+
+    assert response["Location"] == "/account/sign-in?error=google_failed"
+    assert api.get("/api/account/me/").status_code == 401
+
+
+def test_programmer_errors_are_not_misclassified_as_provider_failures(
+    fake_google: FakeGoogle, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    token = fake_google.id_token("nonce")
+
+    def broken_signing_key(_kid: str) -> Any:
+        raise TypeError("sentinel programmer error")
+
+    monkeypatch.setattr(google, "_signing_key", broken_signing_key)
+
+    with pytest.raises(TypeError, match="sentinel programmer error"):
+        google.validate_id_token(token, nonce_hash="unused")
+
+
+def test_code_exchange_transport_failure_is_safe(
+    api: Api, fake_google: FakeGoogle, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    query = start(api, fake_google)
+
+    def unavailable(url: str, data: dict[str, str] | None = None) -> Any:
+        if url == google.TOKEN_ENDPOINT:
+            raise ConnectionError("provider unavailable")
+        return fake_google(url, data)
+
+    monkeypatch.setattr(google, "http_json", unavailable)
+
+    response = callback(api, query)
+
+    assert response["Location"] == "/account/sign-in?error=google_failed"
+    assert api.get("/api/account/me/").status_code == 401
 
 
 def test_expired_authorizations_are_refused(

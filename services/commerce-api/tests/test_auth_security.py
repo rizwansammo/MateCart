@@ -131,6 +131,7 @@ def strict_client() -> APIClient:
         "/api/account/logout/",
         "/api/manage/auth/login/",
         "/api/manage/invitation/accept/",
+        "/api/manage/team/invitations/",
     ],
 )
 def test_state_changing_requests_need_the_csrf_token(strict_client: APIClient, path: str) -> None:

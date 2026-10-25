@@ -109,7 +109,7 @@ Outside the database: cache keys use `tenant_cache_key(...)` (`tenant:<id>:...`)
 - **NetaMate administrators** (`accounts.AdminUser`, the `AUTH_USER_MODEL` of control-api) exist only in the console database.
 - Customer email/password, phone OTP and Google OIDC have explicit realm-aware service paths. Phone/Google remain unavailable without a real provider configuration. Verified linking never merges accounts by email. Delivery information is separate (07/10).
 - `NoLoginBackend` continues to refuse generic Django login; realm-specific cookie authentication is now implemented. Owner activation is provisioning-only; staff use owner invitations. Store management routes live at `/manage`, in the same web app/domain.
-- Merchant MFA is optional; console MFA is mandatory. Password-only pending sessions cannot access protected functionality. See D-039 through D-047 and the authentication guide for exact cookie policies, setup UX and provider boundaries.
+- Merchant MFA is optional; console MFA is mandatory. Password-only pending sessions cannot access protected functionality. Owner team mutations require backend recent-password confirmation (D-048); OIDC browser ownership is validated before state consumption and provider failures fail closed (D-049). See D-039 through D-049 and the authentication guide for exact cookie policies, setup UX and provider boundaries.
 
 ### Independence from the Central Console
 

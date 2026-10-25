@@ -872,7 +872,7 @@ paths:
   /api/manage/team/invitations/:
     post:
       operationId: manage_invitation_create
-      description: Base for every cookie-authenticated or sign-in endpoint.
+      description: Owner-only team changes also require a recent password confirmation.
       tags:
       - manage-team
       requestBody:
@@ -893,7 +893,7 @@ paths:
   /api/manage/team/invitations/{invitation_id}/resend/:
     post:
       operationId: manage_invitation_resend
-      description: Base for every cookie-authenticated or sign-in endpoint.
+      description: Owner-only team changes also require a recent password confirmation.
       parameters:
       - in: path
         name: invitation_id
@@ -915,7 +915,7 @@ paths:
   /api/manage/team/invitations/{invitation_id}/revoke/:
     post:
       operationId: manage_invitation_revoke
-      description: Base for every cookie-authenticated or sign-in endpoint.
+      description: Owner-only team changes also require a recent password confirmation.
       parameters:
       - in: path
         name: invitation_id
@@ -933,7 +933,7 @@ paths:
   /api/manage/team/members/{membership_id}/reactivate/:
     post:
       operationId: manage_member_reactivate
-      description: Base for every cookie-authenticated or sign-in endpoint.
+      description: Owner-only team changes also require a recent password confirmation.
       parameters:
       - in: path
         name: membership_id
@@ -955,7 +955,7 @@ paths:
   /api/manage/team/members/{membership_id}/role/:
     post:
       operationId: manage_member_role
-      description: Base for every cookie-authenticated or sign-in endpoint.
+      description: Owner-only team changes also require a recent password confirmation.
       parameters:
       - in: path
         name: membership_id
@@ -983,7 +983,7 @@ paths:
   /api/manage/team/members/{membership_id}/suspend/:
     post:
       operationId: manage_member_suspend
-      description: Base for every cookie-authenticated or sign-in endpoint.
+      description: Owner-only team changes also require a recent password confirmation.
       parameters:
       - in: path
         name: membership_id

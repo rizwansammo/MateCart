@@ -352,6 +352,36 @@ Owner-confirmed product decisions (from the Phase 01 brief): multi-tenant-aware 
   regression tests remain mandatory. Production proxy logs/database privileges
   are Phase 17; final Django compatibility and isolation audit are Phase 18.
 
+### D-048 · Merchant team mutations require backend step-up (2026-10-26, Phase 03.1)
+
+- **Finding (confirmed, high):** the Team UI confirmed the Owner's password before
+  staff mutations, but the six APIs enforced only the active staff session and
+  `staff.manage`. A direct API call could bypass the intended recent-authentication
+  policy while still requiring an Owner session and CSRF token.
+- **Decision:** invitation create/resend/revoke, role changes and member
+  suspension/reactivation share one API base class that first preserves CSRF,
+  staff-realm authentication and Owner permission checks, then enforces the
+  existing ten-minute `require_recent_authentication()` window. Services and role
+  policy are unchanged; merchant MFA remains optional.
+- **Evidence:** PostgreSQL/API tests age the Owner session, deny all six operations
+  without side effects, reject a wrong password, permit the intended action after
+  correct reauthentication, and retain customer, non-Owner, tenant and CSRF denial.
+
+### D-049 · Validate OIDC browser ownership before consuming state (2026-10-26, Phase 03.1)
+
+- **Finding (confirmed, medium):** `_claim()` marked a Google authorization used
+  before checking expiry and the browser-binding cookie. A caller who knew the
+  random state could invalidate that browser's attempt, although it could not sign
+  in or link an account.
+- **Decision:** under one transaction and row lock, locate an unused state, verify
+  expiry and constant-time browser binding, then write `used_at`. Normalize only
+  expected provider transport, JSON/JWKS and JWT-data failures to the existing
+  generic Google failure. Do not catch unrelated programming exceptions.
+- **Evidence:** wrong/missing bindings leave state usable by the original browser;
+  exactly one concurrent valid claim succeeds; transport, malformed payload/key,
+  malformed token, signature, issuer, audience, nonce and code-exchange failures
+  issue no session or identity and return the friendly generic result.
+
 ## Open questions for the owner
 
 | #   | Question                                                                                                                                   | Status                                                                                                    | Needed by |
