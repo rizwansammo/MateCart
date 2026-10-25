@@ -29,6 +29,15 @@ Update the status in the same change that completes a feature.
 - [x] Append-only, transactional, redacted audit events
 - [x] Two-tenant isolation tests at every implemented boundary
 
+## Security hardening (Phase 02.1)
+
+- [x] Tenant-qualified SQL for updates, deletes, refreshes, bulk updates and upserts (forged-instance bypass closed)
+- [x] Forged-instance regression tests against PostgreSQL, including privileged access
+- [x] Recursive audit sanitisation (nested keys, lists, secret-looking values, unsupported types)
+- [x] Explicit audit field allowlists; provisioning audit without contact details
+- [x] Identifier policy: generated keys UUIDv7, external ids any RFC 9562 UUID (nil/max rejected); `setup:env` generates UUIDv7
+- [x] Exposed local development secret rotated; secret-printing rule added to AGENTS.md
+
 ## Commerce core
 
 - [ ] Store modules, theme and branding; preset engine (05)

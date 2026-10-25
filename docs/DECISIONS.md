@@ -134,6 +134,8 @@ Owner-confirmed product decisions (from the Phase 01 brief): multi-tenant-aware 
 
 ### D-023 · UUIDv7 primary keys for every MateCart table (2026-10-25, Phase 02)
 
+- **Status:** refined by D-036: applies to keys MateCart generates; externally assigned ids may be any UUID version.
+
 - **Context:** sequential integers leak volumes and are guessable, and they collide when databases are merged. Random UUIDv4 keys fragment B-tree indexes.
 - **Decision:** `UUIDModel.id = UUIDField(default=uuid7)`, using an in-house RFC 9562 implementation (`commerce/core/ids.py`, tested; Python 3.13 has no `uuid.uuid7`). Human-readable numbers (orders, invoices) are separate per-tenant sequences in their phases.
 - **Consequences:** 16-byte keys (acceptable at e-commerce scale). Stores can move between dedicated and shared databases without re-keying. Creation time is visible inside the id, which is not a secret for these records.
@@ -145,6 +147,8 @@ Owner-confirmed product decisions (from the Phase 01 brief): multi-tenant-aware 
 - **Consequences:** one tenant serves one store. Several storefronts for one client would be several tenants (a new decision if ever needed).
 
 ### D-025 · Tenant isolation: fail-closed application scoping plus database-enforced tenant foreign keys; RLS deferred (2026-10-25, Phase 02)
+
+- **Status:** extended by D-034: writes to existing rows are tenant-qualified in SQL.
 
 - **Context:** a `tenant_id` column alone does not isolate anything. Options assessed: hand-written filters, scoped managers, composite foreign keys, PostgreSQL RLS, schema-per-tenant (comparison in ARCHITECTURE §3).
 - **Decision:** `TenantOwnedModel` with a scoped default manager that **raises** without a tenant context; guarded `save`, `delete` and bulk operations; immutable ownership; `TenantForeignKeyConstraint` composite foreign keys enforced by PostgreSQL; system checks E001–E004 that fail the build when a model skips a rule; `unscoped_access(reason)` as the single logged escape hatch.
@@ -170,6 +174,8 @@ Owner-confirmed product decisions (from the Phase 01 brief): multi-tenant-aware 
 
 ### D-029 · Append-only audit events, written in the same transaction (2026-10-25, Phase 02)
 
+- **Status:** extended by D-035: allowlisted, recursively sanitised payloads.
+
 - **Decision:** implement a minimal audit foundation now: `audit.AuditEvent` (tenant, time, dotted action, actor user or system label, resource type and id, redacted field changes, request id). `record_audit_event()` refuses to run outside a transaction, so an event exists exactly when its change commits. Sensitive keys (password, secret, token, otp, api_key, cvv, card number…) are stored as `[REDACTED]`. Immutable in the ORM and in PostgreSQL (trigger refuses UPDATE and DELETE). Actors are `PROTECT`ed, so accounts with history are deactivated or anonymised, not deleted.
 - **Not chosen:** event sourcing. Business modules write explicit audit events for important changes; `created_at`/`updated_at` metadata stays separate from history.
 - **Later:** retention and archival (Phase 18); console audit log in control-api (Phase 16); runtime database role without table ownership so TRUNCATE is also unavailable to the application (Phase 17).
@@ -190,6 +196,38 @@ Owner-confirmed product decisions (from the Phase 01 brief): multi-tenant-aware 
 ### D-033 · Migration verification workflow (2026-10-25, Phase 02)
 
 - **Decision:** every new migration is (1) generated with `makemigrations`, (2) reviewed with `sqlmigrate`, (3) applied forward, reversed to zero and re-applied on a **temporary** database created and dropped inside the MateCart PostgreSQL container, (4) checked for drift (`makemigrations --check`, also a test), and only then (5) applied to development databases, additively. Generated migrations are excluded from ruff; hand-written SQL uses `RunSQL` with `reverse_sql`.
+
+### D-034 · Writes to existing rows are tenant-qualified in SQL (2026-10-25, Phase 02.1)
+
+- **Finding (confirmed, high):** Django targets existing rows by primary key alone, and Phase 02 checked only the tenant id on the Python instance. An instance built in code with another tenant's primary key passed that check. Reproduced against PostgreSQL: `save(force_update=True)` overwrote the other tenant's row **and moved it into the active tenant**; `save()` / `save(update_fields=...)` on an instance marked as stored updated it; `delete()` deleted it; `refresh_from_db()` read it; `bulk_create(update_conflicts=True)` overwrote it; with `unscoped_access`, `bulk_update` and `delete` acted on it under a wrong tenant claim. (`save()` and `save(update_fields=...)` on a new instance were already safe: Django inserts, and the duplicate key fails.)
+- **Decision:** never trust an instance's tenant as proof of ownership; qualify every statement that touches an existing row by tenant:
+  - `TenantOwnedModel._do_update` adds `AND tenant_id = %s` to the UPDATE every `save()` path issues (atomic, no extra query) and raises `CrossTenantAccessError` when the key exists under another tenant.
+  - `delete()` locks the row (`SELECT … FOR UPDATE`) and checks its **stored** tenant before Django's primary-key delete, inside a savepoint.
+  - `refresh_from_db()` reads through a tenant-qualified queryset (Django's public `from_queryset` hook).
+  - `bulk_update` issues one UPDATE per tenant, qualified by it (also under `unscoped_access`).
+  - `bulk_create(update_conflicts=True)` requires `tenant` in `unique_fields` (a conflict can then only match the same tenant's row) and never updates `tenant`.
+- **Trade-off:** `_do_update` is a private Django hook (stable since Django 1.6, also overridden by django-concurrency). Regression tests in `tests/test_forged_instances.py` fail if a Django upgrade stops routing saves through it. RLS was not needed: the statement-level qualification closes the gap without changing the architecture (D-025 stands).
+
+### D-035 · Audit payloads: explicit allowlists plus recursive sanitisation (2026-10-25, Phase 02.1)
+
+- **Finding (confirmed, high):** redaction looked only at top-level keys, so nested secrets were stored (reproduced with an API key inside `integration.credentials`). Tenant provisioning recorded the whole store profile, including the owner's contact email and phone.
+- **Decision:** two layers. (1) `field_changes(before, after, fields=...)` now **requires** an explicit allowlist; provisioning records only operational facts (`handle`, `name`, `preset`, `country`, `default_currency`, `timezone`, `default_language`, `supported_languages`), never contact details or legal identity. (2) `sanitize_audit_value()` runs on every payload: it walks nested mappings and lists, redacts values under sensitive keys in any naming style (word, compound and fragment matching: passwords and hashes, tokens, API and private keys, secrets, OTP and recovery codes, credentials, authorization, cookies, card and bank numbers, CVV, PIN), redacts secret-looking values under any key (PEM private keys, Django password hashes, JWTs, `Bearer`/`Basic` credentials, Luhn-valid card numbers), reduces unsupported objects to a type marker, caps depth and string length, and never mutates the caller's data. Matching errs towards redaction.
+- Provisioning failures no longer echo database error text, which can quote submitted values. Audit immutability (ORM and trigger, D-029) is unchanged.
+
+### D-036 · Identifier policy: generated keys vs externally assigned ids (2026-10-25, Phase 02.1)
+
+- **Finding (low):** `setup:env` generated `MATECART_TENANT_ID` with `crypto.randomUUID()` (UUIDv4) while the docs implied every identifier is UUIDv7.
+- **Decision:**
+  - **Primary keys MateCart generates** (default on `UUIDModel`) are UUIDv7 (D-023).
+  - **Externally assigned identifiers** (`MATECART_TENANT_ID`, which becomes `Tenant.id`; future console store registration ids) may be **any RFC 9562 UUID version**. They are validated as UUIDs with the RFC variant; the nil and max UUIDs are rejected as placeholders.
+  - New ids MateCart generates outside the database are UUIDv7: `setup:env` now uses `scripts/uuidv7.mjs` (tested with `node --test`), and the console will issue UUIDv7 (Phase 16).
+  - Existing ids are never rewritten: the current development tenant keeps its UUIDv4 id (no reset, no re-provisioning).
+
+### D-037 · Secret values are never printed; exposed local secrets are rotated (2026-10-25, Phase 02.1)
+
+- **Incident:** during Phase 02 a command printed the full local `MATECART_CONTROL_SECRET_KEY`. It was never committed (verified).
+- **Action:** rotated in `.env` with a script that prints no values, `control-api` alone recreated, verified by fingerprint comparison that it uses the new key and that no container still holds the old one, readiness 200. Phase 01 output had shown only masked 8-character prefixes of the local secrets (32 of 256 bits), which is not a usable exposure, so they were not rotated.
+- **Rule (AGENTS.md):** never print secret values or `.env` lines; check secrets by presence, format or fingerprint comparison. Rotating a value does not erase it from old transcripts, so the old value must simply never be used again.
 
 ---
 

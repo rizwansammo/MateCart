@@ -20,6 +20,19 @@ from .exceptions import TenantAlreadyProvisioned, TenantProvisioningError
 from .models import Tenant
 from .resolution import configured_tenant_id
 
+# What the provisioning audit event records: operational facts about the store, never its
+# contact details or legal identity (data minimisation, D-035).
+PROVISIONING_AUDIT_FIELDS = (
+    "handle",
+    "name",
+    "preset",
+    "country",
+    "default_currency",
+    "timezone",
+    "default_language",
+    "supported_languages",
+)
+
 
 @dataclass(frozen=True)
 class StoreProfile:
@@ -80,13 +93,16 @@ def provision_tenant(profile: StoreProfile, *, tenant_id: uuid.UUID | None = Non
                     action="tenant.provisioned",
                     resource=tenant,
                     actor_label="provision_tenant",
-                    changes=field_changes({}, asdict(profile)),
+                    changes=field_changes({}, asdict(profile), fields=PROVISIONING_AUDIT_FIELDS),
                 )
     except ValidationError as exc:
         raise TenantProvisioningError(_describe(exc)) from exc
     except IntegrityError as exc:
-        # A concurrent provisioning of the same tenant or handle won the race.
-        raise TenantProvisioningError(f"Provisioning conflicted with existing data: {exc}") from exc
+        # A concurrent provisioning of the same tenant or handle won the race. The database
+        # message is not echoed: it can quote submitted values.
+        raise TenantProvisioningError(
+            "Provisioning conflicted with existing data (tenant id or handle already in use)."
+        ) from exc
     return tenant
 
 

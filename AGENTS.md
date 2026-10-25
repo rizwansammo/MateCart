@@ -50,6 +50,7 @@ Then run `git status` and inspect the real state of the files, the Docker stack 
 - Never commit `.env`, `.env.local`, keys, tokens, passwords, certificates or client data. Only `.env.example` files with placeholders are committed.
 - Do not request real provider credentials (payments, couriers, email, AI, cloud, domains) unless the active phase needs them and the owner agrees.
 - Never log secrets or personal data. Readiness checks and error responses must not expose internals.
+- **Never print secret values**, including `.env` lines, in commands, logs or reports. Check secrets by presence, format or fingerprint comparison. If one is exposed, rotate it and recreate only the service that uses it (D-037).
 
 ## 4. Architecture guardrails
 
@@ -85,10 +86,11 @@ Details and reasoning: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
   - Every FK from a tenant-owned model to another tenant-owned model gets a `TenantForeignKeyConstraint`. The `tenancy` system checks fail the build otherwise.
   - Business keys are unique per tenant, for example `UniqueConstraint(fields=['tenant', 'sku'])`.
   - Never take a tenant from request data. Never use `_base_manager`, raw SQL or `unscoped_access()` in request paths. `unscoped_access(reason)` is for reviewed platform maintenance only.
+  - Load rows through the scoped manager before changing them. Writes to existing rows are tenant-qualified in SQL (D-034), so a hand-built instance with someone else's primary key fails instead of writing; do not work around that. Upserts must use a conflict key that includes `tenant`.
   - Celery tasks touching tenant data use `base=TenantTask` and receive `tenant_id` explicitly.
   - Cache keys use `tenant_cache_key()`; uploaded files use `tenant_storage_path`.
   - Prove isolation with two-tenant tests for every new model and endpoint.
-- Important changes write an `AuditEvent` with `record_audit_event()` inside the same `transaction.atomic()` block. Never put secrets in `changes`.
+- Important changes write an `AuditEvent` with `record_audit_event()` inside the same `transaction.atomic()` block. Build `changes` with `field_changes(..., fields=[...])`, an explicit allowlist. Never record secrets, and record personal data only when the audit need is documented. Sanitisation is a safety net, not a licence (D-035).
 - Money is `Decimal` with an ISO 4217 currency, never float. Countries, currencies, time zones and phones use ISO, IANA and E.164 identifiers (`commerce.core.standards`, `commerce.core.contact`).
 - Users: `identity.User` (store customers and staff) and `accounts.AdminUser` (console) are the `AUTH_USER_MODEL`s. Never use Django's global groups and permissions for store roles.
 

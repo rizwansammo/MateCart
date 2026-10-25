@@ -68,6 +68,9 @@ try:
     MATECART_TENANT_ID: uuid.UUID | None = uuid.UUID(_tenant_id) if _tenant_id else None
 except ValueError as exc:
     raise ImproperlyConfigured("MATECART_TENANT_ID must be a UUID.") from exc
+# Any RFC 9562 version is accepted (ids are issued externally, D-036); nil/max are placeholders.
+if MATECART_TENANT_ID is not None and MATECART_TENANT_ID.variant != uuid.RFC_4122:
+    raise ImproperlyConfigured("MATECART_TENANT_ID must be an RFC 9562 UUID (not nil or max).")
 
 # --- Identity (docs/DATA_MODEL.md) ---
 AUTH_USER_MODEL = "identity.User"

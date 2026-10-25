@@ -28,7 +28,7 @@ def test_events_capture_actor_resource_changes_and_request(tenant_a: Tenant) -> 
                 action="store.settings.updated",
                 resource=store,
                 actor=manager,
-                changes=field_changes({"name": "Old name"}, {"name": "New name"}),
+                changes=field_changes({"name": "Old name"}, {"name": "New name"}, fields=["name"]),
             )
     finally:
         request_id_var.reset(token)

@@ -3,16 +3,19 @@
 ``Model.objects`` returns only the active tenant's rows and raises TenantContextMissing when no
 tenant is active. Django's ``_base_manager`` stays unfiltered on purpose: Django uses it to follow
 foreign keys from rows that were already loaded through a scoped query, and the database-level
-tenant foreign keys (TenantForeignKeyConstraint) guarantee those targets share the tenant.
+tenant foreign keys (TenantForeignKeyConstraint) guarantee those targets share the tenant. Writes
+that target existing rows are tenant-qualified in SQL (see TenantOwnedModel and bulk_update).
 """
 
-from collections.abc import Iterable
+import uuid
+from collections import defaultdict
+from collections.abc import Collection, Iterable
 from typing import TYPE_CHECKING, Any, TypeVar, cast
 
 from django.db import models
 
 from .context import get_active_tenant_id, in_unscoped_access
-from .exceptions import TenantImmutableError
+from .exceptions import CrossTenantAccessError, TenantImmutableError
 
 if TYPE_CHECKING:
     from .models import TenantOwnedModel
@@ -28,11 +31,35 @@ class TenantQuerySet(models.QuerySet[_M]):
             raise TenantImmutableError("A row's tenant cannot be changed.")
         return super().update(**kwargs)
 
-    def bulk_create(self, objs: Iterable[_M], *args: Any, **kwargs: Any) -> list[_M]:
+    def bulk_create(
+        self,
+        objs: Iterable[_M],
+        batch_size: int | None = None,
+        ignore_conflicts: bool = False,
+        update_conflicts: bool = False,
+        update_fields: Collection[str] | None = None,
+        unique_fields: Collection[str] | None = None,
+    ) -> list[_M]:
+        if update_conflicts:
+            # ON CONFLICT ... DO UPDATE must only ever match a row of the same tenant.
+            if not _TENANT_FIELDS & set(unique_fields or ()):
+                raise CrossTenantAccessError(
+                    "Upserts on tenant-owned rows need 'tenant' in unique_fields, so a conflict "
+                    "can only match the same tenant's row."
+                )
+            if _TENANT_FIELDS & set(update_fields or ()):
+                raise TenantImmutableError("A row's tenant cannot be changed.")
         objs = list(objs)
         for obj in objs:
             obj.prepare_tenant_write()
-        return super().bulk_create(objs, *args, **kwargs)
+        return super().bulk_create(
+            objs,
+            batch_size=batch_size,
+            ignore_conflicts=ignore_conflicts,
+            update_conflicts=update_conflicts,
+            update_fields=update_fields,
+            unique_fields=unique_fields,
+        )
 
     def bulk_update(
         self, objs: Iterable[_M], fields: Iterable[str], batch_size: int | None = None
@@ -40,10 +67,18 @@ class TenantQuerySet(models.QuerySet[_M]):
         fields = list(fields)
         if _TENANT_FIELDS & set(fields):
             raise TenantImmutableError("A row's tenant cannot be changed.")
-        objs = list(objs)
+        by_tenant: dict[uuid.UUID, list[_M]] = defaultdict(list)
         for obj in objs:
             obj.prepare_tenant_write()
-        return super().bulk_update(objs, fields, batch_size=batch_size)
+            by_tenant[obj.tenant_id].append(obj)
+        # One UPDATE per tenant, qualified by it (WHERE pk IN (...) AND tenant_id = %s): an object
+        # carrying another tenant's primary key never reaches that row, even with unscoped access.
+        return sum(
+            super(TenantQuerySet, self.filter(tenant_id=tenant_id)).bulk_update(
+                group, fields, batch_size=batch_size
+            )
+            for tenant_id, group in by_tenant.items()
+        )
 
 
 class TenantScopedManager(models.Manager[_M]):

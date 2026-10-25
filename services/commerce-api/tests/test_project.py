@@ -88,6 +88,8 @@ def test_production_settings_require_the_served_tenant() -> None:
     ("variable", "value", "message"),
     [
         ("MATECART_TENANT_ID", "not-a-uuid", "MATECART_TENANT_ID must be a UUID"),
+        ("MATECART_TENANT_ID", str(uuid.UUID(int=0)), "must be an RFC 9562 UUID"),
+        ("MATECART_TENANT_ID", "ffffffff-ffff-ffff-ffff-ffffffffffff", "must be an RFC 9562 UUID"),
         ("MATECART_TENANCY_MODE", "pooled", "MATECART_TENANCY_MODE must be 'single'"),
     ],
 )

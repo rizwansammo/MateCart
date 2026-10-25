@@ -4,27 +4,27 @@
 
 ## Status board
 
-| #   | Phase                                       | Stage                         | Status                                             |
-| --- | ------------------------------------------- | ----------------------------- | -------------------------------------------------- |
-| 01  | Project Foundation                          | A — Foundation                | **Complete — accepted** (`8f3e34b`, CI passed 4/4) |
-| 02  | Database & Tenant Architecture              | A — Foundation                | **Complete (local) — awaiting owner review**       |
-| 03  | Authentication & Security                   | A — Foundation                | Pending                                            |
-| 04  | Product & Inventory Engine                  | A — Foundation                | Pending                                            |
-| 05  | Presets, Themes & Branding                  | B — Commerce Application      | Pending                                            |
-| 06  | Customer Storefront                         | B — Commerce Application      | Pending                                            |
-| 07  | Cart & Checkout                             | B — Commerce Application      | Pending                                            |
-| 08  | Orders, Payments & Invoices                 | B — Commerce Application      | Pending                                            |
-| 09  | Fulfillment & Courier                       | B — Commerce Application      | Pending                                            |
-| 10  | Customer Accounts & After-sales             | B — Commerce Application      | Pending                                            |
-| 11  | Merchant Management Dashboard               | B — Commerce Application      | Pending                                            |
-| 12  | Marketing, SEO & Analytics                  | C — Growth & Integrations     | Pending                                            |
-| 13  | Mail & Notification Engine                  | C — Growth & Integrations     | Pending                                            |
-| 14  | Social Commerce & Unified Inbox             | C — Growth & Integrations     | Pending                                            |
-| 15  | AI & Advanced Extensions                    | C — Growth & Integrations     | Pending                                            |
-| 16  | Central Platform Console                    | D — Platform & Infrastructure | Pending                                            |
-| 17  | Deployment Automation                       | D — Platform & Infrastructure | Pending                                            |
-| 18  | Final Quality, Performance & Security       | D — Platform & Infrastructure | Pending                                            |
-| 19  | Production Deployment & Private Beta Launch | E — Production Launch         | Pending (never before 01–18 are accepted)          |
+| #   | Phase                                       | Stage                         | Status                                                                                                           |
+| --- | ------------------------------------------- | ----------------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| 01  | Project Foundation                          | A — Foundation                | **Complete — accepted** (`8f3e34b`, CI passed 4/4)                                                               |
+| 02  | Database & Tenant Architecture              | A — Foundation                | **Complete — accepted** (`72f277e`, CI passed 4/4); corrective **02.1 complete (local) — awaiting owner review** |
+| 03  | Authentication & Security                   | A — Foundation                | Pending                                                                                                          |
+| 04  | Product & Inventory Engine                  | A — Foundation                | Pending                                                                                                          |
+| 05  | Presets, Themes & Branding                  | B — Commerce Application      | Pending                                                                                                          |
+| 06  | Customer Storefront                         | B — Commerce Application      | Pending                                                                                                          |
+| 07  | Cart & Checkout                             | B — Commerce Application      | Pending                                                                                                          |
+| 08  | Orders, Payments & Invoices                 | B — Commerce Application      | Pending                                                                                                          |
+| 09  | Fulfillment & Courier                       | B — Commerce Application      | Pending                                                                                                          |
+| 10  | Customer Accounts & After-sales             | B — Commerce Application      | Pending                                                                                                          |
+| 11  | Merchant Management Dashboard               | B — Commerce Application      | Pending                                                                                                          |
+| 12  | Marketing, SEO & Analytics                  | C — Growth & Integrations     | Pending                                                                                                          |
+| 13  | Mail & Notification Engine                  | C — Growth & Integrations     | Pending                                                                                                          |
+| 14  | Social Commerce & Unified Inbox             | C — Growth & Integrations     | Pending                                                                                                          |
+| 15  | AI & Advanced Extensions                    | C — Growth & Integrations     | Pending                                                                                                          |
+| 16  | Central Platform Console                    | D — Platform & Infrastructure | Pending                                                                                                          |
+| 17  | Deployment Automation                       | D — Platform & Infrastructure | Pending                                                                                                          |
+| 18  | Final Quality, Performance & Security       | D — Platform & Infrastructure | Pending                                                                                                          |
+| 19  | Production Deployment & Private Beta Launch | E — Production Launch         | Pending (never before 01–18 are accepted)                                                                        |
 
 | Standing item                          | Status                                     |
 | -------------------------------------- | ------------------------------------------ |
@@ -62,6 +62,10 @@ Results: [PROGRESS.md](PROGRESS.md).
 
 Production domain modelling, tenant awareness, isolation boundaries, configuration model, schema design, migrations and auditing foundations.
 Decided and implemented: UUIDv7 keys, fail-closed tenant scoping with database-enforced tenant foreign keys (RLS deferred to pooled mode), strict single-tenant runtime and provisioning, store settings, the commerce and console user models, append-only audit events, and the domain blueprint ([DATA_MODEL.md](DATA_MODEL.md), D-023 to D-033). Results: [PROGRESS.md](PROGRESS.md).
+
+#### Phase 02.1 — Security hardening and audit fixes (corrective subphase)
+
+Independent review of Phase 02. Closed a confirmed forged-instance tenant-isolation bypass (tenant-qualified SQL writes), nested secrets and contact details in audit payloads (allowlists plus recursive sanitisation), clarified the identifier policy, and rotated an exposed local development secret. No schema changes; the 19-phase roadmap is unchanged. Details: D-034 to D-037 and PROGRESS.md.
 
 ### Phase 03 — Authentication & Security
 

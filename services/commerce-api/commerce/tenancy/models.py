@@ -1,9 +1,9 @@
 import uuid
-from collections.abc import Collection
+from collections.abc import Collection, Iterable
 from typing import Any, Self, cast
 
 from django.core.validators import RegexValidator
-from django.db import models
+from django.db import models, router, transaction
 from django.db.models import Q
 
 from commerce.core.models import TimestampedModel, UUIDModel
@@ -61,6 +61,8 @@ class TenantOwnedModel(UUIDModel):
     Guarantees, all covered by tests:
     - ``objects`` is scoped to the active tenant and refuses to run without one;
     - new rows take the active tenant; saving or deleting another tenant's row is refused;
+    - updates, deletes and refreshes are qualified by the tenant *stored* in the database, so an
+      instance built in code with another tenant's primary key cannot reach that row;
     - a row's tenant never changes;
     - foreign keys to other tenant-owned models must carry a TenantForeignKeyConstraint, which
       PostgreSQL enforces (checked by the ``tenancy`` system checks).
@@ -121,9 +123,59 @@ class TenantOwnedModel(UUIDModel):
         super().save(*args, **kwargs)
         self._loaded_tenant_id = self.tenant_id
 
-    def delete(self, *args: Any, **kwargs: Any) -> tuple[int, dict[str, int]]:
+    # The tenant id on an instance built in code proves nothing about the row its primary key
+    # points at, and Django targets existing rows by primary key alone. Every statement that
+    # touches an existing row is therefore qualified by tenant at the database (Phase 02.1, D-034).
+
+    def _do_update(self, base_qs: models.QuerySet[Any], *args: Any, **kwargs: Any) -> bool:
+        """The UPDATE issued by every save() path: ``WHERE id = %s AND tenant_id = %s``."""
+        updated: bool = super()._do_update(
+            base_qs.filter(tenant_id=self.tenant_id), *args, **kwargs
+        )
+        if not updated and base_qs.filter(pk=self.pk).exclude(tenant_id=self.tenant_id).exists():
+            raise CrossTenantAccessError(
+                f"{type(self).__name__} {self.pk} belongs to another tenant."
+            )
+        return updated
+
+    def delete(
+        self, using: str | None = None, keep_parents: bool = False
+    ) -> tuple[int, dict[str, int]]:
         self._check_tenant_access(self.tenant_id, get_active_tenant_id_or_none())
-        return super().delete(*args, **kwargs)
+        using = using or router.db_for_write(type(self), instance=self)
+        with transaction.atomic(using=using):
+            # Lock the stored row and check *its* tenant before Django deletes by primary key.
+            stored_tenant_id = (
+                type(self)
+                ._base_manager.using(using)
+                .select_for_update()
+                .filter(pk=self.pk)
+                .values_list("tenant_id", flat=True)
+                .first()
+            )
+            if stored_tenant_id is not None and stored_tenant_id != self.tenant_id:
+                raise CrossTenantAccessError(
+                    f"{type(self).__name__} {self.pk} belongs to another tenant."
+                )
+            return super().delete(using=using, keep_parents=keep_parents)
+
+    def refresh_from_db(
+        self,
+        using: str | None = None,
+        fields: Iterable[str] | None = None,
+        from_queryset: models.QuerySet[Self] | None = None,
+    ) -> None:
+        if from_queryset is None:
+            # Read only a row stored under this instance's tenant (or the active tenant while the
+            # instance's own tenant is deferred). __dict__ avoids re-entering deferred loading.
+            tenant_id = self.__dict__.get("tenant_id") or get_active_tenant_id_or_none()
+            if tenant_id is not None:
+                from_queryset = (
+                    type(self)
+                    ._base_manager.db_manager(using, hints={"instance": self})
+                    .filter(tenant_id=tenant_id)
+                )
+        super().refresh_from_db(using=using, fields=fields, from_queryset=from_queryset)
 
     def _check_tenant_access(self, tenant_id: uuid.UUID, active: uuid.UUID | None) -> None:
         if active is not None:
