@@ -1,6 +1,6 @@
 # Architecture
 
-Status: Phase 03 (authentication and security). Phase 02 and its corrections are accepted and closed. Sections marked **(planned)** describe later work. Schema: [DATA_MODEL.md](DATA_MODEL.md). Authentication: [AUTHENTICATION.md](AUTHENTICATION.md), security controls: [SECURITY.md](SECURITY.md).
+Status: Phase 04 (product and inventory engine) active. Phases 01–03 and their corrections (02.1, 02.2, 03.1) are accepted and closed. Sections marked **(planned)** describe later work. Schema: [DATA_MODEL.md](DATA_MODEL.md). Authentication: [AUTHENTICATION.md](AUTHENTICATION.md), security controls: [SECURITY.md](SECURITY.md).
 
 ## 1. System overview
 
@@ -34,7 +34,7 @@ MateCart/
 │   ├── commerce-web/          Next.js: storefront + merchant dashboard
 │   └── platform-console/      Next.js: NetaMate internal console
 ├── services/
-│   ├── commerce-api/          Django project "config" + apps commerce.{core,tenancy,stores,identity,audit}
+│   ├── commerce-api/          Django project "config" + apps commerce.{core,tenancy,stores,identity,staff,audit,media,catalog,pricing,inventory}
 │   └── control-api/           Django project "config" + apps control.{core,accounts}
 ├── packages/
 │   ├── shared-ui/             theme.css tokens, Wordmark
@@ -110,6 +110,36 @@ Outside the database: cache keys use `tenant_cache_key(...)` (`tenant:<id>:...`)
 - Customer email/password, phone OTP and Google OIDC have explicit realm-aware service paths. Phone/Google remain unavailable without a real provider configuration. Verified linking never merges accounts by email. Delivery information is separate (07/10).
 - `NoLoginBackend` continues to refuse generic Django login; realm-specific cookie authentication is now implemented. Owner activation is provisioning-only; staff use owner invitations. Store management routes live at `/manage`, in the same web app/domain.
 - Merchant MFA is optional; console MFA is mandatory. Password-only pending sessions cannot access protected functionality. Owner team mutations require backend recent-password confirmation (D-048); OIDC browser ownership is validated before state consumption and provider failures fail closed (D-049). See D-039 through D-049 and the authentication guide for exact cookie policies, setup UX and provider boundaries.
+
+### Product and inventory engine (Phase 04)
+
+- **Apps and boundaries.** `commerce.media` (uploaded files), `commerce.catalog`
+  (categories, collections, brands, typed attributes, products, variants, preset
+  details), `commerce.pricing` (price lists and prices) and `commerce.inventory`
+  (locations, levels, ledger, batches, serials). Every model is tenant-owned with
+  composite tenant foreign keys (DATA_MODEL §2). Views validate shapes; services own
+  every rule and write audit events in the same transaction.
+- **APIs.** Merchant APIs live under the staff cookie path: `/api/manage/catalog/`,
+  `/api/manage/pricing/`, `/api/manage/inventory/`, `/api/manage/media/`, all
+  requiring `catalog.manage` (Owner, Manager, Content editor); cost prices also need
+  `catalog.costs` (Owner, Manager). `/api/catalog/` is the anonymous, GET-only,
+  publication-safe catalogue for the Phase 06 storefront (D-058). Lists are paginated
+  (`page`, `page_size` ≤ 100) with allowlisted filters and ordering.
+- **Inventory integrity (D-054).** Levels change only inside service operations
+  that lock the variant and its levels in a fixed order, append ledger movements
+  with the resulting balances and respect PostgreSQL CHECKs (no negative stock, no
+  reservations beyond stock). The ledger is append-only in the ORM and in
+  PostgreSQL; reversals compensate. Optional idempotency keys make retries safe.
+  Reservations (`reserve`/`release`/`fulfil`) are ready for checkout and orders
+  (07/08) but not exposed yet.
+- **Media (D-055).** Files are validated from their bytes, stored under
+  `tenants/<tenant>/media/...` on a named volume (local) and never served from the
+  filesystem directly: staff stream through the API; the public route serves only
+  files of published items.
+- **Integration points.** `catalog.services.is_purchasable()`,
+  `pricing.services.quote()` (checkout price snapshot), `inventory.services.reserve()`
+  /`release()`/`fulfil()`, `inventory.services.batches_by_expiry()` (FEFO) and
+  `reconcile()` are the seams Phases 06–11 build on.
 
 ### Independence from the Central Console
 
@@ -191,7 +221,6 @@ Redis broker, JSON-only serialisation, `acks_late` + `reject_on_worker_lost` + p
 | Topic                                                                             | Phase                           |
 | --------------------------------------------------------------------------------- | ------------------------------- |
 | Live Google/SMS provider configuration and acceptance; full notification delivery | 13 (or approved provider setup) |
-| Catalogue and inventory with preset-specific attributes                           | 04                              |
 | Preset and theme system, white-label branding                                     | 05                              |
 | Production reverse proxy, production images, GHCR releases, installer, agent, TLS | 17                              |
 | Rate limiting, bot protection, CDN, horizontal scaling validation                 | 12, 17, 18                      |

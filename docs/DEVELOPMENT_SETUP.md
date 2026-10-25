@@ -49,25 +49,27 @@ API and database ports can be changed in `.env`. The Next.js ports live in `apps
 
 ## Command reference
 
-| Task                                            | Command                                                            |
-| ----------------------------------------------- | ------------------------------------------------------------------ |
-| Install dependencies                            | `pnpm install`                                                     |
-| Create local env files                          | `pnpm setup:env`                                                   |
-| Start the Docker stack                          | `pnpm stack:up`                                                    |
-| Stop and remove MateCart containers (data kept) | `pnpm stack:down`                                                  |
-| Container status                                | `pnpm stack:ps`                                                    |
-| Follow MateCart logs                            | `pnpm stack:logs` (or `docker compose logs -f commerce-api`)       |
-| Rebuild MateCart images and restart             | `pnpm stack:rebuild`                                               |
-| Run both web apps                               | `pnpm dev` (`pnpm dev:web`, `pnpm dev:console`)                    |
-| Frontend checks                                 | `pnpm check` (format, lint, typecheck, unit tests)                 |
-| Frontend production builds                      | `pnpm build`                                                       |
-| Backend tests                                   | `pnpm api:test` (`api:test:commerce`, `api:test:control`)          |
-| Backend lint and types                          | `pnpm api:lint` (ruff, ruff format, mypy strict)                   |
-| Format backend code                             | `pnpm api:format`                                                  |
-| Regenerate OpenAPI schemas                      | `pnpm api:schema`                                                  |
-| Celery round-trip check                         | `pnpm api:celery-check`                                            |
-| Provision the local dev store (idempotent)      | `pnpm api:provision`                                               |
-| Health of everything                            | `pnpm health` (`pnpm health --skip-web` for the Docker stack only) |
+| Task                                            | Command                                                                         |
+| ----------------------------------------------- | ------------------------------------------------------------------------------- |
+| Install dependencies                            | `pnpm install`                                                                  |
+| Create local env files                          | `pnpm setup:env`                                                                |
+| Start the Docker stack                          | `pnpm stack:up`                                                                 |
+| Stop and remove MateCart containers (data kept) | `pnpm stack:down`                                                               |
+| Container status                                | `pnpm stack:ps`                                                                 |
+| Follow MateCart logs                            | `pnpm stack:logs` (or `docker compose logs -f commerce-api`)                    |
+| Rebuild MateCart images and restart             | `pnpm stack:rebuild`                                                            |
+| Run both web apps                               | `pnpm dev` (`pnpm dev:web`, `pnpm dev:console`)                                 |
+| Frontend checks                                 | `pnpm check` (format, lint, typecheck, unit tests)                              |
+| Frontend production builds                      | `pnpm build`                                                                    |
+| Backend tests                                   | `pnpm api:test` (`api:test:commerce`, `api:test:control`)                       |
+| Backend lint and types                          | `pnpm api:lint` (ruff, ruff format, mypy strict)                                |
+| Format backend code                             | `pnpm api:format`                                                               |
+| Regenerate OpenAPI schemas                      | `pnpm api:schema`                                                               |
+| Celery round-trip check                         | `pnpm api:celery-check`                                                         |
+| Provision the local dev store (idempotent)      | `pnpm api:provision`                                                            |
+| Health of everything                            | `pnpm health` (`pnpm health --skip-web` for the Docker stack only)              |
+| Inventory ledger reconciliation (read-only)     | `docker compose exec commerce-api python manage.py reconcile_inventory`         |
+| Live auth / catalogue smoke checks (local only) | `node scripts/auth-smoke.mjs --local`, `node scripts/catalog-smoke.mjs --local` |
 
 Every Docker command is scoped to the Compose project `matecart-dev`. None of them touch other projects.
 
@@ -114,7 +116,15 @@ creates uniquely named temporary databases, verifies fresh install/reversal/reap
 for both services, then removes only those temporary databases. It does not roll
 back the development databases. `node scripts/auth-smoke.mjs --local` creates
 labelled local review accounts and captures messages in Mailpit; see the guide
-before running it.
+before running it. `node scripts/catalog-smoke.mjs --local` (Phase 04) signs in the
+local review owner through a Mailpit password reset, then creates a labelled
+"Review Smoke Shirt" with attributes, an image, prices and stock, checks the public
+catalogue and archives it again. Run it only against the local stack.
+
+Uploaded catalogue media live in the named volume `matecart-dev-commerce-media`
+(`MATECART_MEDIA_ROOT=/var/lib/matecart/media` in the API and worker containers),
+outside the bind-mounted source tree. Tests use a temporary directory per test.
+`docker compose down -v` would delete this volume together with the databases.
 
 Both apps use Next's supported `--webpack` dev/build flag (D-046). Stop `pnpm dev`
 before `pnpm build` or simultaneous route generation: competing writes to `.next`

@@ -12,6 +12,13 @@ urlpatterns: list[URLPattern | URLResolver] = [
     # Customer realm (storefront accounts) and staff realm (merchant dashboard, D-040).
     path("api/account/", include("commerce.identity.urls")),
     path("api/manage/", include("commerce.staff.urls")),
+    # Phase 04 merchant catalogue, pricing, inventory and media (staff realm, catalog.manage).
+    path("api/manage/catalog/", include("commerce.catalog.urls")),
+    path("api/manage/pricing/", include("commerce.pricing.urls")),
+    path("api/manage/inventory/", include("commerce.inventory.urls")),
+    path("api/manage/media/", include("commerce.media.urls")),
+    # Public, read-only catalogue for the storefront: active products only.
+    path("api/catalog/", include("commerce.catalog.public_urls")),
 ]
 
 if settings.API_SCHEMA_ENABLED:

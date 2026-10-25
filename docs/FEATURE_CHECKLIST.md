@@ -65,17 +65,34 @@ Update the status in the same change that completes a feature.
 - [x] Backend recent-auth enforcement for every Owner team mutation (03.1)
 - [x] OIDC binding-before-consumption and safe Google provider/JWKS failures (03.1)
 - [x] Phase 03 owner commit and GitHub CI run 40230926210 (4/4, 449 tests)
-- [~] Phase 03.1 locally verified; owner CI and independent final acceptance pending
+- [x] Phase 03.1 commit `5d6152a` and GitHub CI run 40237897132 (4/4, 463 tests)
 - [ ] Live Google, SMS and external SMTP acceptance (requires genuine provider configuration)
-- [ ] Independent owner/security acceptance of the Phase 03.1 corrective diff
+- [x] Independent owner/security acceptance of Phases 03 and 03.1 (accepted and closed)
+
+## Product and inventory engine (Phase 04)
+
+- [x] Category tree (5 levels, cycle-safe moves), collections with explicit order, brands
+- [x] Products with draft/active/archived lifecycle and publication checks; archive instead of delete
+- [x] Variants with typed option combinations, store-unique SKUs, GTIN barcodes, ISBN-13 per format
+- [x] Typed attributes (text, number, boolean, option, measurement) for variants and specifications
+- [x] Preset product types: apparel (material, fit, size guide), grocery (pack size, perishables), electronics (model, warranty policies), books (authors, publisher, edition, language, series, formats, eBook, pre-order date), general
+- [x] Price lists and prices: Decimal per-currency precision, compare-at, zero prices, private cost prices (`catalog.costs`)
+- [x] Stock locations, levels with generated availability, append-only ledger with reversals
+- [x] Locked, idempotent stock operations: receipt, adjustment, damaged, lost, returned, transfer
+- [x] Reservation, release and fulfilment service extension points (API exposure with Phases 07/08)
+- [x] Batches with expiry and FEFO listing; store-unique serial numbers with one location
+- [x] Media uploads validated from bytes, tenant-namespaced storage, gated serving
+- [x] Merchant catalogue/pricing/inventory/media APIs; public read-only catalogue API; OpenAPI and shared contracts
+- [x] Two-tenant isolation, concurrency, ledger, media and API tests; live catalogue smoke checks
+- [ ] Owner commit, GitHub CI and independent acceptance of Phase 04
 
 ## Commerce core
 
 - [ ] Store modules, theme and branding; preset engine (05)
 - [ ] Store domains and TLS (17)
 - [x] Customer, merchant-staff and central-admin sign-in foundations, tenant-scoped RBAC, MFA and sessions (03; provider limits above)
-- [ ] Catalogue, categories, variants, SKUs, pricing, stock movements (04)
-- [ ] Preset-specific attributes: fashion variants and size guides; grocery weight, expiry, batch, delivery slots; electronics specs, warranty, serial numbers, comparison, EMI; bookstore ISBN, author, publisher, language, edition, genre, format, pages, series, pre-orders, digital editions (04, 05)
+- [x] Catalogue, categories, variants, SKUs, pricing, stock movements (04; acceptance pending)
+- [~] Preset-specific attributes (data foundations done in 04; storefront presentation, delivery slots, comparison and EMI remain): fashion variants and size guides; grocery weight, expiry, batch, delivery slots; electronics specs, warranty, serial numbers, comparison, EMI; bookstore ISBN, author, publisher, language, edition, genre, format, pages, series, pre-orders, digital editions (04, 05)
 - [ ] Five presets with distinct visual identities; white-label branding; theming (05)
 - [ ] Storefront: discovery, search, filters, product detail, responsive, bilingual EN/BN (06)
 - [ ] Cart, guest checkout, addresses, coupons, shipping, taxes, delivery options, price calculation (07)

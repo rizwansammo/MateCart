@@ -1,6 +1,7 @@
 # Authentication and account security
 
-Phase 03 implements three separate account realms. The full storefront, merchant
+Phase 03 implements three separate account realms (accepted and closed together with
+its 03.1 corrections: `5d6152a`, CI run 40237897132). The full storefront, merchant
 operations dashboard and platform management features remain in their later phases.
 Security implementation details and deployment requirements: [SECURITY.md](SECURITY.md).
 

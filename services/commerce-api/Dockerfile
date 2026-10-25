@@ -14,7 +14,11 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PATH="/opt/venv/bin:${PATH}"
 
 RUN groupadd --system --gid 10001 matecart \
-    && useradd --system --uid 10001 --gid matecart --create-home --shell /usr/sbin/nologin matecart
+    && useradd --system --uid 10001 --gid matecart --create-home --shell /usr/sbin/nologin matecart \
+    && install -d -o matecart -g matecart -m 0750 /var/lib/matecart/media
+
+# Media root for uploads. A new named volume copies this directory's ownership, so the non-root
+# user can write to it.
 
 WORKDIR /app
 

@@ -1,9 +1,11 @@
-# Authentication security and deployment follow-up
+# Security controls and deployment follow-up
 
-Implemented scope: Phase 03 plus the locally verified Phase 03.1 audit corrections.
-This is engineering guidance, not a claim that the application has completed the
-final Phase 18 security audit. Owner review, post-push CI and independent final
-acceptance of 03.1 remain required.
+Implemented scope: Phase 03 and its Phase 03.1 audit corrections, both accepted and
+closed (`5d6152a`, CI run 40237897132: 4/4 jobs, 463 tests), and the Phase 04 product
+and inventory engine (implemented locally; owner review pending). This is engineering
+guidance, not a claim that the application has completed the final Phase 18
+security audit. Live Google, SMS and external SMTP acceptance remain outstanding
+until genuine providers are configured.
 
 ## Trust boundaries
 
@@ -99,7 +101,46 @@ intentionally holds test email contents in memory; treat access to its inbox as
 access to the development accounts. Console/store use distinct sender settings
 and keys, sharing only this local testing inbox.
 
+## Catalogue, inventory and media (Phase 04)
+
+- **Permissions.** Merchant catalogue, pricing, inventory and media APIs sit under
+  `/api/manage/` with the staff cookie, CSRF on every unsafe method, and
+  `catalog.manage` (Owner, Manager, Content editor). Customers' sessions never
+  authenticate there; Order handlers get 403. Cost prices need `catalog.costs`
+  (Owner, Manager): they are omitted from responses and refused on write otherwise,
+  and audit events record only that a cost changed (D-053).
+- **Public exposure.** `/api/catalog/` is anonymous and GET-only. It returns active
+  products and active categories/collections, selling prices and an `in_stock` flag
+  only: no drafts, archived items, costs, stock quantities, publication problems,
+  staff or audit data (tested field by field, D-058).
+- **Tenant boundaries.** All 27 Phase 04 models are tenant-owned with composite
+  tenant foreign keys; references in requests resolve through scoped managers, so
+  another store's id is "not found". Two-tenant tests cover reads, writes, refresh,
+  missing context, deferred fields, relation traversal and every one of the 45 tenant
+  foreign keys at the PostgreSQL level; an AST test forbids raw SQL, `extra`,
+  cursors, manager-free querysets and `unscoped_access` in the four new apps.
+- **Media (D-055).** Types are detected from the bytes (JPEG/PNG/WebP fully
+  decoded; PDF by signature); SVG, HTML and other types are refused. Size (10 MB),
+  dimension (8000 px) and pixel (25 MP) limits stop oversized files and
+  decompression bombs; the Content-Length check runs before CSRF or form parsing.
+  Client filenames never reach the filesystem; storage paths are generated under
+  the active tenant and fail closed without one. Responses carry `nosniff`,
+  `Content-Security-Policy: default-src 'none'; sandbox`, a generic filename, and
+  PDFs download as attachments. Public files are served only while something
+  published uses them. Uploads are rate limited per store.
+- **Inventory integrity (D-054).** Stock changes only through locked service
+  operations; PostgreSQL CHECKs refuse negative stock and overselling even if a code
+  path forgot a rule, and a trigger keeps the ledger append-only below the ORM.
+  Retries with an idempotency key apply once. Reconciliation proves levels equal the
+  ledger.
+
 ## Limits and scheduled follow-up
+
+- Phase 04 public catalogue and media routes have no dedicated rate limits or CDN
+  caching yet (Phases 12/17). Uploaded files are not malware-scanned; only images
+  and PDFs are accepted and PDFs are served as downloads. Image resizing/thumbnails
+  and a CDN are deferred. Public media may stay in shared caches for up to five
+  minutes after a product is unpublished.
 
 - External Google, SMS and SMTP delivery need real configuration and live provider
   acceptance tests before enabling for clients; none were claimed here.

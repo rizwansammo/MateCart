@@ -22,11 +22,12 @@ def tenant_cache_key(*parts: str) -> str:
 def tenant_storage_path(instance: TenantOwnedModel, filename: str) -> str:
     """``upload_to`` for tenant files: ``tenants/<tenant>/<app>/<model>/<uuid7><ext>``.
 
-    The client's filename never becomes part of the path; only a plain extension is kept.
+    The client's filename never becomes part of the path; only a plain extension is kept. A file
+    can be stored before its row is saved, so an unsaved row uses the active tenant; with neither,
+    this fails closed instead of writing outside a tenant's namespace.
     """
     suffix = PurePosixPath(filename.replace("\\", "/")).suffix.lower()
     extension = suffix if _SAFE_EXTENSION.match(suffix) else ""
+    tenant_id = instance.__dict__.get("tenant_id") or get_active_tenant_id()
     meta = instance._meta
-    return (
-        f"tenants/{instance.tenant_id}/{meta.app_label}/{meta.model_name}/{uuid7().hex}{extension}"
-    )
+    return f"tenants/{tenant_id}/{meta.app_label}/{meta.model_name}/{uuid7().hex}{extension}"

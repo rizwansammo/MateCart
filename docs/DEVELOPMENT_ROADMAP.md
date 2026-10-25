@@ -8,8 +8,8 @@
 | --- | ------------------------------------------- | ----------------------------- | ----------------------------------------------------------------------------------------- |
 | 01  | Project Foundation                          | A — Foundation                | **Complete — accepted** (`8f3e34b`, CI passed 4/4)                                        |
 | 02  | Database & Tenant Architecture              | A — Foundation                | **Accepted and closed**, including 02.1/02.2 (`aceae6f`, CI 40213680998: 4/4, 260 tests). |
-| 03  | Authentication & Security                   | A — Foundation                | **Complete locally — independent owner review, CI and security audit pending.**           |
-| 04  | Product & Inventory Engine                  | A — Foundation                | Pending                                                                                   |
+| 03  | Authentication & Security                   | A — Foundation                | **Accepted and closed**, including 03.1 (`5d6152a`, CI 40237897132: 4/4, 463 tests).      |
+| 04  | Product & Inventory Engine                  | A — Foundation                | **Complete locally** — owner commit, CI and independent acceptance pending.               |
 | 05  | Presets, Themes & Branding                  | B — Commerce Application      | Pending                                                                                   |
 | 06  | Customer Storefront                         | B — Commerce Application      | Pending                                                                                   |
 | 07  | Cart & Checkout                             | B — Commerce Application      | Pending                                                                                   |
@@ -80,12 +80,18 @@ Customer, merchant and central administrator authentication (separate boundaries
 Independent review corrections: enforce recent password confirmation on every
 Owner team mutation at the backend, validate Google browser binding before OIDC
 state consumption, and normalize expected Google provider/JWKS failures without
-hiding programmer errors. Implemented and verified locally; owner commit, CI and
-independent final acceptance are pending. The 19 main phases are unchanged.
+hiding programmer errors. Accepted and closed with Phase 03: commit `5d6152a`,
+GitHub Actions run 40237897132 (4/4 jobs, 463 tests). The 19 main phases are
+unchanged.
 
 ### Phase 04 — Product & Inventory Engine
 
 Catalogue, categories, variants, SKUs, stock movements, pricing, and preset-specific product data (fashion variants, grocery weight, expiry and batch, electronics specs, warranty and serials, bookstore ISBN and edition data).
+
+Implemented locally (D-050 to D-058): one catalogue engine with typed preset details, price
+lists, an append-only inventory ledger with locked idempotent operations, batches and serials,
+validated media, merchant APIs and a public read-only catalogue API. Reservations are service
+extension points for Phases 07/08. Results: [PROGRESS.md](PROGRESS.md).
 
 ## Stage B — Commerce Application
 

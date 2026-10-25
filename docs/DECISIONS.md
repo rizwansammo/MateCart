@@ -382,6 +382,144 @@ Owner-confirmed product decisions (from the Phase 01 brief): multi-tenant-aware 
   malformed token, signature, issuer, audience, nonce and code-exchange failures
   issue no session or identity and return the friendly generic result.
 
+### D-050 · Pillow for server-side image verification (2026-10-26, Phase 04)
+
+- **Context:** uploaded catalogue images must be validated from their bytes, not
+  from the client's filename or Content-Type, and decompression bombs refused.
+- **Decision:** add `pillow>=12.3.0,<13` (MIT-CMU) to commerce-api. 13.0.0 was ten
+  days old, so the mature 12.3 line is pinned as a supply-chain precaution, matching
+  the pnpm minimum-release-age policy. Pillow only identifies, verifies and fully
+  decodes images; there is no image-processing pipeline (resizing/CDN are later).
+  The development image gained a non-root-owned `/var/lib/matecart/media` directory
+  and Compose a named volume `matecart-dev-commerce-media`.
+
+### D-051 · One catalogue engine with preset-specific typed details (2026-10-26, Phase 04)
+
+- **Decision:** a single model set (Category, Collection, Brand, typed attributes,
+  Product, ProductVariant) serves all five presets. `Product.product_type`
+  (`standard`, `apparel`, `grocery`, `electronics`, `book`) selects one typed
+  one-to-one detail table (`ApparelDetails`, `GroceryDetails`, `ElectronicsDetails`
+  with `WarrantyPolicy`, `BookDetails`) and its publication rules. Specialised
+  stores offer `standard` plus their own type; General offers all types and forces
+  none of them.
+- **Attributes:** `AttributeDefinition` has a value type (text, number, boolean,
+  option, measurement) and a scope: `variant` attributes must be options and define
+  variants; `specification` attributes describe products. Values live in typed
+  columns (`ProductAttributeValue` checks exactly one), not JSON.
+- **Variants:** every product sells through variants (a simple product has one
+  default variant). `option_signature` makes duplicate combinations impossible in
+  PostgreSQL. SKUs are normalised to uppercase and unique per store.
+- **Lifecycle:** draft, active, archived. Publishing checks name, preset/type, an
+  active variant, a default price for each active variant, the grocery pack size
+  and a book author. Products that were published or have inventory history are
+  archived, never deleted.
+- **JSON:** only translated display text (`translations`), validated against the
+  store's supported non-default languages and a field allowlist.
+
+### D-052 · ISBN belongs to the variant; barcodes are GTINs (2026-10-26, Phase 04)
+
+- An ISBN identifies one edition in one format, so paperback, hardcover and eBook
+  are variants of one book product and each variant owns its ISBN-13 (ISBN-10 input
+  is converted; check digits verified). This refines the blueprint's
+  `BookDetails (ISBN)`: `BookDetails` keeps work-level data (authors, publisher,
+  language, pages, series) and uniqueness is `(tenant, isbn)` on variants.
+- `barcode` accepts GTIN-8/12/13/14 with a valid check digit, unique per store.
+  Both are nullable so absence never collides.
+
+### D-053 · Price lists, currency precision and private costs (2026-10-26, Phase 04)
+
+- `PriceList` (one default per store, created in the store currency on first use)
+  and `Price` (one per list and variant). Money is `Decimal(19, 4)` plus ISO 4217;
+  amounts may not have more decimals than the currency's minor unit (Babel: BDT 2,
+  JPY 0, KWD 3). A price takes its list's currency; there is no conversion.
+- Zero is a valid price (free items). `compare_at_amount` must exceed the price
+  (service rule and database CHECK). Omitted optional fields keep stored values;
+  `null` clears them. Prices change under a lock on the variant.
+- New permission `catalog.costs` ("See and change cost prices"): Owner and Manager
+  get it through the existing code-owned role rules; Content editor keeps
+  `catalog.manage` without it. Without it, cost prices are absent from responses
+  and refused on write (403). Audit events record `cost_changed`, never the value.
+- `pricing.services.quote()` returns the amount, currency and source price row:
+  the snapshot input for checkout (Phase 07). No coupons or promotions (Phase 12).
+
+### D-054 · Append-only inventory ledger with locked materialised levels (2026-10-26, Phase 04)
+
+- **Quantities:** per variant and location, `on_hand` and `reserved`;
+  `available = on_hand - reserved` is a PostgreSQL generated column. Quantities are
+  `Decimal(14, 3)`: whole numbers for `each`, up to three decimals for kg, g, l, ml
+  and m. Digital and untracked variants have no stock.
+- **Ledger:** every change appends `StockMovement` rows (signed deltas and the
+  balances after) in the transaction that updates the level. UPDATE/DELETE are
+  refused by the ORM and by a PostgreSQL trigger (migration `inventory.0002`).
+  Corrections are compensating `reversal` movements (once per movement; a transfer
+  is reversed as a whole). Types: receipt, adjustment, damaged, lost, returned,
+  transfer out/in, reserved, released, fulfilled, reversal; CHECK constraints fix
+  each type's signs.
+- **Concurrency:** one transaction per operation, locking the variant
+  (`FOR NO KEY UPDATE`), then its levels in primary-key order, then batch levels and
+  serials. CHECK constraints refuse negative stock and reservations beyond on-hand
+  stock as a backstop. Tested with parallel committed transactions; removing the
+  locks makes those tests fail.
+- **Policy:** no negative stock and no backorders in Phase 04. Optional client
+  `idempotency_key` (unique per store, stored on the operation's first movement):
+  a retry returns the original operation; a different request with the same key is
+  refused.
+- `reserve`, `release` and `fulfil` are implemented and tested service extension
+  points for checkout and orders (Phases 07/08) but not exposed through the API.
+  `reconcile()` (API and `manage.py reconcile_inventory`) proves levels, batch
+  levels and serial counts equal the ledger.
+
+### D-055 · Media validation, storage and gated serving (2026-10-26, Phase 04)
+
+- Accepted: JPEG, PNG, WebP images (fully decoded, at most 8000 px per side and
+  25 megapixels) and PDF documents (`%PDF-` with an EOF marker). SVG, HTML, GIF and
+  anything else are refused. Maximum 10 MB (`MATECART_MEDIA_MAX_BYTES`), checked
+  from Content-Length before CSRF or form parsing touches the body; 300 uploads per
+  store per hour.
+- Files are stored at `tenants/<tenant>/media/mediaasset/<uuid7>.<ext>` with the
+  extension derived from the detected type. `tenant_storage_path` now uses the
+  active tenant for unsaved rows and fails closed without one (a test caught files
+  being written under `tenants/None/` before this fix).
+- Binaries never go into PostgreSQL. Nothing serves `MEDIA_ROOT` directly: staff
+  stream files through the API (`private, no-store`); the public route serves only
+  files used by an active product, category or collection, cached for five
+  minutes. Every file response carries `nosniff`, a sandboxing CSP and a fixed
+  generic filename; PDFs download as attachments.
+
+### D-056 · Batches, expiry and serial numbers (2026-10-26, Phase 04)
+
+- `Product.tracking_mode`: `none`, `batch` or `serial`; fixed once inventory
+  history exists. Serial tracking needs physical variants counted in units.
+- Batches are unique per variant and code, record manufacture/expiry/receipt dates
+  and keep per-location `BatchLevel`s that add up to the location's on-hand stock.
+  Expired batches cannot be received; perishable grocery products need an expiry
+  date. `batches_by_expiry()` lists unexpired batch stock first-expired-first-out as
+  the foundation for Phase 08 allocation; no order allocation happens yet.
+- Serial numbers are unique per store (normalised uppercase), one movement per
+  unit, and have exactly one location while available or reserved and none once
+  sold, damaged or lost (database CHECK). Serial movements are corrected with
+  adjustments, not reversals, because reversal would not restore unit identities.
+
+### D-057 · Category tree structure and moves (2026-10-26, Phase 04)
+
+- Adjacency list (`parent`), at most five levels. Creates, moves and deletes take a
+  `FOR NO KEY UPDATE` lock on the store's tenant row, so concurrent moves cannot
+  race into a cycle without blocking unrelated writes. Moves refuse cycles and
+  depth overflow (subtree height included). Categories with children or products
+  are not deleted. The storefront reads the tree in one query.
+
+### D-058 · Public read-only catalogue API (2026-10-26, Phase 04)
+
+- `/api/catalog/` (products, product by slug, category tree, collections, media) is
+  an explicit anonymous GET-only opt-in for the Phase 06 storefront. It returns
+  active products, active categories and collections, default-list selling prices
+  and a per-variant `in_stock` flag (pre-orders and untracked items count as in
+  stock). It never returns drafts, archived products, cost prices, stock
+  quantities, publication problems, staff or audit data. Filters: search, category
+  (including descendants), collection (with "featured" order), brand, product type;
+  sorting by newest, name or price. Rate limiting and response caching are part of
+  the Phase 12/17 traffic work.
+
 ## Open questions for the owner
 
 | #   | Question                                                                                                                                   | Status                                                                                                    | Needed by |

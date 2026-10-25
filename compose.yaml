@@ -38,6 +38,8 @@ x-commerce-api-environment: &commerce-api-environment
   # Optional: Google OAuth client for local testing (docs/AUTHENTICATION.md). Empty hides the button.
   GOOGLE_OIDC_CLIENT_ID: ${MATECART_GOOGLE_OIDC_CLIENT_ID:-}
   GOOGLE_OIDC_CLIENT_SECRET: ${MATECART_GOOGLE_OIDC_CLIENT_SECRET:-}
+  # Uploaded catalogue media (tenant-namespaced paths), outside the bind-mounted source tree.
+  MATECART_MEDIA_ROOT: /var/lib/matecart/media
 
 x-commerce-api-build: &commerce-api-build
   context: ./services/commerce-api
@@ -95,6 +97,7 @@ services:
       - '127.0.0.1:${MATECART_COMMERCE_API_PORT:-8400}:8000'
     volumes:
       - ./services/commerce-api:/app
+      - commerce-media:/var/lib/matecart/media
     networks: [commerce]
     depends_on:
       commerce-db: { condition: service_healthy }
@@ -130,6 +133,7 @@ services:
     environment: *commerce-api-environment
     volumes:
       - ./services/commerce-api:/app
+      - commerce-media:/var/lib/matecart/media
     networks: [commerce]
     depends_on:
       commerce-db: { condition: service_healthy }
@@ -251,6 +255,8 @@ volumes:
     name: matecart-dev-commerce-db-data
   commerce-redis-data:
     name: matecart-dev-commerce-redis-data
+  commerce-media:
+    name: matecart-dev-commerce-media
   control-db-data:
     name: matecart-dev-control-db-data
   control-redis-data:

@@ -1,5 +1,6 @@
 from collections.abc import Callable, Iterator
 from contextlib import AbstractContextManager
+from pathlib import Path
 from typing import Any
 
 import pytest
@@ -45,6 +46,12 @@ def _fresh_rate_limits() -> Iterator[None]:
     delivery._provider.cache_clear()
     yield
     delivery._provider.cache_clear()
+
+
+@pytest.fixture(autouse=True)
+def _private_media_root(settings: Settings, tmp_path: Path) -> None:
+    """Uploaded files of each test go to its own temporary directory, never the real volume."""
+    settings.MEDIA_ROOT = str(tmp_path / "media")
 
 
 @pytest.fixture

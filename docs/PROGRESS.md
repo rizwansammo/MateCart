@@ -1,185 +1,153 @@
 # Progress and handoff
 
-Updated: 2026-10-26 (Asia/Dhaka). **Phase 03.1 — Authentication Security & Final
-Closeout is complete locally and ready for the owner's GitHub review.** Phase 03
-was committed and its CI passed; formal acceptance remains pending review of this
-corrective diff and its post-push CI. Phase 04 is pending and has not started.
+Updated: 2026-10-26 (Asia/Dhaka). **Phase 04 — Product & Inventory Engine is
+implemented and locally verified, ready for the owner's commit, push, GitHub CI and
+independent security acceptance.** Phases 01–03 (with corrective subphases 02.1,
+02.2 and 03.1) are accepted and closed. Phase 05 has not started and needs explicit
+authorization.
 
 ## Accepted baseline and boundaries
 
-| Item            | Recorded state                                                                                                                                                                              |
-| --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Phase 01        | Accepted: `8f3e34b2a2930a08084902d0d5beb9789d6eb4ca`; owner subsequently pushed and confirmed CI 4/4. Its earlier unrun-CI report was historically correct.                                 |
-| Phase 02        | Accepted: `72f277e154dab40c586a48dcf5d3852e691993fc`; CI 4/4, 179 tests.                                                                                                                    |
-| Correction 02.1 | Accepted: `ba513b5927cdfcadd7e8b98dcb08c71d834146f8`, run 40211394370, 4/4, 245 tests; forged-instance writes/deletes, audit sanitation, UUID policy and secret rotation.                   |
-| Correction 02.2 | Accepted and Phase 02 closed: `aceae6fa4ed6cc186ba6a77bdd1869e818f0dceb`, run 40213680998, 4/4, 260 tests; active-context refresh and scoped base/relation managers, state-only migrations. |
-| Phase 03        | Implemented and pushed: `f2c18d0b533d1bf94b486e452c75cb2f4db63d89`; run 40230926210, 4/4, 449 automated tests. Independent review then requested the focused 03.1 corrections below.        |
-| Current Git     | Baseline `f2c18d0` on `main`; only Phase 03.1 changes are uncommitted/unstaged for the owner. No commit, push or PR was created by the assistant.                                           |
-| Architecture    | Dedicated single-tenant deployment, tenant-aware modular monolith, future hybrid only if approved; commerce/control independent.                                                            |
-| Product         | Private beta, manual onboarding. Public commercial signup/subscriptions/billing deferred. Public customer registration is authorized.                                                       |
-| Prototype       | MateCart-UI strictly read-only; no edits/build/install.                                                                                                                                     |
-| Roadmap         | All 19 main phases preserved; 02.1/02.2 are corrective subphases, not additional main phases.                                                                                               |
+| Item            | Recorded state                                                                                                                                                                                                                                            |
+| --------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Phase 01        | Accepted: `8f3e34b2a2930a08084902d0d5beb9789d6eb4ca`; owner subsequently pushed and confirmed CI 4/4. Its earlier unrun-CI report was historically correct.                                                                                               |
+| Phase 02        | Accepted: `72f277e154dab40c586a48dcf5d3852e691993fc`; CI 4/4, 179 tests.                                                                                                                                                                                  |
+| Correction 02.1 | Accepted: `ba513b5927cdfcadd7e8b98dcb08c71d834146f8`, run 40211394370, 4/4, 245 tests; forged-instance writes/deletes, audit sanitation, UUID policy and secret rotation.                                                                                 |
+| Correction 02.2 | Accepted and Phase 02 closed: `aceae6fa4ed6cc186ba6a77bdd1869e818f0dceb`, run 40213680998, 4/4, 260 tests; active-context refresh and scoped base/relation managers, state-only migrations.                                                               |
+| Phase 03        | Implemented: `f2c18d0b533d1bf94b486e452c75cb2f4db63d89`; run 40230926210, 4/4, 449 automated tests. Independent review requested three 03.1 corrections.                                                                                                  |
+| Correction 03.1 | Accepted and Phase 03 closed (owner decision 2026-10-26): `5d6152ab98a0d01993845173b92370e75cffa936`, run 40237897132, 4/4 jobs, 463 tests (370 commerce, 57 control, 17 contracts, 16 UI, 3 Node); 12 local live smoke checks. Findings closed in scope. |
+| Phase 04        | **Implemented locally, not committed.** Baseline `5d6152a` on `main`; all Phase 04 changes are uncommitted for the owner. No commit, push or PR was created by the assistant. CI and independent acceptance pending.                                      |
+| Architecture    | Dedicated single-tenant deployment, tenant-aware modular monolith, future hybrid only if approved; commerce/control independent.                                                                                                                          |
+| Product         | Private beta, manual onboarding. Public commercial signup/subscriptions/billing deferred. Public customer registration is authorized.                                                                                                                     |
+| Prototype       | MateCart-UI strictly read-only; no edits/build/install (HEAD `9ff1361`, clean).                                                                                                                                                                           |
+| Roadmap         | All 19 main phases preserved; 02.1/02.2/03.1 are corrective subphases, not additional main phases.                                                                                                                                                        |
 
-## Takeover and preservation
+Phase 03/03.1 history (accepted): realm-separated customer, merchant and console
+authentication; optional merchant and mandatory console MFA; owner provisioning
+and staff invitations; 03.1 closed backend team step-up, OIDC binding order and
+narrow Google provider failure handling (D-039 to D-049, AUTHENTICATION.md,
+SECURITY.md). External Google, SMS and SMTP acceptance remains outstanding until
+genuine providers are configured.
 
-Codex inspected Claude's uncommitted work and all canonical documents before
-continuation. A source-only recovery archive (no ignored credentials/dependencies)
-was made in the local temporary directory:
-`matecart-source-takeover-20261026-005755.zip`. The existing implementations and
-migrations were retained, reviewed and completed. Existing local environment keys,
-tenant identity, store configuration and persistent volumes were preserved.
+## Phase 04 implemented scope
 
-Phase 03.1 handoff (Codex → Claude Code, 2026-10-26): Codex stopped at a usage
-limit after implementing the 03.1 corrections. Claude Code took over the
-uncommitted 14-file worktree on `f2c18d0` without reset or reimplementation,
-saved a recovery snapshot outside the repository (`phase-03.1-codex.patch` plus
-file copies, verified to reverse-apply), reviewed every change and reran all
-gates. The only addition was one smoke assertion that a freshly signed-in
-non-Owner's direct team mutation is refused with `permission_denied`.
+Decisions D-050 to D-058. Schema: DATA_MODEL.md §2. Controls: SECURITY.md.
 
-## Implemented scope
+- **Apps:** `commerce.media`, `commerce.catalog`, `commerce.pricing`,
+  `commerce.inventory` (27 tenant-owned models, 45 composite tenant foreign keys,
+  five additive migrations including the ledger trigger).
+- **Catalogue:** category tree (five levels, cycle-safe moves under a store-level
+  lock), collections with explicit order, brands, typed attributes (text, number,
+  boolean, option, measurement; variant vs specification scope), products with a
+  draft/active/archived lifecycle and publication checks, variants with
+  database-unique option combinations, store-unique SKUs, GTIN barcodes and ISBN-13
+  per format, translations for the store's additional languages.
+- **Presets:** one engine; `product_type` per product. Apparel (audience, material,
+  fit, care, size guide), grocery (pack size, perishable, storage, shelf life,
+  origin, ingredients/allergens), electronics (model, warranty policies, typed
+  specs, serial tracking), books (authors, publisher, date, edition, language,
+  genre, pages, series; paperback/hardcover/eBook variants with their own ISBN;
+  digital format; pre-order release date), general (all types, none forced).
+- **Pricing:** price lists (default in the store currency), Decimal(19,4) prices
+  with currency minor-unit precision, compare-at above price, zero allowed, cost
+  prices restricted to the new `catalog.costs` permission (Owner, Manager) and
+  never written to audit values; `quote()` for checkout snapshots.
+- **Inventory:** locations (MAIN default), levels with database-generated
+  `available`, append-only ledger (ORM + trigger) with balances after each change,
+  receipts, signed count adjustments, damaged/lost/returned, transfers, whole
+  operation reversals, idempotency keys, no negative stock or overselling (locks +
+  CHECKs), reconciliation (API and `manage.py reconcile_inventory`), batches with
+  expiry and FEFO listing, store-unique serial numbers with one location. Reserve,
+  release and fulfil are tested service extension points for Phases 07/08.
+- **Media:** uploads validated from bytes (JPEG/PNG/WebP fully decoded, PDF), size,
+  dimension and bomb limits checked before parsing, tenant-namespaced generated
+  paths (fail closed), named volume locally, hardened streaming, public files only
+  while published.
+- **APIs:** merchant `/api/manage/catalog|pricing|inventory|media/` (staff realm,
+  CSRF, `catalog.manage`), public read-only `/api/catalog/` (publication-safe),
+  pagination, allowlisted filters/sorting/search, standard error envelope; 126
+  OpenAPI operations in `openapi.yaml`; runtime-validated `shared-contracts`
+  decoders for the public catalogue and inventory responses.
+- **Deferred by scope:** storefront/product UI (06), merchant catalogue UI (11),
+  themes (05), cart/checkout and reservation API use (07), orders, FEFO allocation
+  and payments (08), couriers (09), warranty claims/returns/digital delivery (10),
+  promotions/coupons (12), image processing/CDN and public rate limits (12/17).
 
-- **Customer:** email/password registration and verification, login/logout, recovery
-  and password management, profile name, phone-only OTP registration/sign-in,
-  Google OIDC and verified linking/unlinking. No merge by matching email. Phone
-  and Google have explicit provider gates; live external credentials are absent.
-- **Merchant:** provisioning-only Owner invitation (`invite_owner`), single-use
-  expiring staff invitation activation, resend/revoke, fixed tenant-scoped RBAC,
-  role edits/suspend/reactivate. Separate customer/staff account/session realms;
-  same storefront web app under `/manage`. Only Owner manages the team.
-- **Console:** personnel-only `create_admin` activation, mandatory MFA with
-  restricted initial enrollment, independent credentials/database/Redis/cookies,
-  protected account shell. No public admin registration or full fleet console.
-- **MFA:** TOTP encrypted at rest with replay prevention, verified email codes,
-  single-use hashed recovery codes, regeneration, recent-auth checks and sensitive
-  changes. Optional merchant policy, mandatory console policy with last-method
-  protection. QR defaults visible; setup key reveal/copy is deliberate; guided
-  verification, code copy/download and save acknowledgment; clear resend/expiry UI.
-- **Security:** Argon2, opaque hashed cookie sessions, separate realm paths,
-  Secure deployment cookies, CSRF including login, expiration/revocation/rotation,
-  account/IP/tenant/operation limits, transactional tenant-owned audit, safe errors,
-  no token persistence in browser storage, no-store authentication responses.
-- **Delivery:** safe local Mailpit, independent console Redis, per-store SMS
-  adapter attribution, transactional after-commit templates. Full asynchronous
-  notification/retry infrastructure remains Phase 13; no fabricated SMS success.
-- **Frontend:** runtime-validated shared contracts, accessible form/dialog/OTP
-  controls, customer account pages, merchant team/security pages, console
-  activation/enrollment/security. Minimal protected shells only. Approved visual
-  tokens/typography and modest corners; no prototype demo switcher.
+## Defects found and fixed during Phase 04
 
-## Continuation review corrections
+1. Uploaded files were stored under `tenants/None/...` because the path was built
+   before the row had its tenant (caught by a media test). The upload service now
+   assigns the tenant first, and `tenant_storage_path` uses the active tenant for
+   unsaved rows and fails closed without one (regression test added).
+2. `.gitignore` ignored every `media/` directory, which would have silently left the
+   whole `commerce/media` app out of the commit. The rule is now anchored to
+   `/services/*/media/` (local upload folders only).
+3. The upload size limit ran after CSRF had already parsed the form body; it now runs
+   first, before any parsing or temporary-file spooling.
+4. Draft books could not be saved without an author; authors are now optional until
+   publication (catalogue migration regenerated before it was ever applied).
+5. The shared `never_cache` base prevented public media caching; the public media
+   route now uses a plain read-only view. Primary-category-only updates are applied.
 
-1. Pending-session activation now locks and checks live state, preventing stale
-   references from issuing multiple authenticated sessions.
-2. MFA resend serializes challenge reuse/cooldown; console last-method removal
-   serializes against the user row. Step-up, password changes and TOTP enrollment
-   receive dedicated rate limits.
-3. Password/MFA and customer linked-method changes rotate the current browser
-   credential without extending absolute expiry. Other sessions are revoked.
-4. Invitation/activation preview uses POST bodies instead of API URL tokens; the
-   frontend now matches that contract. Django access log query values are removed;
-   Next request/browser-to-terminal logging is disabled. Provider failures log no
-   raw exception payloads. All auth responses are no-store.
-5. Every new commerce auth model has two-tenant read/update/delete/refresh/no-context
-   regression coverage; AST guard rejects raw/manager-free/unscoped auth paths.
-   Original `_do_update`, forged-instance, deferred-field and audit trigger tests
-   remain in the complete suite.
-6. Local Turbopack CSS subprocess crashed on Windows. The installed Next 16 CLI
-   documents the supported `--webpack` option; both app scripts now use it. Both
-   production builds passed using Webpack. Do not build/typegen concurrently with
-   the dev server because generated `.next` declarations can race.
+## Changed areas
 
-## Phase 03.1 independent audit corrections
+| Area          | Files/modules                                                                                                                                                                                                      |
+| ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| New apps      | `commerce/{media,catalog,pricing,inventory}/` (models, services, serializers, views, urls, migrations; catalogue `public.py`/`public_urls.py`; `reconcile_inventory` command).                                     |
+| Core          | `commerce/core/{domain,fields,pagination}.py` (domain errors, tenant-scoped reference fields, pagination); `tenancy/keys.py` (fail-closed storage path).                                                           |
+| Staff         | `staff/permissions.py` (`catalog.costs`), `staff/views.py` (`CatalogStaffView`).                                                                                                                                   |
+| Config        | `config/settings/base.py` (apps, media storage, schema enums), `config/urls.py`, `pyproject.toml`/`uv.lock` (Pillow 12.3.0), `Dockerfile` (media dir), `compose.yaml` (media volume and env), `.gitignore`.        |
+| Contracts     | `packages/shared-contracts/src/catalog.ts` and tests; `index.ts` export.                                                                                                                                           |
+| Tests         | `tests/catalog_helpers.py`, `test_catalog_{isolation,domain,api}.py`, `test_pricing.py`, `test_inventory.py`, `test_inventory_concurrency.py`, `test_media.py`; `conftest.py` (per-test media root), `helpers.py`. |
+| Scripts       | `scripts/catalog-smoke.mjs` (new); `scripts/verify_auth_migrations.py` (Phase 04 reversal).                                                                                                                        |
+| Documentation | AGENTS (Phase 04 guardrails), README, ARCHITECTURE, DATA_MODEL, DECISIONS (D-050 to D-058), roadmap, checklist, SECURITY, AUTHENTICATION, DEVELOPMENT_SETUP, this handoff.                                         |
 
-The independent source review confirmed three narrow security gaps. The existing
-authentication architecture, schema and business policies were retained.
+## Verification record (Phase 04, observed)
 
-1. **Merchant team step-up:** every invitation create/resend/revoke, role change,
-   suspension and reactivation now requires both `staff.manage` and the existing
-   ten-minute recent-authentication policy at the backend API boundary. Direct API
-   calls cannot bypass the password-confirmation dialog. Wrong passwords do not
-   renew the window; fresh sign-in or successful reauthentication does. Customer,
-   non-Owner, CSRF and tenant boundaries remain independently enforced.
-2. **Google state lifecycle:** an authorization row is locked, checked for unused
-   state, expiry and browser binding, and only then marked used. A wrong or missing
-   binding no longer invalidates the legitimate browser's flow. Correct callbacks
-   remain exactly once under concurrent attempts.
-3. **Google provider failures:** expected token/JWKS transport, decoding, payload,
-   key and JWT validation failures are normalized to the existing generic
-   `google_failed` result. No session or external identity is issued. Exception
-   handling is deliberately narrow so unrelated programmer errors remain visible.
+**701 automated tests passed** (596 commerce + 57 control + 29 contracts + 16
+shared UI + 3 Node), up from the accepted 463: 226 new commerce tests and 12 new
+contract tests. Plus 7 live catalogue and 12 live authentication smoke checks.
 
-No model or migration changed. `openapi.yaml` changed only to document the recent
-password-confirmation requirement on the six team mutation operations.
+| Check                     | Actual observation                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| ------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Commerce PostgreSQL suite | 596 passed (`pnpm api:test`). Phase 04 files: isolation 78, domain 58, API 19, pricing 16, inventory 31, concurrency 5, media 19. Phase 02/03 suites (tenancy, forged instances, auth, 03.1) unchanged and passing.                                                                                                                                                                                                                                                                      |
+| Two-tenant isolation      | All 27 models unreachable from another tenant (read, update, delete, refresh, no context); every one of the 45 tenant foreign keys refused by PostgreSQL; deferred fields, relation traversal, forged save/delete refused; AST guard for the four new apps.                                                                                                                                                                                                                              |
+| Concurrency               | Parallel committed transactions: no lost updates (gap-free balances), no overselling (5 of 8 reservations), decrements stop at zero, one operation for concurrent retries, opposite transfers without deadlock. With the row locks removed in a throwaway copy, 4 of these 5 tests fail (the idempotency test is also protected by its unique constraint).                                                                                                                               |
+| Control PostgreSQL suite  | 57 passed.                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| Lint/types                | `pnpm api:lint`: Ruff, Ruff format and strict mypy passed (commerce 157 files, control 52).                                                                                                                                                                                                                                                                                                                                                                                              |
+| Frontend                  | `pnpm check` passed (Prettier, ESLint, strict typecheck, 29 contract + 16 UI + 3 Node tests). `pnpm build` passed for both apps with Webpack.                                                                                                                                                                                                                                                                                                                                            |
+| Schema                    | `pnpm api:schema` validated both schemas without warnings; regenerated files byte-identical to the worktree (drift test green). 126 commerce operations.                                                                                                                                                                                                                                                                                                                                 |
+| Migrations                | `python scripts/verify_auth_migrations.py`: fresh migrate, reverse Phase 04 and auth migrations, reapply, drift and system checks passed for both services on temporary databases (only those removed). Dev DB: five Phase 04 migrations applied on container start; `makemigrations --check`: no changes; `reconcile_inventory`: consistent.                                                                                                                                            |
+| Live smoke                | `node scripts/catalog-smoke.mjs --local`: 7 checks through the Next.js proxy (anonymous denial, content editor without costs/team, typed options, byte-validated upload with SVG refused, product with prices/gallery/publication and cost refusal, idempotent receipt/oversell refusal/damage/reconciliation, public catalogue without costs or quantities and safe image serving, archive removal). Ran twice. `node scripts/auth-smoke.mjs --local`: 12 checks (Phase 03 regression). |
+| Runtime                   | Only `matecart-dev` affected: image rebuilt with Pillow; `commerce-api` and `commerce-worker` recreated with the media volume; all eight services healthy. `pnpm api:celery-check` pong. `pnpm health` all six checks. `pnpm dev` running on 3400/3410.                                                                                                                                                                                                                                  |
+| Preservation/secrets      | Tenant `dev-store` and store settings unchanged; existing 9 users, 5 memberships and 34 audit events intact before migration; new rows are labelled review data. Other projects' five containers kept IDs/exited states; networks unchanged; new volume `matecart-dev-commerce-media`. No `.env`/secret files changed; `git diff --check` passed.                                                                                                                                        |
+| GitHub CI                 | Not run for Phase 04: nothing is committed. Last CI: run 40237897132 (Phase 03.1), 4/4.                                                                                                                                                                                                                                                                                                                                                                                                  |
 
-## Models, migrations and changed areas
+## Local review data
 
-| Area                   | Files/modules                                                                                                                                                                                                               |
-| ---------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Commerce core/identity | `commerce/core/{security,totp,ratelimit,http,delivery,logging}.py`; `identity/{models,auth,customers,google,mfa,otp,passwords,sessions,serializers,schema,views,urls}.py`, templates/settings/urls and locked dependencies. |
-| Staff                  | New `commerce/staff` app: models, role permissions, invitation/membership/sign-in services, serializers/views/urls, `invite_owner` command.                                                                                 |
-| Control                | `control/accounts` models/auth/services/sessions/views/urls/schema, `create_admin`, templates; independent core security/delivery/http/rate-limit/TOTP modules, settings and lock.                                          |
-| Migrations             | Commerce `identity.0003_authentication`, `staff.0001_initial`; control `accounts.0002_console_sign_in`. Additive authentication structures; no database reset/fake migration.                                               |
-| New commerce models    | AuthSession, OtpChallenge, ActionToken, ExternalIdentity, OidcAuthorization, TotpDevice, RecoveryCode, StaffMembership, StaffInvitation.                                                                                    |
-| New control models     | AdminSession, AdminOtpChallenge, AdminActionToken, AdminTotpDevice, AdminRecoveryCode; AdminUser activation/email-MFA fields.                                                                                               |
-| Web                    | `apps/commerce-web/src/{app/account,app/manage,components/*-app.tsx,lib/auth-client.ts}`; console catchall, `/status`, ConsoleApp; configs and scripts.                                                                     |
-| Shared                 | `shared-contracts/src/auth*`; shared-ui API client, controls, shells/pages, MFA, security settings, tests/Vitest setup, design token.                                                                                       |
-| Infrastructure         | Compose Mailpit/control Redis, new env examples (real values ignored), package/uv locks; no deployments/publishing.                                                                                                         |
-| Verification           | Expanded backend tests, frontend contract/component tests, `scripts/auth-smoke.mjs`, `scripts/verify_auth_migrations.py`.                                                                                                   |
-| Documentation          | AGENTS, README, ARCHITECTURE, DATA_MODEL, DECISIONS, roadmap, checklist, setup; AUTHENTICATION and SECURITY guides; this canonical handoff.                                                                                 |
-
-## Verification record
-
-Phase 03's pushed baseline passed **449 automated tests** (356 commerce + 57
-control + 17 contracts + 16 shared UI + 3 Node) in GitHub Actions run 40230926210.
-Phase 03.1 local verification passes **463 automated tests** (370 commerce + 57
-control + 17 contracts + 16 shared UI + 3 Node), plus 12 live smoke checks.
-
-| Check                       | Actual observation                                                                                                                                                                                                                                                                                                                                                                              |
-| --------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Commerce PostgreSQL suite   | 370 passed via `pnpm api:test` (14 new 03.1 regression tests); the 90 focused staff/OIDC/CSRF tests pass. Against the pre-fix `staff/views.py` and `identity/google.py` (throwaway copy), 7 of them fail, proving they detect the original defects. Strict Mypy (114 files), Ruff lint and formatting passed via `pnpm api:lint`.                                                               |
-| Control PostgreSQL suite    | 57 passed via `pnpm api:test`; strict Mypy (52 files), Ruff lint and formatting passed via `pnpm api:lint`.                                                                                                                                                                                                                                                                                     |
-| Contracts                   | 17 passed.                                                                                                                                                                                                                                                                                                                                                                                      |
-| Shared React UI             | 16 passed, including POST invitation preview, QR/key visibility, paste/cooldown and recovery save acknowledgment.                                                                                                                                                                                                                                                                               |
-| Node scripts                | 3 passed.                                                                                                                                                                                                                                                                                                                                                                                       |
-| `pnpm check`                | Passed: Prettier, ESLint, strict TypeScript/route generation, all TS/UI/Node tests.                                                                                                                                                                                                                                                                                                             |
-| `pnpm build`                | Passed for both applications using Webpack, including strict TypeScript and page generation.                                                                                                                                                                                                                                                                                                    |
-| Migration round-trip        | `python scripts/verify_auth_migrations.py`: both services fresh migrate, reverse auth migrations, reapply, drift/system checks passed on temporary PostgreSQL DBs; only temporary DBs removed. Dev DBs: no unapplied migrations, no drift. Phase 03.1 has no model or migration changes.                                                                                                        |
-| Live Next/API/Mailpit smoke | `node scripts/auth-smoke.mjs --local`: 12 checks passed through the Next.js proxies, adding an aged Owner session, direct team-mutation denial (`reauthentication_required`), password confirmation and successful retry, plus non-Owner direct mutation denial (`permission_denied`), to the existing registration/recovery, CSRF, realm, RBAC, merchant MFA and mandatory console MFA checks. |
-| Browser                     | Phase 03: desktop customer sign-in, required-field focus, registration, 390px mobile, anonymous `/manage` redirect, console sign-in redirect. Phase 03.1 changed no UI; HTTP 200 confirmed for customer/merchant sign-in, `/manage/team`, console sign-in and Mailpit. No real external provider/browser OAuth exchange.                                                                        |
-| Runtime                     | All eight `matecart-dev` services already up and healthy (no rebuild needed: source is bind-mounted). `pnpm dev` started after `pnpm build` and left running on 3400/3410.                                                                                                                                                                                                                      |
-| Celery and health           | `pnpm api:celery-check` returned pong. `pnpm health` passed all six endpoint checks after Next warm-up.                                                                                                                                                                                                                                                                                         |
-| System/schema/Compose       | Both Django system checks and `makemigrations --check --dry-run`: passed/no changes. `pnpm api:schema`: both schemas validated without warnings; regenerated `openapi.yaml` files byte-identical to the worktree. `docker compose config --quiet`: passed.                                                                                                                                      |
-| Preservation/secrets        | Single `dev-store` tenant unchanged; users 7→9 and memberships 4→5, all new rows labelled smoke-review accounts (no non-review users exist). Other five project containers kept the same IDs/exited states; volumes/networks unchanged. Prototype HEAD `9ff1361`, clean. No `.env`/secret changes, zero staged files. `git diff --check`: passed.                                               |
-| GitHub CI                   | Phase 03 run 40230926210 passed 4/4 with 449 tests. Phase 03.1 has not been committed or pushed; its CI and independent final review remain pending.                                                                                                                                                                                                                                            |
-
-## Local review data and integrations
-
-Mailpit at `http://127.0.0.1:18025` contains local test messages only. Live smoke
-verification created labelled `review-*@example.test` accounts and audit history;
-these remain in development. The review owner is `review-owner@example.test`.
-Use merchant Forgot password and the newest local inbox link to try that account.
-Random test passwords/codes were never printed or saved to source. The script
-preserves a non-review owner if one already exists. No real email, SMS or Google
-provider has been configured or claimed tested.
+- Merchant review accounts: `review-owner@example.test` (Owner; use Forgot
+  password and the newest Mailpit link) and `review-catalog-editor@example.test`
+  (Content editor, re-keyed by each catalogue smoke run; reset by the same flow).
+- Catalogue smoke runs leave archived "Review Smoke Shirt <run id>" products,
+  review attributes, a review image and their ledger history. The public catalogue
+  is empty until a product is published:
+  http://127.0.0.1:3400/api/catalog/products/ (JSON). Merchant endpoints are
+  documented in `services/commerce-api/openapi.yaml`; there is no catalogue UI yet
+  (Phase 11).
+- Mailpit http://127.0.0.1:18025 holds local messages only. No real provider is
+  configured.
 
 ## Remaining scope, limits and next step
 
-- **Next step:** owner reviews the uncommitted Phase 03.1 correction, commits and
-  pushes it, verifies GitHub CI, and asks the independent reviewer to inspect the
-  new diff. No local implementation/check blocker remains. Do not start Phase 04
-  until the owner accepts Phase 03.1 and explicitly authorizes it.
-- Real Google/SMS/SMTP require configuration and provider acceptance before client
-  use. Delivery acceptance is not guaranteed mailbox receipt. Durable retry/outbox,
-  retention and monitoring belong to Phase 13; see SECURITY.md for limits.
-- Key rotation requires preserving/decrypting existing seeds; do not regenerate
-  deployed encryption keys casually. Production DB runtime privileges/proxy logging
-  hardening is Phase 17; final Django/tenant/security audit is Phase 18.
-- Q4 `/manage`, Q6 all three customer methods, Q7 separate realms are resolved.
-  Font license (05) and Redis licensing review (17) remain deferred decisions.
-- Customer address book/defaults (10), checkout recipient selection/snapshots (07/08),
-  managed masking SMS/notifications (13), allowance/prepaid/recharge billing (future)
-  remain planned. Full merchant operations (11), console fleet management (16),
-  production deployment (17/19) are not implemented here.
-- Owner commits and pushes. No co-author trailers. Phase 04 requires explicit
-  authorization after Phase 03.1 review, CI and independent security acceptance.
+- **Next step:** owner reviews the uncommitted Phase 04 diff, commits and pushes it,
+  verifies GitHub CI (the commerce job builds the new apps and runs the PostgreSQL
+  concurrency tests), and requests independent security acceptance. Phase 05 starts
+  only after explicit authorization.
+- Known limits: no public catalogue rate limits/CDN, no image resizing or malware
+  scanning (only images and PDFs accepted; PDFs download), public media may stay in
+  shared caches for five minutes after unpublishing, reservations not yet exposed
+  (07/08), FEFO is listing only (allocation 08), no catalogue UI (06/11).
+- Carried forward: live Google/SMS/SMTP acceptance; production DB roles and proxy
+  hardening (17); final security, load and recovery audit (18); font (Q1) and Redis
+  licence (Q2) questions.
+- Owner commits and pushes. No co-author trailers.

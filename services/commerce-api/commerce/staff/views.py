@@ -66,6 +66,7 @@ AUTH_TAGS = ["manage-auth"]
 TEAM_TAGS = ["manage-team"]
 SECURITY_TAGS = ["manage-security"]
 CanManageStaff = HasStaffPermission.of(Permission.STAFF_MANAGE)
+CanManageCatalog = HasStaffPermission.of(Permission.CATALOG_MANAGE)
 
 
 def _body(serializer_class: Any, request: Request) -> dict[str, Any]:
@@ -106,6 +107,17 @@ class StaffView(CsrfProtectedAPIView):
     def user(self) -> User:
         user: User = self.request.user  # type: ignore[assignment]
         return user
+
+
+class CatalogStaffView(StaffView):
+    """Catalogue, pricing, inventory and media management: ``catalog.manage`` (Owner, Manager,
+    Content editor). Cost prices additionally need ``catalog.costs``."""
+
+    permission_classes = (IsAuthenticated, CanManageCatalog)
+
+    @property
+    def can_see_costs(self) -> bool:
+        return Permission.CATALOG_COSTS in self.staff.permissions
 
 
 class SensitiveTeamMutationView(StaffView):

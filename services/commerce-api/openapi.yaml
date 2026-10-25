@@ -461,6 +461,209 @@ paths:
               schema:
                 $ref: '#/components/schemas/CustomerAccount'
           description: ''
+  /api/catalog/categories/:
+    get:
+      operationId: catalog_categories
+      description: Base for every cookie-authenticated or sign-in endpoint.
+      tags:
+      - catalog
+      security:
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/PublicCategoryNode'
+          description: ''
+  /api/catalog/collections/:
+    get:
+      operationId: catalog_collections
+      description: Base for every cookie-authenticated or sign-in endpoint.
+      parameters:
+      - in: query
+        name: page
+        schema:
+          type: integer
+          maximum: 100000
+          minimum: 1
+          default: 1
+      - in: query
+        name: page_size
+        schema:
+          type: integer
+          maximum: 100
+          minimum: 1
+          default: 25
+      tags:
+      - catalog
+      security:
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicCollectionPage'
+          description: ''
+  /api/catalog/collections/{slug}/:
+    get:
+      operationId: catalog_collection
+      description: Base for every cookie-authenticated or sign-in endpoint.
+      parameters:
+      - in: path
+        name: slug
+        schema:
+          type: string
+        required: true
+      tags:
+      - catalog
+      security:
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicCollection'
+          description: ''
+  /api/catalog/media/{asset_id}/:
+    get:
+      operationId: catalog_media
+      description: An image (or PDF size guide) used by an active product, category
+        or collection.
+      parameters:
+      - in: path
+        name: asset_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - catalog
+      security:
+      - {}
+      responses:
+        '200':
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+          description: ''
+  /api/catalog/products/:
+    get:
+      operationId: catalog_products
+      description: Base for every cookie-authenticated or sign-in endpoint.
+      parameters:
+      - in: query
+        name: brand
+        schema:
+          type: string
+          minLength: 1
+          maxLength: 140
+          pattern: ^[-a-zA-Z0-9_]+$
+      - in: query
+        name: category
+        schema:
+          type: string
+          minLength: 1
+          maxLength: 140
+          pattern: ^[-a-zA-Z0-9_]+$
+      - in: query
+        name: collection
+        schema:
+          type: string
+          minLength: 1
+          maxLength: 140
+          pattern: ^[-a-zA-Z0-9_]+$
+      - in: query
+        name: ordering
+        schema:
+          enum:
+          - newest
+          - name
+          - price_low
+          - price_high
+          - featured
+          type: string
+          minLength: 1
+        description: |-
+          * `newest` - newest
+          * `name` - name
+          * `price_low` - price_low
+          * `price_high` - price_high
+          * `featured` - featured
+      - in: query
+        name: page
+        schema:
+          type: integer
+          maximum: 100000
+          minimum: 1
+          default: 1
+      - in: query
+        name: page_size
+        schema:
+          type: integer
+          maximum: 100
+          minimum: 1
+          default: 25
+      - in: query
+        name: product_type
+        schema:
+          enum:
+          - standard
+          - apparel
+          - grocery
+          - electronics
+          - book
+          type: string
+          minLength: 1
+        description: |-
+          * `standard` - Standard
+          * `apparel` - Apparel
+          * `grocery` - Grocery
+          * `electronics` - Electronics
+          * `book` - Book
+      - in: query
+        name: q
+        schema:
+          type: string
+          maxLength: 100
+      tags:
+      - catalog
+      security:
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicProductSummaryPage'
+          description: ''
+  /api/catalog/products/{slug}/:
+    get:
+      operationId: catalog_product
+      description: Base for every cookie-authenticated or sign-in endpoint.
+      parameters:
+      - in: path
+        name: slug
+        schema:
+          type: string
+        required: true
+      tags:
+      - catalog
+      security:
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicProductDetail'
+          description: ''
   /api/csrf/:
     get:
       operationId: csrf
@@ -812,6 +1015,1604 @@ paths:
               schema:
                 $ref: '#/components/schemas/StaffSession'
           description: ''
+  /api/manage/catalog/attributes/:
+    get:
+      operationId: manage_catalog_attributes
+      description: Merchant reads are never cached by browsers or proxies (drafts,
+        costs).
+      parameters:
+      - in: query
+        name: page
+        schema:
+          type: integer
+          maximum: 100000
+          minimum: 1
+          default: 1
+      - in: query
+        name: page_size
+        schema:
+          type: integer
+          maximum: 100
+          minimum: 1
+          default: 25
+      tags:
+      - manage-catalog
+      security:
+      - staffSession: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AttributePage'
+          description: ''
+    post:
+      operationId: manage_catalog_attribute_create
+      description: Merchant reads are never cached by browsers or proxies (drafts,
+        costs).
+      tags:
+      - manage-catalog
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AttributeWriteRequest'
+        required: true
+      security:
+      - staffSession: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Attribute'
+          description: ''
+  /api/manage/catalog/attributes/{attribute_id}/:
+    get:
+      operationId: manage_catalog_attribute
+      description: Merchant reads are never cached by browsers or proxies (drafts,
+        costs).
+      parameters:
+      - in: path
+        name: attribute_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - manage-catalog
+      security:
+      - staffSession: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Attribute'
+          description: ''
+    patch:
+      operationId: manage_catalog_attribute_update
+      description: Merchant reads are never cached by browsers or proxies (drafts,
+        costs).
+      parameters:
+      - in: path
+        name: attribute_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - manage-catalog
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedAttributeWriteRequest'
+      security:
+      - staffSession: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Attribute'
+          description: ''
+    delete:
+      operationId: manage_catalog_attribute_delete
+      description: Merchant reads are never cached by browsers or proxies (drafts,
+        costs).
+      parameters:
+      - in: path
+        name: attribute_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - manage-catalog
+      security:
+      - staffSession: []
+      responses:
+        '204':
+          description: No response body
+  /api/manage/catalog/attributes/{attribute_id}/options/:
+    post:
+      operationId: manage_catalog_option_create
+      description: |-
+        Catalogue, pricing, inventory and media management: ``catalog.manage`` (Owner, Manager,
+        Content editor). Cost prices additionally need ``catalog.costs``.
+      parameters:
+      - in: path
+        name: attribute_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - manage-catalog
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OptionWriteRequest'
+        required: true
+      security:
+      - staffSession: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Option'
+          description: ''
+  /api/manage/catalog/attributes/{attribute_id}/options/{option_id}/:
+    patch:
+      operationId: manage_catalog_option_update
+      description: |-
+        Catalogue, pricing, inventory and media management: ``catalog.manage`` (Owner, Manager,
+        Content editor). Cost prices additionally need ``catalog.costs``.
+      parameters:
+      - in: path
+        name: attribute_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: option_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - manage-catalog
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedOptionWriteRequest'
+      security:
+      - staffSession: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Option'
+          description: ''
+    delete:
+      operationId: manage_catalog_option_delete
+      description: |-
+        Catalogue, pricing, inventory and media management: ``catalog.manage`` (Owner, Manager,
+        Content editor). Cost prices additionally need ``catalog.costs``.
+      parameters:
+      - in: path
+        name: attribute_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: option_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - manage-catalog
+      security:
+      - staffSession: []
+      responses:
+        '204':
+          description: No response body
+  /api/manage/catalog/brands/:
+    get:
+      operationId: manage_catalog_brands
+      description: Merchant reads are never cached by browsers or proxies (drafts,
+        costs).
+      parameters:
+      - in: query
+        name: page
+        schema:
+          type: integer
+          maximum: 100000
+          minimum: 1
+          default: 1
+      - in: query
+        name: page_size
+        schema:
+          type: integer
+          maximum: 100
+          minimum: 1
+          default: 25
+      tags:
+      - manage-catalog
+      security:
+      - staffSession: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BrandPage'
+          description: ''
+    post:
+      operationId: manage_catalog_brand_create
+      description: Merchant reads are never cached by browsers or proxies (drafts,
+        costs).
+      tags:
+      - manage-catalog
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BrandWriteRequest'
+        required: true
+      security:
+      - staffSession: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Brand'
+          description: ''
+  /api/manage/catalog/brands/{brand_id}/:
+    get:
+      operationId: manage_catalog_brand
+      description: Merchant reads are never cached by browsers or proxies (drafts,
+        costs).
+      parameters:
+      - in: path
+        name: brand_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - manage-catalog
+      security:
+      - staffSession: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Brand'
+          description: ''
+    patch:
+      operationId: manage_catalog_brand_update
+      description: Merchant reads are never cached by browsers or proxies (drafts,
+        costs).
+      parameters:
+      - in: path
+        name: brand_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - manage-catalog
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedBrandWriteRequest'
+      security:
+      - staffSession: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Brand'
+          description: ''
+    delete:
+      operationId: manage_catalog_brand_delete
+      description: Merchant reads are never cached by browsers or proxies (drafts,
+        costs).
+      parameters:
+      - in: path
+        name: brand_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - manage-catalog
+      security:
+      - staffSession: []
+      responses:
+        '204':
+          description: No response body
+  /api/manage/catalog/categories/:
+    get:
+      operationId: manage_catalog_categories
+      description: Merchant reads are never cached by browsers or proxies (drafts,
+        costs).
+      parameters:
+      - in: query
+        name: page
+        schema:
+          type: integer
+          maximum: 100000
+          minimum: 1
+          default: 1
+      - in: query
+        name: page_size
+        schema:
+          type: integer
+          maximum: 100
+          minimum: 1
+          default: 25
+      tags:
+      - manage-catalog
+      security:
+      - staffSession: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CategoryPage'
+          description: ''
+    post:
+      operationId: manage_catalog_category_create
+      description: Merchant reads are never cached by browsers or proxies (drafts,
+        costs).
+      tags:
+      - manage-catalog
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CategoryWriteRequest'
+        required: true
+      security:
+      - staffSession: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Category'
+          description: ''
+  /api/manage/catalog/categories/{category_id}/:
+    get:
+      operationId: manage_catalog_category
+      description: Merchant reads are never cached by browsers or proxies (drafts,
+        costs).
+      parameters:
+      - in: path
+        name: category_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - manage-catalog
+      security:
+      - staffSession: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Category'
+          description: ''
+    patch:
+      operationId: manage_catalog_category_update
+      description: Merchant reads are never cached by browsers or proxies (drafts,
+        costs).
+      parameters:
+      - in: path
+        name: category_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - manage-catalog
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedCategoryWriteRequest'
+      security:
+      - staffSession: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Category'
+          description: ''
+    delete:
+      operationId: manage_catalog_category_delete
+      description: Merchant reads are never cached by browsers or proxies (drafts,
+        costs).
+      parameters:
+      - in: path
+        name: category_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - manage-catalog
+      security:
+      - staffSession: []
+      responses:
+        '204':
+          description: No response body
+  /api/manage/catalog/categories/tree/:
+    get:
+      operationId: manage_catalog_category_tree
+      description: Merchant reads are never cached by browsers or proxies (drafts,
+        costs).
+      tags:
+      - manage-catalog
+      security:
+      - staffSession: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/CategoryNode'
+          description: ''
+  /api/manage/catalog/collections/:
+    get:
+      operationId: manage_catalog_collections
+      description: Merchant reads are never cached by browsers or proxies (drafts,
+        costs).
+      parameters:
+      - in: query
+        name: page
+        schema:
+          type: integer
+          maximum: 100000
+          minimum: 1
+          default: 1
+      - in: query
+        name: page_size
+        schema:
+          type: integer
+          maximum: 100
+          minimum: 1
+          default: 25
+      tags:
+      - manage-catalog
+      security:
+      - staffSession: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CollectionPage'
+          description: ''
+    post:
+      operationId: manage_catalog_collection_create
+      description: Merchant reads are never cached by browsers or proxies (drafts,
+        costs).
+      tags:
+      - manage-catalog
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CollectionWriteRequest'
+        required: true
+      security:
+      - staffSession: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Collection'
+          description: ''
+  /api/manage/catalog/collections/{collection_id}/:
+    get:
+      operationId: manage_catalog_collection
+      description: Merchant reads are never cached by browsers or proxies (drafts,
+        costs).
+      parameters:
+      - in: path
+        name: collection_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - manage-catalog
+      security:
+      - staffSession: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Collection'
+          description: ''
+    patch:
+      operationId: manage_catalog_collection_update
+      description: Merchant reads are never cached by browsers or proxies (drafts,
+        costs).
+      parameters:
+      - in: path
+        name: collection_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - manage-catalog
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedCollectionWriteRequest'
+      security:
+      - staffSession: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Collection'
+          description: ''
+    delete:
+      operationId: manage_catalog_collection_delete
+      description: Merchant reads are never cached by browsers or proxies (drafts,
+        costs).
+      parameters:
+      - in: path
+        name: collection_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - manage-catalog
+      security:
+      - staffSession: []
+      responses:
+        '204':
+          description: No response body
+  /api/manage/catalog/collections/{collection_id}/products/:
+    get:
+      operationId: manage_catalog_collection_products
+      description: Merchant reads are never cached by browsers or proxies (drafts,
+        costs).
+      parameters:
+      - in: path
+        name: collection_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - manage-catalog
+      security:
+      - staffSession: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CollectionProducts'
+          description: ''
+    put:
+      operationId: manage_catalog_collection_products_set
+      description: Merchant reads are never cached by browsers or proxies (drafts,
+        costs).
+      parameters:
+      - in: path
+        name: collection_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - manage-catalog
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CollectionProductsRequest'
+        required: true
+      security:
+      - staffSession: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CollectionProducts'
+          description: ''
+  /api/manage/catalog/products/:
+    get:
+      operationId: manage_catalog_products
+      description: Merchant reads are never cached by browsers or proxies (drafts,
+        costs).
+      parameters:
+      - in: query
+        name: brand
+        schema:
+          type: string
+          format: uuid
+      - in: query
+        name: category
+        schema:
+          type: string
+          format: uuid
+      - in: query
+        name: collection
+        schema:
+          type: string
+          format: uuid
+      - in: query
+        name: ordering
+        schema:
+          enum:
+          - name
+          - -name
+          - created_at
+          - -created_at
+          - updated_at
+          - -updated_at
+          type: string
+          minLength: 1
+        description: |-
+          * `name` - name
+          * `-name` - -name
+          * `created_at` - created_at
+          * `-created_at` - -created_at
+          * `updated_at` - updated_at
+          * `-updated_at` - -updated_at
+      - in: query
+        name: page
+        schema:
+          type: integer
+          maximum: 100000
+          minimum: 1
+          default: 1
+      - in: query
+        name: page_size
+        schema:
+          type: integer
+          maximum: 100
+          minimum: 1
+          default: 25
+      - in: query
+        name: product_type
+        schema:
+          enum:
+          - standard
+          - apparel
+          - grocery
+          - electronics
+          - book
+          type: string
+          minLength: 1
+        description: |-
+          * `standard` - Standard
+          * `apparel` - Apparel
+          * `grocery` - Grocery
+          * `electronics` - Electronics
+          * `book` - Book
+      - in: query
+        name: q
+        schema:
+          type: string
+          maxLength: 100
+      - in: query
+        name: status
+        schema:
+          enum:
+          - draft
+          - active
+          - archived
+          type: string
+          minLength: 1
+        description: |-
+          * `draft` - Draft
+          * `active` - Active
+          * `archived` - Archived
+      tags:
+      - manage-catalog
+      security:
+      - staffSession: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProductListItemPage'
+          description: ''
+    post:
+      operationId: manage_catalog_product_create
+      description: Merchant reads are never cached by browsers or proxies (drafts,
+        costs).
+      tags:
+      - manage-catalog
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProductCreateRequest'
+        required: true
+      security:
+      - staffSession: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProductDetail'
+          description: ''
+  /api/manage/catalog/products/{product_id}/:
+    get:
+      operationId: manage_catalog_product
+      description: Merchant reads are never cached by browsers or proxies (drafts,
+        costs).
+      parameters:
+      - in: path
+        name: product_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - manage-catalog
+      security:
+      - staffSession: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProductDetail'
+          description: ''
+    patch:
+      operationId: manage_catalog_product_update
+      description: Merchant reads are never cached by browsers or proxies (drafts,
+        costs).
+      parameters:
+      - in: path
+        name: product_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - manage-catalog
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedProductUpdateRequest'
+      security:
+      - staffSession: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProductDetail'
+          description: ''
+    delete:
+      operationId: manage_catalog_product_delete
+      description: Merchant reads are never cached by browsers or proxies (drafts,
+        costs).
+      parameters:
+      - in: path
+        name: product_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - manage-catalog
+      security:
+      - staffSession: []
+      responses:
+        '204':
+          description: No response body
+  /api/manage/catalog/products/{product_id}/media/:
+    put:
+      operationId: manage_catalog_product_media
+      description: Merchant reads are never cached by browsers or proxies (drafts,
+        costs).
+      parameters:
+      - in: path
+        name: product_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - manage-catalog
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProductMediaSetRequest'
+        required: true
+      security:
+      - staffSession: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProductDetail'
+          description: ''
+  /api/manage/catalog/products/{product_id}/options/:
+    put:
+      operationId: manage_catalog_product_options
+      description: Merchant reads are never cached by browsers or proxies (drafts,
+        costs).
+      parameters:
+      - in: path
+        name: product_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - manage-catalog
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProductOptionsRequest'
+        required: true
+      security:
+      - staffSession: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProductDetail'
+          description: ''
+  /api/manage/catalog/products/{product_id}/status/:
+    post:
+      operationId: manage_catalog_product_status
+      description: Publish (active), unpublish (draft), archive or restore a product.
+      parameters:
+      - in: path
+        name: product_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - manage-catalog
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProductStatusRequest'
+        required: true
+      security:
+      - staffSession: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProductDetail'
+          description: ''
+  /api/manage/catalog/products/{product_id}/variants/:
+    post:
+      operationId: manage_catalog_variant_create
+      description: |-
+        Catalogue, pricing, inventory and media management: ``catalog.manage`` (Owner, Manager,
+        Content editor). Cost prices additionally need ``catalog.costs``.
+      parameters:
+      - in: path
+        name: product_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - manage-catalog
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VariantWriteRequest'
+        required: true
+      security:
+      - staffSession: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Variant'
+          description: ''
+  /api/manage/catalog/variants/{variant_id}/:
+    get:
+      operationId: manage_catalog_variant
+      description: |-
+        Catalogue, pricing, inventory and media management: ``catalog.manage`` (Owner, Manager,
+        Content editor). Cost prices additionally need ``catalog.costs``.
+      parameters:
+      - in: path
+        name: variant_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - manage-catalog
+      security:
+      - staffSession: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Variant'
+          description: ''
+    patch:
+      operationId: manage_catalog_variant_update
+      description: |-
+        Catalogue, pricing, inventory and media management: ``catalog.manage`` (Owner, Manager,
+        Content editor). Cost prices additionally need ``catalog.costs``.
+      parameters:
+      - in: path
+        name: variant_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - manage-catalog
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedVariantUpdateRequest'
+      security:
+      - staffSession: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Variant'
+          description: ''
+    delete:
+      operationId: manage_catalog_variant_delete
+      description: |-
+        Catalogue, pricing, inventory and media management: ``catalog.manage`` (Owner, Manager,
+        Content editor). Cost prices additionally need ``catalog.costs``.
+      parameters:
+      - in: path
+        name: variant_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - manage-catalog
+      security:
+      - staffSession: []
+      responses:
+        '204':
+          description: No response body
+  /api/manage/catalog/warranties/:
+    get:
+      operationId: manage_catalog_warranties
+      description: Merchant reads are never cached by browsers or proxies (drafts,
+        costs).
+      parameters:
+      - in: query
+        name: page
+        schema:
+          type: integer
+          maximum: 100000
+          minimum: 1
+          default: 1
+      - in: query
+        name: page_size
+        schema:
+          type: integer
+          maximum: 100
+          minimum: 1
+          default: 25
+      tags:
+      - manage-catalog
+      security:
+      - staffSession: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WarrantyPage'
+          description: ''
+    post:
+      operationId: manage_catalog_warranty_create
+      description: Merchant reads are never cached by browsers or proxies (drafts,
+        costs).
+      tags:
+      - manage-catalog
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WarrantyWriteRequest'
+        required: true
+      security:
+      - staffSession: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Warranty'
+          description: ''
+  /api/manage/catalog/warranties/{warranty_id}/:
+    patch:
+      operationId: manage_catalog_warranty_update
+      description: Merchant reads are never cached by browsers or proxies (drafts,
+        costs).
+      parameters:
+      - in: path
+        name: warranty_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - manage-catalog
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedWarrantyWriteRequest'
+      security:
+      - staffSession: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Warranty'
+          description: ''
+    delete:
+      operationId: manage_catalog_warranty_delete
+      description: Merchant reads are never cached by browsers or proxies (drafts,
+        costs).
+      parameters:
+      - in: path
+        name: warranty_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - manage-catalog
+      security:
+      - staffSession: []
+      responses:
+        '204':
+          description: No response body
+  /api/manage/inventory/adjustments/:
+    post:
+      operationId: manage_inventory_adjust
+      description: Count corrections (signed quantity), damaged, lost or returned
+        stock.
+      tags:
+      - manage-inventory
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AdjustmentRequest'
+        required: true
+      security:
+      - staffSession: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Operation'
+          description: ''
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Operation'
+          description: ''
+  /api/manage/inventory/batches/:
+    get:
+      operationId: manage_inventory_batches
+      description: |-
+        Catalogue, pricing, inventory and media management: ``catalog.manage`` (Owner, Manager,
+        Content editor). Cost prices additionally need ``catalog.costs``.
+      parameters:
+      - in: query
+        name: expires_before
+        schema:
+          type: string
+          format: date
+      - in: query
+        name: page
+        schema:
+          type: integer
+          maximum: 100000
+          minimum: 1
+          default: 1
+      - in: query
+        name: page_size
+        schema:
+          type: integer
+          maximum: 100
+          minimum: 1
+          default: 25
+      - in: query
+        name: variant
+        schema:
+          type: string
+          format: uuid
+      tags:
+      - manage-inventory
+      security:
+      - staffSession: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BatchPage'
+          description: ''
+  /api/manage/inventory/levels/:
+    get:
+      operationId: manage_inventory_levels
+      description: |-
+        Catalogue, pricing, inventory and media management: ``catalog.manage`` (Owner, Manager,
+        Content editor). Cost prices additionally need ``catalog.costs``.
+      parameters:
+      - in: query
+        name: location
+        schema:
+          type: string
+          format: uuid
+      - in: query
+        name: low_stock
+        schema:
+          type: boolean
+          nullable: true
+      - in: query
+        name: out_of_stock
+        schema:
+          type: boolean
+          nullable: true
+      - in: query
+        name: page
+        schema:
+          type: integer
+          maximum: 100000
+          minimum: 1
+          default: 1
+      - in: query
+        name: page_size
+        schema:
+          type: integer
+          maximum: 100
+          minimum: 1
+          default: 25
+      - in: query
+        name: product
+        schema:
+          type: string
+          format: uuid
+      - in: query
+        name: variant
+        schema:
+          type: string
+          format: uuid
+      tags:
+      - manage-inventory
+      security:
+      - staffSession: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StockLevelPage'
+          description: ''
+  /api/manage/inventory/levels/{level_id}/:
+    patch:
+      operationId: manage_inventory_level_update
+      description: Only the low-stock threshold is editable; quantities change by
+        operations.
+      parameters:
+      - in: path
+        name: level_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - manage-inventory
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedLevelUpdateRequest'
+      security:
+      - staffSession: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StockLevel'
+          description: ''
+  /api/manage/inventory/locations/:
+    get:
+      operationId: manage_inventory_locations
+      description: |-
+        Catalogue, pricing, inventory and media management: ``catalog.manage`` (Owner, Manager,
+        Content editor). Cost prices additionally need ``catalog.costs``.
+      parameters:
+      - in: query
+        name: page
+        schema:
+          type: integer
+          maximum: 100000
+          minimum: 1
+          default: 1
+      - in: query
+        name: page_size
+        schema:
+          type: integer
+          maximum: 100
+          minimum: 1
+          default: 25
+      tags:
+      - manage-inventory
+      security:
+      - staffSession: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LocationPage'
+          description: ''
+    post:
+      operationId: manage_inventory_location_create
+      description: |-
+        Catalogue, pricing, inventory and media management: ``catalog.manage`` (Owner, Manager,
+        Content editor). Cost prices additionally need ``catalog.costs``.
+      tags:
+      - manage-inventory
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LocationWriteRequest'
+        required: true
+      security:
+      - staffSession: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Location'
+          description: ''
+  /api/manage/inventory/locations/{location_id}/:
+    patch:
+      operationId: manage_inventory_location_update
+      description: |-
+        Catalogue, pricing, inventory and media management: ``catalog.manage`` (Owner, Manager,
+        Content editor). Cost prices additionally need ``catalog.costs``.
+      parameters:
+      - in: path
+        name: location_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - manage-inventory
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedLocationWriteRequest'
+      security:
+      - staffSession: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Location'
+          description: ''
+  /api/manage/inventory/movements/:
+    get:
+      operationId: manage_inventory_movements
+      description: |-
+        Catalogue, pricing, inventory and media management: ``catalog.manage`` (Owner, Manager,
+        Content editor). Cost prices additionally need ``catalog.costs``.
+      parameters:
+      - in: query
+        name: location
+        schema:
+          type: string
+          format: uuid
+      - in: query
+        name: movement_type
+        schema:
+          enum:
+          - receipt
+          - adjustment
+          - damaged
+          - lost
+          - returned
+          - transfer_out
+          - transfer_in
+          - reserved
+          - released
+          - fulfilled
+          - reversal
+          type: string
+          minLength: 1
+        description: |-
+          * `receipt` - Stock received
+          * `adjustment` - Stock count adjustment
+          * `damaged` - Damaged
+          * `lost` - Lost
+          * `returned` - Returned to stock
+          * `transfer_out` - Transferred out
+          * `transfer_in` - Transferred in
+          * `reserved` - Reserved
+          * `released` - Reservation released
+          * `fulfilled` - Reserved stock dispatched
+          * `reversal` - Reversal
+      - in: query
+        name: operation
+        schema:
+          type: string
+          format: uuid
+      - in: query
+        name: page
+        schema:
+          type: integer
+          maximum: 100000
+          minimum: 1
+          default: 1
+      - in: query
+        name: page_size
+        schema:
+          type: integer
+          maximum: 100
+          minimum: 1
+          default: 25
+      - in: query
+        name: variant
+        schema:
+          type: string
+          format: uuid
+      tags:
+      - manage-inventory
+      security:
+      - staffSession: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MovementPage'
+          description: ''
+  /api/manage/inventory/movements/{movement_id}/reverse/:
+    post:
+      operationId: manage_inventory_reverse
+      description: Reverse the whole operation this movement belongs to.
+      parameters:
+      - in: path
+        name: movement_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - manage-inventory
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReversalRequest'
+        required: true
+      security:
+      - staffSession: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Operation'
+          description: ''
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Operation'
+          description: ''
+  /api/manage/inventory/receipts/:
+    post:
+      operationId: manage_inventory_receive
+      description: |-
+        Catalogue, pricing, inventory and media management: ``catalog.manage`` (Owner, Manager,
+        Content editor). Cost prices additionally need ``catalog.costs``.
+      tags:
+      - manage-inventory
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReceiptRequest'
+        required: true
+      security:
+      - staffSession: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Operation'
+          description: ''
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Operation'
+          description: ''
+  /api/manage/inventory/reconciliation/:
+    get:
+      operationId: manage_inventory_reconciliation
+      description: Checks that every stock level equals the sum of its ledger movements.
+      tags:
+      - manage-inventory
+      security:
+      - staffSession: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Reconciliation'
+          description: ''
+  /api/manage/inventory/serials/:
+    get:
+      operationId: manage_inventory_serials
+      description: |-
+        Catalogue, pricing, inventory and media management: ``catalog.manage`` (Owner, Manager,
+        Content editor). Cost prices additionally need ``catalog.costs``.
+      parameters:
+      - in: query
+        name: location
+        schema:
+          type: string
+          format: uuid
+      - in: query
+        name: page
+        schema:
+          type: integer
+          maximum: 100000
+          minimum: 1
+          default: 1
+      - in: query
+        name: page_size
+        schema:
+          type: integer
+          maximum: 100
+          minimum: 1
+          default: 25
+      - in: query
+        name: q
+        schema:
+          type: string
+          maxLength: 100
+      - in: query
+        name: status
+        schema:
+          enum:
+          - available
+          - reserved
+          - sold
+          - damaged
+          - lost
+          type: string
+          minLength: 1
+        description: |-
+          * `available` - Available
+          * `reserved` - Reserved
+          * `sold` - Sold
+          * `damaged` - Damaged
+          * `lost` - Lost
+      - in: query
+        name: variant
+        schema:
+          type: string
+          format: uuid
+      tags:
+      - manage-inventory
+      security:
+      - staffSession: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SerialPage'
+          description: ''
+  /api/manage/inventory/transfers/:
+    post:
+      operationId: manage_inventory_transfer
+      description: |-
+        Catalogue, pricing, inventory and media management: ``catalog.manage`` (Owner, Manager,
+        Content editor). Cost prices additionally need ``catalog.costs``.
+      tags:
+      - manage-inventory
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TransferRequest'
+        required: true
+      security:
+      - staffSession: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Operation'
+          description: ''
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Operation'
+          description: ''
   /api/manage/invitation/accept/:
     post:
       operationId: manage_invitation_accept
@@ -854,6 +2655,329 @@ paths:
               schema:
                 $ref: '#/components/schemas/InvitationPreview'
           description: ''
+  /api/manage/media/assets/:
+    get:
+      operationId: manage_media_assets
+      description: |-
+        Catalogue, pricing, inventory and media management: ``catalog.manage`` (Owner, Manager,
+        Content editor). Cost prices additionally need ``catalog.costs``.
+      parameters:
+      - in: query
+        name: kind
+        schema:
+          enum:
+          - image
+          - document
+          type: string
+          minLength: 1
+        description: |-
+          * `image` - Image
+          * `document` - Document
+      - in: query
+        name: page
+        schema:
+          type: integer
+          maximum: 100000
+          minimum: 1
+          default: 1
+      - in: query
+        name: page_size
+        schema:
+          type: integer
+          maximum: 100
+          minimum: 1
+          default: 25
+      tags:
+      - manage-media
+      security:
+      - staffSession: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MediaAssetPage'
+          description: ''
+  /api/manage/media/assets/{asset_id}/:
+    get:
+      operationId: manage_media_asset
+      description: |-
+        Catalogue, pricing, inventory and media management: ``catalog.manage`` (Owner, Manager,
+        Content editor). Cost prices additionally need ``catalog.costs``.
+      parameters:
+      - in: path
+        name: asset_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - manage-media
+      security:
+      - staffSession: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MediaAsset'
+          description: ''
+    patch:
+      operationId: manage_media_update
+      description: |-
+        Catalogue, pricing, inventory and media management: ``catalog.manage`` (Owner, Manager,
+        Content editor). Cost prices additionally need ``catalog.costs``.
+      parameters:
+      - in: path
+        name: asset_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - manage-media
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedMediaUpdateRequest'
+      security:
+      - staffSession: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MediaAsset'
+          description: ''
+    delete:
+      operationId: manage_media_delete
+      description: |-
+        Catalogue, pricing, inventory and media management: ``catalog.manage`` (Owner, Manager,
+        Content editor). Cost prices additionally need ``catalog.costs``.
+      parameters:
+      - in: path
+        name: asset_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - manage-media
+      security:
+      - staffSession: []
+      responses:
+        '204':
+          description: No response body
+  /api/manage/media/assets/{asset_id}/file/:
+    get:
+      operationId: manage_media_file
+      description: |-
+        Catalogue, pricing, inventory and media management: ``catalog.manage`` (Owner, Manager,
+        Content editor). Cost prices additionally need ``catalog.costs``.
+      parameters:
+      - in: path
+        name: asset_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - manage-media
+      security:
+      - staffSession: []
+      responses:
+        '200':
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+          description: ''
+  /api/manage/media/assets/upload/:
+    post:
+      operationId: manage_media_upload
+      description: |-
+        Catalogue, pricing, inventory and media management: ``catalog.manage`` (Owner, Manager,
+        Content editor). Cost prices additionally need ``catalog.costs``.
+      tags:
+      - manage-media
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/MediaUploadRequest'
+        required: true
+      security:
+      - staffSession: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MediaAsset'
+          description: ''
+  /api/manage/pricing/price-lists/:
+    get:
+      operationId: manage_price_lists
+      description: |-
+        Catalogue, pricing, inventory and media management: ``catalog.manage`` (Owner, Manager,
+        Content editor). Cost prices additionally need ``catalog.costs``.
+      parameters:
+      - in: query
+        name: page
+        schema:
+          type: integer
+          maximum: 100000
+          minimum: 1
+          default: 1
+      - in: query
+        name: page_size
+        schema:
+          type: integer
+          maximum: 100
+          minimum: 1
+          default: 25
+      tags:
+      - manage-pricing
+      security:
+      - staffSession: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PriceListPage'
+          description: ''
+    post:
+      operationId: manage_price_list_create
+      description: |-
+        Catalogue, pricing, inventory and media management: ``catalog.manage`` (Owner, Manager,
+        Content editor). Cost prices additionally need ``catalog.costs``.
+      tags:
+      - manage-pricing
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PriceListWriteRequest'
+        required: true
+      security:
+      - staffSession: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PriceList'
+          description: ''
+  /api/manage/pricing/price-lists/{price_list_id}/:
+    patch:
+      operationId: manage_price_list_update
+      description: |-
+        Catalogue, pricing, inventory and media management: ``catalog.manage`` (Owner, Manager,
+        Content editor). Cost prices additionally need ``catalog.costs``.
+      parameters:
+      - in: path
+        name: price_list_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - manage-pricing
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedPriceListWriteRequest'
+      security:
+      - staffSession: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PriceList'
+          description: ''
+  /api/manage/pricing/variants/{variant_id}/prices/:
+    get:
+      operationId: manage_variant_prices
+      description: |-
+        Catalogue, pricing, inventory and media management: ``catalog.manage`` (Owner, Manager,
+        Content editor). Cost prices additionally need ``catalog.costs``.
+      parameters:
+      - in: path
+        name: variant_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - manage-pricing
+      security:
+      - staffSession: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VariantPrices'
+          description: ''
+    put:
+      operationId: manage_variant_prices_set
+      description: Create or update prices atomically. Entries omitting cost_amount
+        keep it.
+      parameters:
+      - in: path
+        name: variant_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - manage-pricing
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VariantPricesInputRequest'
+        required: true
+      security:
+      - staffSession: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VariantPrices'
+          description: ''
+  /api/manage/pricing/variants/{variant_id}/prices/{price_list_id}/:
+    delete:
+      operationId: manage_variant_price_delete
+      description: |-
+        Catalogue, pricing, inventory and media management: ``catalog.manage`` (Owner, Manager,
+        Content editor). Cost prices additionally need ``catalog.costs``.
+      parameters:
+      - in: path
+        name: price_list_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: variant_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - manage-pricing
+      security:
+      - staffSession: []
+      responses:
+        '204':
+          description: No response body
   /api/manage/team/:
     get:
       operationId: manage_team
@@ -1004,6 +3128,121 @@ paths:
           description: ''
 components:
   schemas:
+    AdjustmentMovementTypeEnum:
+      enum:
+      - adjustment
+      - damaged
+      - lost
+      - returned
+      type: string
+      description: |-
+        * `adjustment` - adjustment
+        * `damaged` - damaged
+        * `lost` - lost
+        * `returned` - returned
+    AdjustmentRequest:
+      type: object
+      properties:
+        variant:
+          type: string
+          format: uuid
+        quantity:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,11}(?:\.\d{0,3})?$
+        serials:
+          type: array
+          items:
+            type: string
+            minLength: 1
+            maxLength: 100
+          maxItems: 500
+        reason:
+          type: string
+          minLength: 1
+          maxLength: 500
+        reference_type:
+          type: string
+          maxLength: 50
+        reference_id:
+          type: string
+          maxLength: 100
+        idempotency_key:
+          type: string
+          nullable: true
+          minLength: 1
+          description: Optional client-generated key; a retry with the same key is
+            applied once.
+          pattern: ^[A-Za-z0-9._:-]{8,100}$
+        location:
+          type: string
+          format: uuid
+          nullable: true
+        movement_type:
+          $ref: '#/components/schemas/AdjustmentMovementTypeEnum'
+        batch:
+          allOf:
+          - $ref: '#/components/schemas/BatchInputRequest'
+          nullable: true
+      required:
+      - movement_type
+      - quantity
+      - reason
+      - variant
+    ApparelDetails:
+      type: object
+      properties:
+        audience:
+          allOf:
+          - $ref: '#/components/schemas/AudienceEnum'
+          readOnly: true
+        material:
+          type: string
+          readOnly: true
+        fit:
+          type: string
+          readOnly: true
+        care_instructions:
+          type: string
+          readOnly: true
+        size_guide:
+          type: string
+          format: uuid
+          readOnly: true
+          nullable: true
+        size_guide_notes:
+          type: string
+          readOnly: true
+      required:
+      - audience
+      - care_instructions
+      - fit
+      - material
+      - size_guide
+      - size_guide_notes
+    ApparelDetailsInputRequest:
+      type: object
+      properties:
+        audience:
+          oneOf:
+          - $ref: '#/components/schemas/AudienceEnum'
+          - $ref: '#/components/schemas/BlankEnum'
+        material:
+          type: string
+          maxLength: 200
+        fit:
+          type: string
+          maxLength: 50
+        care_instructions:
+          type: string
+          maxLength: 1000
+        size_guide:
+          type: string
+          format: uuid
+          nullable: true
+        size_guide_notes:
+          type: string
+          maxLength: 2000
     AssignableRoleEnum:
       enum:
       - manager
@@ -1014,6 +3253,537 @@ components:
         * `manager` - manager
         * `order_handler` - order_handler
         * `content_editor` - content_editor
+    Attribute:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        code:
+          type: string
+          readOnly: true
+        name:
+          type: string
+          readOnly: true
+        value_type:
+          allOf:
+          - $ref: '#/components/schemas/AttributeValueTypeEnum'
+          readOnly: true
+        scope:
+          allOf:
+          - $ref: '#/components/schemas/AttributeScopeEnum'
+          readOnly: true
+        unit:
+          type: string
+          readOnly: true
+          description: For numbers and measurements.
+        is_filterable:
+          type: boolean
+          readOnly: true
+        position:
+          type: integer
+          readOnly: true
+        options:
+          type: array
+          items:
+            $ref: '#/components/schemas/Option'
+          readOnly: true
+      required:
+      - code
+      - id
+      - is_filterable
+      - name
+      - options
+      - position
+      - scope
+      - unit
+      - value_type
+    AttributePage:
+      type: object
+      properties:
+        count:
+          type: integer
+        page:
+          type: integer
+        page_size:
+          type: integer
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/Attribute'
+      required:
+      - count
+      - page
+      - page_size
+      - results
+    AttributeScopeEnum:
+      enum:
+      - variant
+      - specification
+      type: string
+      description: |-
+        * `variant` - Defines variants
+        * `specification` - Specification
+    AttributeValueTypeEnum:
+      enum:
+      - text
+      - number
+      - boolean
+      - option
+      - measurement
+      type: string
+      description: |-
+        * `text` - Text
+        * `number` - Number
+        * `boolean` - Yes / no
+        * `option` - Option
+        * `measurement` - Measurement
+    AttributeWriteRequest:
+      type: object
+      properties:
+        code:
+          type: string
+          minLength: 1
+          maxLength: 64
+          pattern: ^[a-z0-9]+(?:-[a-z0-9]+)*$
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+        value_type:
+          $ref: '#/components/schemas/AttributeValueTypeEnum'
+        scope:
+          $ref: '#/components/schemas/AttributeScopeEnum'
+        unit:
+          type: string
+          maxLength: 20
+        is_filterable:
+          type: boolean
+        position:
+          type: integer
+          maximum: 1000000
+          minimum: 0
+      required:
+      - code
+      - name
+      - scope
+      - value_type
+    AudienceEnum:
+      enum:
+      - women
+      - men
+      - unisex
+      - kids
+      type: string
+      description: |-
+        * `women` - Women
+        * `men` - Men
+        * `unisex` - Unisex
+        * `kids` - Kids
+    Batch:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        variant:
+          type: string
+          format: uuid
+        sku:
+          type: string
+        code:
+          type: string
+        manufactured_on:
+          type: string
+          format: date
+          nullable: true
+        expires_on:
+          type: string
+          format: date
+          nullable: true
+        received_on:
+          type: string
+          format: date
+        supplier_reference:
+          type: string
+        levels:
+          type: array
+          items:
+            $ref: '#/components/schemas/BatchLevel'
+      required:
+      - code
+      - expires_on
+      - id
+      - levels
+      - manufactured_on
+      - received_on
+      - sku
+      - supplier_reference
+      - variant
+    BatchInputRequest:
+      type: object
+      properties:
+        code:
+          type: string
+          minLength: 1
+          maxLength: 64
+        expires_on:
+          type: string
+          format: date
+          nullable: true
+        manufactured_on:
+          type: string
+          format: date
+          nullable: true
+        supplier_reference:
+          type: string
+          maxLength: 100
+      required:
+      - code
+    BatchLevel:
+      type: object
+      properties:
+        location:
+          type: string
+          format: uuid
+        location_code:
+          type: string
+        on_hand:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,11}(?:\.\d{0,3})?$
+      required:
+      - location
+      - location_code
+      - on_hand
+    BatchPage:
+      type: object
+      properties:
+        count:
+          type: integer
+        page:
+          type: integer
+        page_size:
+          type: integer
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/Batch'
+      required:
+      - count
+      - page
+      - page_size
+      - results
+    BlankEnum:
+      enum:
+      - ''
+    BookDetails:
+      type: object
+      properties:
+        subtitle:
+          type: string
+          readOnly: true
+        authors:
+          type: array
+          items:
+            type: string
+            maxLength: 200
+          readOnly: true
+        publisher:
+          type: string
+          readOnly: true
+        publication_date:
+          type: string
+          format: date
+          readOnly: true
+          nullable: true
+        edition:
+          type: string
+          readOnly: true
+        language:
+          type: string
+          readOnly: true
+          description: BCP 47 tag of the text, e.g. en or bn.
+        genre:
+          type: string
+          readOnly: true
+        page_count:
+          type: integer
+          readOnly: true
+          nullable: true
+        series_name:
+          type: string
+          readOnly: true
+        series_number:
+          type: integer
+          readOnly: true
+          nullable: true
+      required:
+      - authors
+      - edition
+      - genre
+      - language
+      - page_count
+      - publication_date
+      - publisher
+      - series_name
+      - series_number
+      - subtitle
+    BookDetailsInputRequest:
+      type: object
+      properties:
+        subtitle:
+          type: string
+          maxLength: 200
+        authors:
+          type: array
+          items:
+            type: string
+            minLength: 1
+            maxLength: 200
+          maxItems: 10
+        publisher:
+          type: string
+          maxLength: 200
+        publication_date:
+          type: string
+          format: date
+          nullable: true
+        edition:
+          type: string
+          maxLength: 100
+        language:
+          type: string
+          maxLength: 35
+        genre:
+          type: string
+          maxLength: 100
+        page_count:
+          type: integer
+          maximum: 100000
+          minimum: 1
+          nullable: true
+        series_name:
+          type: string
+          maxLength: 200
+        series_number:
+          type: integer
+          maximum: 10000
+          minimum: 1
+          nullable: true
+    Brand:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        name:
+          type: string
+          readOnly: true
+        slug:
+          type: string
+          readOnly: true
+        is_active:
+          type: boolean
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - created_at
+      - id
+      - is_active
+      - name
+      - slug
+      - updated_at
+    BrandPage:
+      type: object
+      properties:
+        count:
+          type: integer
+        page:
+          type: integer
+        page_size:
+          type: integer
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/Brand'
+      required:
+      - count
+      - page
+      - page_size
+      - results
+    BrandWriteRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 120
+        slug:
+          oneOf:
+          - type: string
+            maxLength: 140
+            pattern: ^[a-z0-9]+(?:-[a-z0-9]+)*$
+          - type: string
+            maxLength: 0
+        is_active:
+          type: boolean
+      required:
+      - name
+    Category:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        parent:
+          type: string
+          format: uuid
+          readOnly: true
+          nullable: true
+        name:
+          type: string
+          readOnly: true
+        slug:
+          type: string
+          readOnly: true
+        description:
+          type: string
+          readOnly: true
+        position:
+          type: integer
+          readOnly: true
+        is_active:
+          type: boolean
+          readOnly: true
+        image:
+          type: string
+          format: uuid
+          readOnly: true
+          nullable: true
+        translations:
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - created_at
+      - description
+      - id
+      - image
+      - is_active
+      - name
+      - parent
+      - position
+      - slug
+      - translations
+      - updated_at
+    CategoryNode:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        slug:
+          type: string
+        description:
+          type: string
+        position:
+          type: integer
+        is_active:
+          type: boolean
+        image:
+          type: string
+          format: uuid
+          nullable: true
+        translations: {}
+        children:
+          type: array
+          items:
+            type: object
+            additionalProperties: {}
+          readOnly: true
+      required:
+      - children
+      - description
+      - id
+      - image
+      - is_active
+      - name
+      - position
+      - slug
+      - translations
+    CategoryPage:
+      type: object
+      properties:
+        count:
+          type: integer
+        page:
+          type: integer
+        page_size:
+          type: integer
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/Category'
+      required:
+      - count
+      - page
+      - page_size
+      - results
+    CategoryWriteRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 120
+        slug:
+          oneOf:
+          - type: string
+            maxLength: 140
+            pattern: ^[a-z0-9]+(?:-[a-z0-9]+)*$
+          - type: string
+            maxLength: 0
+        parent:
+          type: string
+          format: uuid
+          nullable: true
+        description:
+          type: string
+          maxLength: 5000
+        position:
+          type: integer
+          maximum: 1000000
+          minimum: 0
+        is_active:
+          type: boolean
+        image:
+          type: string
+          format: uuid
+          nullable: true
+        translations:
+          description: 'Additional languages only: {"bn": {"name": "...", "description":
+            "..."}}.'
+      required:
+      - name
     Challenge:
       type: object
       properties:
@@ -1076,6 +3846,123 @@ components:
       description: |-
         * `ok` - ok
         * `error` - error
+    Collection:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        name:
+          type: string
+          readOnly: true
+        slug:
+          type: string
+          readOnly: true
+        description:
+          type: string
+          readOnly: true
+        is_active:
+          type: boolean
+          readOnly: true
+        image:
+          type: string
+          format: uuid
+          readOnly: true
+          nullable: true
+        translations:
+          readOnly: true
+        product_count:
+          type: integer
+          readOnly: true
+          default: 0
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - created_at
+      - description
+      - id
+      - image
+      - is_active
+      - name
+      - product_count
+      - slug
+      - translations
+      - updated_at
+    CollectionPage:
+      type: object
+      properties:
+        count:
+          type: integer
+        page:
+          type: integer
+        page_size:
+          type: integer
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/Collection'
+      required:
+      - count
+      - page
+      - page_size
+      - results
+    CollectionProducts:
+      type: object
+      properties:
+        products:
+          type: array
+          items:
+            type: string
+            format: uuid
+          maxItems: 1000
+      required:
+      - products
+    CollectionProductsRequest:
+      type: object
+      properties:
+        products:
+          type: array
+          items:
+            type: string
+            format: uuid
+          maxItems: 1000
+      required:
+      - products
+    CollectionWriteRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 120
+        slug:
+          oneOf:
+          - type: string
+            maxLength: 140
+            pattern: ^[a-z0-9]+(?:-[a-z0-9]+)*$
+          - type: string
+            maxLength: 0
+        description:
+          type: string
+          maxLength: 5000
+        is_active:
+          type: boolean
+        image:
+          type: string
+          format: uuid
+          nullable: true
+        translations:
+          description: 'Additional languages only: {"bn": {"name": "...", "description":
+            "..."}}.'
+      required:
+      - name
     Csrf:
       type: object
       properties:
@@ -1122,6 +4009,72 @@ components:
       - id
       - phone
       - phone_verified
+    DigitalFormatEnum:
+      enum:
+      - epub
+      - pdf
+      - audiobook
+      - other
+      type: string
+      description: |-
+        * `epub` - EPUB
+        * `pdf` - PDF
+        * `audiobook` - Audiobook
+        * `other` - Other
+    Discrepancy:
+      type: object
+      properties:
+        kind:
+          type: string
+        variant_id:
+          type: string
+          format: uuid
+        location_id:
+          type: string
+          format: uuid
+        batch_id:
+          type: string
+          format: uuid
+          nullable: true
+        expected:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,11}(?:\.\d{0,3})?$
+        actual:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,11}(?:\.\d{0,3})?$
+      required:
+      - actual
+      - batch_id
+      - expected
+      - kind
+      - location_id
+      - variant_id
+    ElectronicsDetails:
+      type: object
+      properties:
+        model_number:
+          type: string
+          readOnly: true
+        warranty:
+          allOf:
+          - $ref: '#/components/schemas/Warranty'
+          readOnly: true
+          nullable: true
+      required:
+      - model_number
+      - warranty
+    ElectronicsDetailsInputRequest:
+      type: object
+      properties:
+        model_number:
+          type: string
+          maxLength: 100
+        warranty:
+          type: string
+          format: uuid
+          nullable: true
     EmailRequest:
       type: object
       properties:
@@ -1140,6 +4093,73 @@ components:
           format: uri
       required:
       - url
+    GroceryDetails:
+      type: object
+      properties:
+        is_perishable:
+          type: boolean
+          readOnly: true
+        storage_instructions:
+          type: string
+          readOnly: true
+        shelf_life_days:
+          type: integer
+          readOnly: true
+          nullable: true
+        country_of_origin:
+          type: string
+          readOnly: true
+        ingredients:
+          type: string
+          readOnly: true
+        allergens:
+          type: string
+          readOnly: true
+      required:
+      - allergens
+      - country_of_origin
+      - ingredients
+      - is_perishable
+      - shelf_life_days
+      - storage_instructions
+    GroceryDetailsInputRequest:
+      type: object
+      properties:
+        is_perishable:
+          type: boolean
+        storage_instructions:
+          type: string
+          maxLength: 500
+        shelf_life_days:
+          type: integer
+          maximum: 36500
+          minimum: 0
+          nullable: true
+        country_of_origin:
+          type: string
+          maxLength: 2
+        ingredients:
+          type: string
+          maxLength: 2000
+        allergens:
+          type: string
+          maxLength: 500
+    InventoryUnitEnum:
+      enum:
+      - each
+      - kg
+      - g
+      - l
+      - ml
+      - m
+      type: string
+      description: |-
+        * `each` - Each
+        * `kg` - Kilogram
+        * `g` - Gram
+        * `l` - Litre
+        * `ml` - Millilitre
+        * `m` - Metre
     Invitation:
       type: object
       properties:
@@ -1248,6 +4268,120 @@ components:
       - ok
       type: string
       description: '* `ok` - ok'
+    Location:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        code:
+          type: string
+          readOnly: true
+        name:
+          type: string
+          readOnly: true
+        is_active:
+          type: boolean
+          readOnly: true
+        is_default:
+          type: boolean
+          readOnly: true
+        address_line:
+          type: string
+          readOnly: true
+        city:
+          type: string
+          readOnly: true
+        country:
+          type: string
+          readOnly: true
+        notes:
+          type: string
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - address_line
+      - city
+      - code
+      - country
+      - created_at
+      - id
+      - is_active
+      - is_default
+      - name
+      - notes
+      - updated_at
+    LocationPage:
+      type: object
+      properties:
+        count:
+          type: integer
+        page:
+          type: integer
+        page_size:
+          type: integer
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/Location'
+      required:
+      - count
+      - page
+      - page_size
+      - results
+    LocationRef:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        code:
+          type: string
+        name:
+          type: string
+      required:
+      - code
+      - id
+      - name
+    LocationWriteRequest:
+      type: object
+      properties:
+        code:
+          type: string
+          minLength: 1
+          maxLength: 32
+          pattern: ^[A-Za-z0-9][A-Za-z0-9_-]{0,31}$
+        name:
+          type: string
+          minLength: 1
+          maxLength: 120
+        is_active:
+          type: boolean
+        is_default:
+          type: boolean
+        address_line:
+          type: string
+          maxLength: 300
+        city:
+          type: string
+          maxLength: 100
+        country:
+          type: string
+          maxLength: 2
+        notes:
+          type: string
+          maxLength: 1000
+      required:
+      - code
+      - name
     LoginRequest:
       type: object
       properties:
@@ -1264,6 +4398,94 @@ components:
       required:
       - email
       - password
+    MediaAsset:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        kind:
+          allOf:
+          - $ref: '#/components/schemas/MediaKindEnum'
+          readOnly: true
+        content_type:
+          type: string
+          readOnly: true
+        size_bytes:
+          type: integer
+          readOnly: true
+        checksum_sha256:
+          type: string
+          readOnly: true
+        width:
+          type: integer
+          readOnly: true
+          nullable: true
+        height:
+          type: integer
+          readOnly: true
+          nullable: true
+        alt_text:
+          type: string
+          readOnly: true
+        url:
+          type: string
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - alt_text
+      - checksum_sha256
+      - content_type
+      - created_at
+      - height
+      - id
+      - kind
+      - size_bytes
+      - url
+      - width
+    MediaAssetPage:
+      type: object
+      properties:
+        count:
+          type: integer
+        page:
+          type: integer
+        page_size:
+          type: integer
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/MediaAsset'
+      required:
+      - count
+      - page
+      - page_size
+      - results
+    MediaKindEnum:
+      enum:
+      - image
+      - document
+      type: string
+      description: |-
+        * `image` - Image
+        * `document` - Document
+    MediaUploadRequest:
+      type: object
+      description: 'multipart/form-data: the file is checked from its bytes, never
+        from its name or type.'
+      properties:
+        file:
+          type: string
+          format: binary
+        alt_text:
+          type: string
+          maxLength: 300
+      required:
+      - file
     Member:
       type: object
       properties:
@@ -1329,6 +4551,212 @@ components:
       required:
       - code
       - method
+    Movement:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        operation_id:
+          type: string
+          format: uuid
+        occurred_at:
+          type: string
+          format: date-time
+        movement_type:
+          $ref: '#/components/schemas/MovementTypeEnum'
+        variant:
+          type: string
+          format: uuid
+        sku:
+          type: string
+        location:
+          type: string
+          format: uuid
+        location_code:
+          type: string
+        on_hand_delta:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,11}(?:\.\d{0,3})?$
+        reserved_delta:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,11}(?:\.\d{0,3})?$
+        on_hand_after:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,11}(?:\.\d{0,3})?$
+        reserved_after:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,11}(?:\.\d{0,3})?$
+        batch:
+          type: string
+          nullable: true
+        serial:
+          type: string
+          nullable: true
+        reversal_of:
+          type: string
+          format: uuid
+          nullable: true
+        reference_type:
+          type: string
+        reference_id:
+          type: string
+        reason:
+          type: string
+        actor:
+          type: string
+          format: uuid
+          nullable: true
+        actor_label:
+          type: string
+      required:
+      - actor
+      - actor_label
+      - id
+      - location
+      - location_code
+      - movement_type
+      - occurred_at
+      - on_hand_after
+      - on_hand_delta
+      - operation_id
+      - reason
+      - reference_id
+      - reference_type
+      - reserved_after
+      - reserved_delta
+      - reversal_of
+      - sku
+      - variant
+    MovementPage:
+      type: object
+      properties:
+        count:
+          type: integer
+        page:
+          type: integer
+        page_size:
+          type: integer
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/Movement'
+      required:
+      - count
+      - page
+      - page_size
+      - results
+    MovementTypeEnum:
+      enum:
+      - receipt
+      - adjustment
+      - damaged
+      - lost
+      - returned
+      - transfer_out
+      - transfer_in
+      - reserved
+      - released
+      - fulfilled
+      - reversal
+      type: string
+      description: |-
+        * `receipt` - Stock received
+        * `adjustment` - Stock count adjustment
+        * `damaged` - Damaged
+        * `lost` - Lost
+        * `returned` - Returned to stock
+        * `transfer_out` - Transferred out
+        * `transfer_in` - Transferred in
+        * `reserved` - Reserved
+        * `released` - Reservation released
+        * `fulfilled` - Reserved stock dispatched
+        * `reversal` - Reversal
+    NetUnitEnum:
+      enum:
+      - pcs
+      - g
+      - kg
+      - ml
+      - l
+      type: string
+      description: |-
+        * `pcs` - Pieces
+        * `g` - Gram
+        * `kg` - Kilogram
+        * `ml` - Millilitre
+        * `l` - Litre
+    Operation:
+      type: object
+      properties:
+        operation_id:
+          type: string
+          format: uuid
+        replayed:
+          type: boolean
+        movements:
+          type: array
+          items:
+            $ref: '#/components/schemas/Movement'
+      required:
+      - movements
+      - operation_id
+      - replayed
+    Option:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        code:
+          type: string
+          readOnly: true
+        value:
+          type: string
+          readOnly: true
+        swatch:
+          type: string
+          readOnly: true
+          description: '#RRGGBB'
+        position:
+          type: integer
+          readOnly: true
+      required:
+      - code
+      - id
+      - position
+      - swatch
+      - value
+    OptionWriteRequest:
+      type: object
+      properties:
+        code:
+          type: string
+          minLength: 1
+          maxLength: 64
+          pattern: ^[a-z0-9]+(?:-[a-z0-9]+)*$
+        value:
+          type: string
+          minLength: 1
+          maxLength: 100
+        swatch:
+          oneOf:
+          - type: string
+            maxLength: 7
+            pattern: ^#[0-9A-Fa-f]{6}$
+          - type: string
+            maxLength: 0
+        position:
+          type: integer
+          maximum: 1000000
+          minimum: 0
+      required:
+      - value
     PasswordChangeRequest:
       type: object
       properties:
@@ -1369,6 +4797,258 @@ components:
       required:
       - password
       - token
+    PatchedAttributeWriteRequest:
+      type: object
+      properties:
+        code:
+          type: string
+          minLength: 1
+          maxLength: 64
+          pattern: ^[a-z0-9]+(?:-[a-z0-9]+)*$
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+        value_type:
+          $ref: '#/components/schemas/AttributeValueTypeEnum'
+        scope:
+          $ref: '#/components/schemas/AttributeScopeEnum'
+        unit:
+          type: string
+          maxLength: 20
+        is_filterable:
+          type: boolean
+        position:
+          type: integer
+          maximum: 1000000
+          minimum: 0
+    PatchedBrandWriteRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 120
+        slug:
+          oneOf:
+          - type: string
+            maxLength: 140
+            pattern: ^[a-z0-9]+(?:-[a-z0-9]+)*$
+          - type: string
+            maxLength: 0
+        is_active:
+          type: boolean
+    PatchedCategoryWriteRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 120
+        slug:
+          oneOf:
+          - type: string
+            maxLength: 140
+            pattern: ^[a-z0-9]+(?:-[a-z0-9]+)*$
+          - type: string
+            maxLength: 0
+        parent:
+          type: string
+          format: uuid
+          nullable: true
+        description:
+          type: string
+          maxLength: 5000
+        position:
+          type: integer
+          maximum: 1000000
+          minimum: 0
+        is_active:
+          type: boolean
+        image:
+          type: string
+          format: uuid
+          nullable: true
+        translations:
+          description: 'Additional languages only: {"bn": {"name": "...", "description":
+            "..."}}.'
+    PatchedCollectionWriteRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 120
+        slug:
+          oneOf:
+          - type: string
+            maxLength: 140
+            pattern: ^[a-z0-9]+(?:-[a-z0-9]+)*$
+          - type: string
+            maxLength: 0
+        description:
+          type: string
+          maxLength: 5000
+        is_active:
+          type: boolean
+        image:
+          type: string
+          format: uuid
+          nullable: true
+        translations:
+          description: 'Additional languages only: {"bn": {"name": "...", "description":
+            "..."}}.'
+    PatchedLevelUpdateRequest:
+      type: object
+      properties:
+        low_stock_threshold:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,11}(?:\.\d{0,3})?$
+          nullable: true
+    PatchedLocationWriteRequest:
+      type: object
+      properties:
+        code:
+          type: string
+          minLength: 1
+          maxLength: 32
+          pattern: ^[A-Za-z0-9][A-Za-z0-9_-]{0,31}$
+        name:
+          type: string
+          minLength: 1
+          maxLength: 120
+        is_active:
+          type: boolean
+        is_default:
+          type: boolean
+        address_line:
+          type: string
+          maxLength: 300
+        city:
+          type: string
+          maxLength: 100
+        country:
+          type: string
+          maxLength: 2
+        notes:
+          type: string
+          maxLength: 1000
+    PatchedMediaUpdateRequest:
+      type: object
+      properties:
+        alt_text:
+          type: string
+          maxLength: 300
+    PatchedOptionWriteRequest:
+      type: object
+      properties:
+        code:
+          type: string
+          minLength: 1
+          maxLength: 64
+          pattern: ^[a-z0-9]+(?:-[a-z0-9]+)*$
+        value:
+          type: string
+          minLength: 1
+          maxLength: 100
+        swatch:
+          oneOf:
+          - type: string
+            maxLength: 7
+            pattern: ^#[0-9A-Fa-f]{6}$
+          - type: string
+            maxLength: 0
+        position:
+          type: integer
+          maximum: 1000000
+          minimum: 0
+    PatchedPriceListWriteRequest:
+      type: object
+      properties:
+        code:
+          type: string
+          minLength: 1
+          maxLength: 40
+          pattern: ^[a-z0-9]+(?:-[a-z0-9]+)*$
+        name:
+          type: string
+          minLength: 1
+          maxLength: 120
+        currency:
+          type: string
+          minLength: 1
+          maxLength: 3
+        is_active:
+          type: boolean
+    PatchedProductUpdateRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 200
+        slug:
+          oneOf:
+          - type: string
+            maxLength: 220
+            pattern: ^[a-z0-9]+(?:-[a-z0-9]+)*$
+          - type: string
+            maxLength: 0
+        product_type:
+          $ref: '#/components/schemas/ProductTypeEnum'
+        brand:
+          type: string
+          format: uuid
+          nullable: true
+        summary:
+          type: string
+          maxLength: 500
+        description:
+          type: string
+          maxLength: 20000
+        tags:
+          type: array
+          items:
+            type: string
+            minLength: 1
+            maxLength: 40
+          maxItems: 40
+        seo_title:
+          type: string
+          maxLength: 70
+        seo_description:
+          type: string
+          maxLength: 320
+        track_inventory:
+          type: boolean
+        tracking_mode:
+          $ref: '#/components/schemas/TrackingModeEnum'
+        translations:
+          description: 'Additional languages only: {"bn": {"name": "...", "description":
+            "..."}}.'
+        categories:
+          type: array
+          items:
+            type: string
+            format: uuid
+          maxItems: 20
+        primary_category:
+          type: string
+          format: uuid
+          nullable: true
+        specifications:
+          type: array
+          items:
+            $ref: '#/components/schemas/SpecificationInputRequest'
+        apparel:
+          $ref: '#/components/schemas/ApparelDetailsInputRequest'
+        grocery:
+          $ref: '#/components/schemas/GroceryDetailsInputRequest'
+        electronics:
+          $ref: '#/components/schemas/ElectronicsDetailsInputRequest'
+        book:
+          $ref: '#/components/schemas/BookDetailsInputRequest'
     PatchedProfileUpdateRequest:
       type: object
       properties:
@@ -1376,6 +5056,80 @@ components:
           type: string
           minLength: 1
           maxLength: 150
+    PatchedVariantUpdateRequest:
+      type: object
+      properties:
+        sku:
+          type: string
+          minLength: 1
+          maxLength: 70
+          pattern: ^\s*[A-Za-z0-9][A-Za-z0-9._-]{0,63}\s*$
+        options:
+          type: object
+          additionalProperties:
+            type: string
+            minLength: 1
+            maxLength: 64
+          description: 'Option value code per product option attribute code, e.g.
+            {"size": "m"}.'
+        kind:
+          $ref: '#/components/schemas/VariantKindEnum'
+        digital_format:
+          oneOf:
+          - $ref: '#/components/schemas/DigitalFormatEnum'
+          - $ref: '#/components/schemas/BlankEnum'
+        barcode:
+          type: string
+          nullable: true
+          maxLength: 20
+        isbn:
+          type: string
+          nullable: true
+          maxLength: 20
+        weight_grams:
+          type: integer
+          maximum: 10000000
+          minimum: 0
+          nullable: true
+        inventory_unit:
+          $ref: '#/components/schemas/InventoryUnitEnum'
+        net_quantity:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,9}(?:\.\d{0,3})?$
+          nullable: true
+        net_unit:
+          oneOf:
+          - $ref: '#/components/schemas/NetUnitEnum'
+          - $ref: '#/components/schemas/BlankEnum'
+        release_date:
+          type: string
+          format: date
+          nullable: true
+        is_active:
+          type: boolean
+        position:
+          type: integer
+          maximum: 100000
+          minimum: 0
+    PatchedWarrantyWriteRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 120
+        duration_months:
+          type: integer
+          maximum: 120
+          minimum: 1
+        provider:
+          $ref: '#/components/schemas/ProviderEnum'
+        terms:
+          type: string
+          maxLength: 4000
+        is_active:
+          type: boolean
     PermissionsEnum:
       enum:
       - staff.manage
@@ -1386,6 +5140,7 @@ components:
       - messages.manage
       - customers.view
       - catalog.manage
+      - catalog.costs
       - content.manage
       - promotions.manage
       - reports.view
@@ -1399,6 +5154,7 @@ components:
         * `messages.manage` - Answer customer messages
         * `customers.view` - View customers
         * `catalog.manage` - Manage products and inventory
+        * `catalog.costs` - See and change cost prices
         * `content.manage` - Manage website content
         * `promotions.manage` - Manage promotions
         * `reports.view` - View reports
@@ -1448,6 +5204,1038 @@ components:
       description: |-
         * `signed_in` - signed_in
         * `needs_name` - needs_name
+    Price:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        price_list:
+          type: string
+          format: uuid
+        currency:
+          type: string
+        amount:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,15}(?:\.\d{0,4})?$
+        compare_at_amount:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,15}(?:\.\d{0,4})?$
+          nullable: true
+        cost_amount:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,15}(?:\.\d{0,4})?$
+          nullable: true
+          description: Present only for staff with catalog.costs.
+      required:
+      - amount
+      - compare_at_amount
+      - currency
+      - id
+      - price_list
+    PriceEntryRequest:
+      type: object
+      properties:
+        price_list:
+          type: string
+          format: uuid
+          nullable: true
+          description: Omit for the default price list.
+        amount:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,15}(?:\.\d{0,4})?$
+        compare_at_amount:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,15}(?:\.\d{0,4})?$
+          nullable: true
+        cost_amount:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,15}(?:\.\d{0,4})?$
+          nullable: true
+          description: Needs catalog.costs. Omit to keep the stored cost.
+      required:
+      - amount
+    PriceInputRequest:
+      type: object
+      description: |-
+        Default-price-list price given with a new variant. Omit ``cost_amount`` without
+        ``catalog.costs``.
+      properties:
+        amount:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,15}(?:\.\d{0,4})?$
+        compare_at_amount:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,15}(?:\.\d{0,4})?$
+          nullable: true
+        cost_amount:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,15}(?:\.\d{0,4})?$
+          nullable: true
+      required:
+      - amount
+    PriceList:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        code:
+          type: string
+          readOnly: true
+        name:
+          type: string
+          readOnly: true
+        currency:
+          type: string
+          readOnly: true
+          description: ISO 4217.
+        is_default:
+          type: boolean
+          readOnly: true
+        is_active:
+          type: boolean
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - code
+      - created_at
+      - currency
+      - id
+      - is_active
+      - is_default
+      - name
+    PriceListPage:
+      type: object
+      properties:
+        count:
+          type: integer
+        page:
+          type: integer
+        page_size:
+          type: integer
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/PriceList'
+      required:
+      - count
+      - page
+      - page_size
+      - results
+    PriceListWriteRequest:
+      type: object
+      properties:
+        code:
+          type: string
+          minLength: 1
+          maxLength: 40
+          pattern: ^[a-z0-9]+(?:-[a-z0-9]+)*$
+        name:
+          type: string
+          minLength: 1
+          maxLength: 120
+        currency:
+          type: string
+          minLength: 1
+          maxLength: 3
+        is_active:
+          type: boolean
+      required:
+      - code
+      - currency
+      - name
+    PriceRange:
+      type: object
+      properties:
+        currency:
+          type: string
+        min_amount:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,15}(?:\.\d{0,4})?$
+        max_amount:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,15}(?:\.\d{0,4})?$
+      required:
+      - currency
+      - max_amount
+      - min_amount
+    ProductCategory:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        slug:
+          type: string
+        is_primary:
+          type: boolean
+      required:
+      - id
+      - is_primary
+      - name
+      - slug
+    ProductCreateRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 200
+        slug:
+          oneOf:
+          - type: string
+            maxLength: 220
+            pattern: ^[a-z0-9]+(?:-[a-z0-9]+)*$
+          - type: string
+            maxLength: 0
+        product_type:
+          $ref: '#/components/schemas/ProductTypeEnum'
+        brand:
+          type: string
+          format: uuid
+          nullable: true
+        summary:
+          type: string
+          maxLength: 500
+        description:
+          type: string
+          maxLength: 20000
+        tags:
+          type: array
+          items:
+            type: string
+            minLength: 1
+            maxLength: 40
+          maxItems: 40
+        seo_title:
+          type: string
+          maxLength: 70
+        seo_description:
+          type: string
+          maxLength: 320
+        track_inventory:
+          type: boolean
+        tracking_mode:
+          $ref: '#/components/schemas/TrackingModeEnum'
+        translations:
+          description: 'Additional languages only: {"bn": {"name": "...", "description":
+            "..."}}.'
+        categories:
+          type: array
+          items:
+            type: string
+            format: uuid
+          maxItems: 20
+        primary_category:
+          type: string
+          format: uuid
+          nullable: true
+        specifications:
+          type: array
+          items:
+            $ref: '#/components/schemas/SpecificationInputRequest'
+        apparel:
+          $ref: '#/components/schemas/ApparelDetailsInputRequest'
+        grocery:
+          $ref: '#/components/schemas/GroceryDetailsInputRequest'
+        electronics:
+          $ref: '#/components/schemas/ElectronicsDetailsInputRequest'
+        book:
+          $ref: '#/components/schemas/BookDetailsInputRequest'
+        options:
+          type: array
+          items:
+            type: string
+          description: Codes of the variant-defining attributes, in display order.
+          maxItems: 3
+        variants:
+          type: array
+          items:
+            $ref: '#/components/schemas/VariantWriteRequest'
+          description: At least one; a simple product has one.
+      required:
+      - name
+      - variants
+    ProductDetail:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        slug:
+          type: string
+        product_type:
+          $ref: '#/components/schemas/ProductTypeEnum'
+        status:
+          $ref: '#/components/schemas/ProductStatusEnum'
+        brand:
+          allOf:
+          - $ref: '#/components/schemas/Brand'
+          nullable: true
+        summary:
+          type: string
+        description:
+          type: string
+        tags:
+          type: array
+          items:
+            type: string
+        seo_title:
+          type: string
+        seo_description:
+          type: string
+        track_inventory:
+          type: boolean
+        tracking_mode:
+          $ref: '#/components/schemas/TrackingModeEnum'
+        translations: {}
+        published_at:
+          type: string
+          format: date-time
+          nullable: true
+        archived_at:
+          type: string
+          format: date-time
+          nullable: true
+        categories:
+          type: array
+          items:
+            $ref: '#/components/schemas/ProductCategory'
+        options:
+          type: array
+          items:
+            $ref: '#/components/schemas/ProductOption'
+        variants:
+          type: array
+          items:
+            $ref: '#/components/schemas/Variant'
+        specifications:
+          type: array
+          items:
+            $ref: '#/components/schemas/Specification'
+        media:
+          type: array
+          items:
+            $ref: '#/components/schemas/ProductMedia'
+        apparel:
+          allOf:
+          - $ref: '#/components/schemas/ApparelDetails'
+          nullable: true
+          readOnly: true
+        grocery:
+          allOf:
+          - $ref: '#/components/schemas/GroceryDetails'
+          nullable: true
+          readOnly: true
+        electronics:
+          allOf:
+          - $ref: '#/components/schemas/ElectronicsDetails'
+          nullable: true
+          readOnly: true
+        book:
+          allOf:
+          - $ref: '#/components/schemas/BookDetails'
+          nullable: true
+          readOnly: true
+        publication_problems:
+          type: array
+          items:
+            type: string
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+      required:
+      - apparel
+      - archived_at
+      - book
+      - brand
+      - categories
+      - created_at
+      - description
+      - electronics
+      - grocery
+      - id
+      - media
+      - name
+      - options
+      - product_type
+      - publication_problems
+      - published_at
+      - seo_description
+      - seo_title
+      - slug
+      - specifications
+      - status
+      - summary
+      - tags
+      - track_inventory
+      - tracking_mode
+      - translations
+      - updated_at
+      - variants
+    ProductListItem:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        slug:
+          type: string
+        product_type:
+          $ref: '#/components/schemas/ProductTypeEnum'
+        status:
+          $ref: '#/components/schemas/ProductStatusEnum'
+        brand:
+          type: string
+          format: uuid
+          nullable: true
+        variant_count:
+          type: integer
+        primary_image:
+          type: string
+          format: uuid
+          nullable: true
+        price_range:
+          allOf:
+          - $ref: '#/components/schemas/PriceRange'
+          nullable: true
+        available:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,11}(?:\.\d{0,3})?$
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+      required:
+      - available
+      - brand
+      - created_at
+      - id
+      - name
+      - price_range
+      - primary_image
+      - product_type
+      - slug
+      - status
+      - updated_at
+      - variant_count
+    ProductListItemPage:
+      type: object
+      properties:
+        count:
+          type: integer
+        page:
+          type: integer
+        page_size:
+          type: integer
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/ProductListItem'
+      required:
+      - count
+      - page
+      - page_size
+      - results
+    ProductMedia:
+      type: object
+      properties:
+        asset:
+          type: string
+          format: uuid
+        variant:
+          type: string
+          format: uuid
+          nullable: true
+        position:
+          type: integer
+        is_primary:
+          type: boolean
+        alt_text:
+          type: string
+        width:
+          type: integer
+          nullable: true
+        height:
+          type: integer
+          nullable: true
+        url:
+          type: string
+          readOnly: true
+      required:
+      - alt_text
+      - asset
+      - height
+      - is_primary
+      - position
+      - url
+      - variant
+      - width
+    ProductMediaInputRequest:
+      type: object
+      properties:
+        asset:
+          type: string
+          format: uuid
+        variant:
+          type: string
+          format: uuid
+          nullable: true
+        is_primary:
+          type: boolean
+      required:
+      - asset
+    ProductMediaSetRequest:
+      type: object
+      properties:
+        media:
+          type: array
+          items:
+            $ref: '#/components/schemas/ProductMediaInputRequest'
+      required:
+      - media
+    ProductOption:
+      type: object
+      properties:
+        attribute:
+          type: string
+          format: uuid
+        code:
+          type: string
+        name:
+          type: string
+        position:
+          type: integer
+      required:
+      - attribute
+      - code
+      - name
+      - position
+    ProductOptionsRequest:
+      type: object
+      properties:
+        options:
+          type: array
+          items:
+            type: string
+          maxItems: 3
+      required:
+      - options
+    ProductStatusEnum:
+      enum:
+      - draft
+      - active
+      - archived
+      type: string
+      description: |-
+        * `draft` - Draft
+        * `active` - Active
+        * `archived` - Archived
+    ProductStatusRequest:
+      type: object
+      properties:
+        status:
+          $ref: '#/components/schemas/ProductStatusEnum'
+      required:
+      - status
+    ProductTypeEnum:
+      enum:
+      - standard
+      - apparel
+      - grocery
+      - electronics
+      - book
+      type: string
+      description: |-
+        * `standard` - Standard
+        * `apparel` - Apparel
+        * `grocery` - Grocery
+        * `electronics` - Electronics
+        * `book` - Book
+    ProviderEnum:
+      enum:
+      - manufacturer
+      - seller
+      type: string
+      description: |-
+        * `manufacturer` - Manufacturer
+        * `seller` - Seller
+    PublicApparel:
+      type: object
+      properties:
+        audience:
+          type: string
+        material:
+          type: string
+        fit:
+          type: string
+        care_instructions:
+          type: string
+        size_guide_url:
+          type: string
+          nullable: true
+          readOnly: true
+        size_guide_notes:
+          type: string
+      required:
+      - audience
+      - care_instructions
+      - fit
+      - material
+      - size_guide_notes
+      - size_guide_url
+    PublicBrand:
+      type: object
+      properties:
+        name:
+          type: string
+        slug:
+          type: string
+      required:
+      - name
+      - slug
+    PublicCategoryNode:
+      type: object
+      properties:
+        name:
+          type: string
+        slug:
+          type: string
+        description:
+          type: string
+        image_url:
+          type: string
+          nullable: true
+          readOnly: true
+        translations: {}
+        children:
+          type: array
+          items:
+            type: object
+            additionalProperties: {}
+          readOnly: true
+      required:
+      - children
+      - description
+      - image_url
+      - name
+      - slug
+      - translations
+    PublicCategoryRef:
+      type: object
+      properties:
+        name:
+          type: string
+        slug:
+          type: string
+        is_primary:
+          type: boolean
+      required:
+      - is_primary
+      - name
+      - slug
+    PublicCollection:
+      type: object
+      properties:
+        name:
+          type: string
+        slug:
+          type: string
+        description:
+          type: string
+        image_url:
+          type: string
+          nullable: true
+          readOnly: true
+        translations: {}
+      required:
+      - description
+      - image_url
+      - name
+      - slug
+      - translations
+    PublicCollectionPage:
+      type: object
+      properties:
+        count:
+          type: integer
+        page:
+          type: integer
+        page_size:
+          type: integer
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/PublicCollection'
+      required:
+      - count
+      - page
+      - page_size
+      - results
+    PublicElectronics:
+      type: object
+      properties:
+        model_number:
+          type: string
+        warranty:
+          allOf:
+          - $ref: '#/components/schemas/PublicWarranty'
+          nullable: true
+      required:
+      - model_number
+      - warranty
+    PublicImage:
+      type: object
+      properties:
+        url:
+          type: string
+          readOnly: true
+        alt_text:
+          type: string
+        width:
+          type: integer
+          nullable: true
+        height:
+          type: integer
+          nullable: true
+        variant:
+          type: string
+          format: uuid
+          nullable: true
+      required:
+      - alt_text
+      - height
+      - url
+      - variant
+      - width
+    PublicOptionValue:
+      type: object
+      properties:
+        code:
+          type: string
+        value:
+          type: string
+        swatch:
+          type: string
+      required:
+      - code
+      - swatch
+      - value
+    PublicPrice:
+      type: object
+      properties:
+        currency:
+          type: string
+        amount:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,15}(?:\.\d{0,4})?$
+        compare_at_amount:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,15}(?:\.\d{0,4})?$
+          nullable: true
+      required:
+      - amount
+      - compare_at_amount
+      - currency
+    PublicPriceRange:
+      type: object
+      properties:
+        currency:
+          type: string
+        min_amount:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,15}(?:\.\d{0,4})?$
+        max_amount:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,15}(?:\.\d{0,4})?$
+      required:
+      - currency
+      - max_amount
+      - min_amount
+    PublicProductDetail:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        slug:
+          type: string
+        name:
+          type: string
+        summary:
+          type: string
+        product_type:
+          $ref: '#/components/schemas/ProductTypeEnum'
+        brand:
+          allOf:
+          - $ref: '#/components/schemas/PublicBrand'
+          nullable: true
+        price:
+          allOf:
+          - $ref: '#/components/schemas/PublicPriceRange'
+          nullable: true
+        image:
+          allOf:
+          - $ref: '#/components/schemas/PublicImage'
+          nullable: true
+          readOnly: true
+        in_stock:
+          type: boolean
+        translations: {}
+        description:
+          type: string
+        seo_title:
+          type: string
+        seo_description:
+          type: string
+        categories:
+          type: array
+          items:
+            $ref: '#/components/schemas/PublicCategoryRef'
+        options:
+          type: array
+          items:
+            $ref: '#/components/schemas/PublicProductOption'
+        variants:
+          type: array
+          items:
+            $ref: '#/components/schemas/PublicVariant'
+        specifications:
+          type: array
+          items:
+            $ref: '#/components/schemas/Specification'
+        images:
+          type: array
+          items:
+            $ref: '#/components/schemas/PublicImage'
+        apparel:
+          allOf:
+          - $ref: '#/components/schemas/PublicApparel'
+          nullable: true
+          readOnly: true
+        grocery:
+          allOf:
+          - $ref: '#/components/schemas/GroceryDetails'
+          nullable: true
+          readOnly: true
+        electronics:
+          allOf:
+          - $ref: '#/components/schemas/PublicElectronics'
+          nullable: true
+          readOnly: true
+        book:
+          allOf:
+          - $ref: '#/components/schemas/BookDetails'
+          nullable: true
+          readOnly: true
+      required:
+      - apparel
+      - book
+      - brand
+      - categories
+      - description
+      - electronics
+      - grocery
+      - id
+      - image
+      - images
+      - in_stock
+      - name
+      - options
+      - price
+      - product_type
+      - seo_description
+      - seo_title
+      - slug
+      - specifications
+      - summary
+      - translations
+      - variants
+    PublicProductOption:
+      type: object
+      properties:
+        code:
+          type: string
+        name:
+          type: string
+        values:
+          type: array
+          items:
+            $ref: '#/components/schemas/PublicOptionValue'
+          readOnly: true
+      required:
+      - code
+      - name
+      - values
+    PublicProductSummary:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        slug:
+          type: string
+        name:
+          type: string
+        summary:
+          type: string
+        product_type:
+          $ref: '#/components/schemas/ProductTypeEnum'
+        brand:
+          allOf:
+          - $ref: '#/components/schemas/PublicBrand'
+          nullable: true
+        price:
+          allOf:
+          - $ref: '#/components/schemas/PublicPriceRange'
+          nullable: true
+        image:
+          allOf:
+          - $ref: '#/components/schemas/PublicImage'
+          nullable: true
+          readOnly: true
+        in_stock:
+          type: boolean
+        translations: {}
+      required:
+      - brand
+      - id
+      - image
+      - in_stock
+      - name
+      - price
+      - product_type
+      - slug
+      - summary
+      - translations
+    PublicProductSummaryPage:
+      type: object
+      properties:
+        count:
+          type: integer
+        page:
+          type: integer
+        page_size:
+          type: integer
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/PublicProductSummary'
+      required:
+      - count
+      - page
+      - page_size
+      - results
+    PublicVariant:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        sku:
+          type: string
+        title:
+          type: string
+        options:
+          type: array
+          items:
+            $ref: '#/components/schemas/PublicVariantOption'
+        kind:
+          $ref: '#/components/schemas/VariantKindEnum'
+        digital_format:
+          type: string
+        net_quantity:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,9}(?:\.\d{0,3})?$
+          nullable: true
+        net_unit:
+          type: string
+        release_date:
+          type: string
+          format: date
+          nullable: true
+        price:
+          allOf:
+          - $ref: '#/components/schemas/PublicPrice'
+          nullable: true
+          readOnly: true
+        in_stock:
+          type: boolean
+          readOnly: true
+      required:
+      - digital_format
+      - id
+      - in_stock
+      - kind
+      - net_quantity
+      - net_unit
+      - options
+      - price
+      - release_date
+      - sku
+      - title
+    PublicVariantOption:
+      type: object
+      properties:
+        attribute:
+          type: string
+        option:
+          type: string
+        value:
+          type: string
+      required:
+      - attribute
+      - option
+      - value
+    PublicWarranty:
+      type: object
+      properties:
+        name:
+          type: string
+        duration_months:
+          type: integer
+        provider:
+          type: string
+        terms:
+          type: string
+      required:
+      - duration_months
+      - name
+      - provider
+      - terms
     Readiness:
       type: object
       properties:
@@ -1501,6 +6289,63 @@ components:
           type: string
           default: ''
           maxLength: 16
+    ReceiptRequest:
+      type: object
+      properties:
+        variant:
+          type: string
+          format: uuid
+        quantity:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,11}(?:\.\d{0,3})?$
+        serials:
+          type: array
+          items:
+            type: string
+            minLength: 1
+            maxLength: 100
+          maxItems: 500
+        reason:
+          type: string
+          maxLength: 500
+        reference_type:
+          type: string
+          maxLength: 50
+        reference_id:
+          type: string
+          maxLength: 100
+        idempotency_key:
+          type: string
+          nullable: true
+          minLength: 1
+          description: Optional client-generated key; a retry with the same key is
+            applied once.
+          pattern: ^[A-Za-z0-9._:-]{8,100}$
+        location:
+          type: string
+          format: uuid
+          nullable: true
+          description: Default location if omitted.
+        batch:
+          allOf:
+          - $ref: '#/components/schemas/BatchInputRequest'
+          nullable: true
+      required:
+      - quantity
+      - variant
+    Reconciliation:
+      type: object
+      properties:
+        consistent:
+          type: boolean
+        discrepancies:
+          type: array
+          items:
+            $ref: '#/components/schemas/Discrepancy'
+      required:
+      - consistent
+      - discrepancies
     RecoveryCodes:
       type: object
       properties:
@@ -1532,6 +6377,22 @@ components:
       - email
       - full_name
       - password
+    ReversalRequest:
+      type: object
+      properties:
+        reason:
+          type: string
+          minLength: 1
+          maxLength: 500
+        idempotency_key:
+          type: string
+          nullable: true
+          minLength: 1
+          description: Optional client-generated key; a retry with the same key is
+            applied once.
+          pattern: ^[A-Za-z0-9._:-]{8,100}$
+      required:
+      - reason
     Role:
       type: object
       properties:
@@ -1575,6 +6436,68 @@ components:
       - reauthenticated
       - recovery_codes_remaining
       - totp
+    Serial:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        serial:
+          type: string
+        variant:
+          type: string
+          format: uuid
+        sku:
+          type: string
+        status:
+          $ref: '#/components/schemas/SerialStatusEnum'
+        location:
+          type: string
+          format: uuid
+          nullable: true
+        updated_at:
+          type: string
+          format: date-time
+      required:
+      - id
+      - location
+      - serial
+      - sku
+      - status
+      - updated_at
+      - variant
+    SerialPage:
+      type: object
+      properties:
+        count:
+          type: integer
+        page:
+          type: integer
+        page_size:
+          type: integer
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/Serial'
+      required:
+      - count
+      - page
+      - page_size
+      - results
+    SerialStatusEnum:
+      enum:
+      - available
+      - reserved
+      - sold
+      - damaged
+      - lost
+      type: string
+      description: |-
+        * `available` - Available
+        * `reserved` - Reserved
+        * `sold` - Sold
+        * `damaged` - Damaged
+        * `lost` - Lost
     SignInMethods:
       type: object
       properties:
@@ -1615,6 +6538,39 @@ components:
       description: |-
         * `signed_in` - signed_in
         * `mfa_required` - mfa_required
+    Specification:
+      type: object
+      properties:
+        attribute:
+          type: string
+        name:
+          type: string
+        value_type:
+          type: string
+        unit:
+          type: string
+        value:
+          readOnly: true
+        display:
+          type: string
+          readOnly: true
+      required:
+      - attribute
+      - display
+      - name
+      - unit
+      - value
+      - value_type
+    SpecificationInputRequest:
+      type: object
+      properties:
+        attribute:
+          type: string
+        value:
+          description: Text, number, boolean or option code by type.
+      required:
+      - attribute
+      - value
     StaffRoleEnum:
       enum:
       - owner
@@ -1667,6 +6623,86 @@ components:
       - email
       - full_name
       - id
+    StockLevel:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        variant:
+          $ref: '#/components/schemas/VariantRef'
+        location:
+          $ref: '#/components/schemas/LocationRef'
+        on_hand:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,11}(?:\.\d{0,3})?$
+        reserved:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,11}(?:\.\d{0,3})?$
+        available:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,11}(?:\.\d{0,3})?$
+        low_stock_threshold:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,11}(?:\.\d{0,3})?$
+          nullable: true
+        is_low:
+          type: boolean
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+      required:
+      - available
+      - id
+      - is_low
+      - location
+      - low_stock_threshold
+      - on_hand
+      - reserved
+      - updated_at
+      - variant
+    StockLevelPage:
+      type: object
+      properties:
+        count:
+          type: integer
+        page:
+          type: integer
+        page_size:
+          type: integer
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/StockLevel'
+      required:
+      - count
+      - page
+      - page_size
+      - results
+    StockSummary:
+      type: object
+      properties:
+        on_hand:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,11}(?:\.\d{0,3})?$
+        reserved:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,11}(?:\.\d{0,3})?$
+        available:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,11}(?:\.\d{0,3})?$
+      required:
+      - available
+      - on_hand
+      - reserved
     Team:
       type: object
       properties:
@@ -1710,6 +6746,336 @@ components:
       - qr_svg
       - secret
       - uri
+    TrackingModeEnum:
+      enum:
+      - none
+      - batch
+      - serial
+      type: string
+      description: |-
+        * `none` - Quantity only
+        * `batch` - Batches and expiry
+        * `serial` - Serial numbers
+    TransferRequest:
+      type: object
+      properties:
+        variant:
+          type: string
+          format: uuid
+        quantity:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,11}(?:\.\d{0,3})?$
+        serials:
+          type: array
+          items:
+            type: string
+            minLength: 1
+            maxLength: 100
+          maxItems: 500
+        reason:
+          type: string
+          maxLength: 500
+        reference_type:
+          type: string
+          maxLength: 50
+        reference_id:
+          type: string
+          maxLength: 100
+        idempotency_key:
+          type: string
+          nullable: true
+          minLength: 1
+          description: Optional client-generated key; a retry with the same key is
+            applied once.
+          pattern: ^[A-Za-z0-9._:-]{8,100}$
+        from_location:
+          type: string
+          format: uuid
+        to_location:
+          type: string
+          format: uuid
+        batch:
+          type: string
+          nullable: true
+          minLength: 1
+          maxLength: 64
+      required:
+      - from_location
+      - quantity
+      - to_location
+      - variant
+    Variant:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        product:
+          type: string
+          format: uuid
+        sku:
+          type: string
+        title:
+          type: string
+        options:
+          type: array
+          items:
+            $ref: '#/components/schemas/VariantOption'
+        position:
+          type: integer
+        is_active:
+          type: boolean
+        kind:
+          $ref: '#/components/schemas/VariantKindEnum'
+        digital_format:
+          type: string
+        barcode:
+          type: string
+          nullable: true
+        isbn:
+          type: string
+          nullable: true
+        weight_grams:
+          type: integer
+          nullable: true
+        inventory_unit:
+          $ref: '#/components/schemas/InventoryUnitEnum'
+        net_quantity:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,9}(?:\.\d{0,3})?$
+          nullable: true
+        net_unit:
+          type: string
+        release_date:
+          type: string
+          format: date
+          nullable: true
+        prices:
+          type: array
+          items:
+            $ref: '#/components/schemas/Price'
+        stock:
+          allOf:
+          - $ref: '#/components/schemas/StockSummary'
+          readOnly: true
+      required:
+      - barcode
+      - digital_format
+      - id
+      - inventory_unit
+      - is_active
+      - isbn
+      - kind
+      - net_quantity
+      - net_unit
+      - options
+      - position
+      - prices
+      - product
+      - release_date
+      - sku
+      - stock
+      - title
+      - weight_grams
+    VariantKindEnum:
+      enum:
+      - physical
+      - digital
+      type: string
+      description: |-
+        * `physical` - Physical
+        * `digital` - Digital
+    VariantOption:
+      type: object
+      properties:
+        attribute:
+          type: string
+        name:
+          type: string
+        option:
+          type: string
+        value:
+          type: string
+      required:
+      - attribute
+      - name
+      - option
+      - value
+    VariantPrices:
+      type: object
+      properties:
+        variant:
+          type: string
+          format: uuid
+        prices:
+          type: array
+          items:
+            $ref: '#/components/schemas/Price'
+      required:
+      - prices
+      - variant
+    VariantPricesInputRequest:
+      type: object
+      properties:
+        prices:
+          type: array
+          items:
+            $ref: '#/components/schemas/PriceEntryRequest'
+      required:
+      - prices
+    VariantRef:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        sku:
+          type: string
+        title:
+          type: string
+        product:
+          type: string
+          format: uuid
+        product_name:
+          type: string
+      required:
+      - id
+      - product
+      - product_name
+      - sku
+      - title
+    VariantWriteRequest:
+      type: object
+      properties:
+        sku:
+          type: string
+          minLength: 1
+          maxLength: 70
+          pattern: ^\s*[A-Za-z0-9][A-Za-z0-9._-]{0,63}\s*$
+        options:
+          type: object
+          additionalProperties:
+            type: string
+            minLength: 1
+            maxLength: 64
+          description: 'Option value code per product option attribute code, e.g.
+            {"size": "m"}.'
+        kind:
+          $ref: '#/components/schemas/VariantKindEnum'
+        digital_format:
+          oneOf:
+          - $ref: '#/components/schemas/DigitalFormatEnum'
+          - $ref: '#/components/schemas/BlankEnum'
+        barcode:
+          type: string
+          nullable: true
+          maxLength: 20
+        isbn:
+          type: string
+          nullable: true
+          maxLength: 20
+        weight_grams:
+          type: integer
+          maximum: 10000000
+          minimum: 0
+          nullable: true
+        inventory_unit:
+          $ref: '#/components/schemas/InventoryUnitEnum'
+        net_quantity:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,9}(?:\.\d{0,3})?$
+          nullable: true
+        net_unit:
+          oneOf:
+          - $ref: '#/components/schemas/NetUnitEnum'
+          - $ref: '#/components/schemas/BlankEnum'
+        release_date:
+          type: string
+          format: date
+          nullable: true
+        is_active:
+          type: boolean
+        position:
+          type: integer
+          maximum: 100000
+          minimum: 0
+        price:
+          $ref: '#/components/schemas/PriceInputRequest'
+      required:
+      - sku
+    Warranty:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        name:
+          type: string
+          readOnly: true
+        duration_months:
+          type: integer
+          readOnly: true
+        provider:
+          allOf:
+          - $ref: '#/components/schemas/ProviderEnum'
+          readOnly: true
+        terms:
+          type: string
+          readOnly: true
+        is_active:
+          type: boolean
+          readOnly: true
+      required:
+      - duration_months
+      - id
+      - is_active
+      - name
+      - provider
+      - terms
+    WarrantyPage:
+      type: object
+      properties:
+        count:
+          type: integer
+        page:
+          type: integer
+        page_size:
+          type: integer
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/Warranty'
+      required:
+      - count
+      - page
+      - page_size
+      - results
+    WarrantyWriteRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 120
+        duration_months:
+          type: integer
+          maximum: 120
+          minimum: 1
+        provider:
+          $ref: '#/components/schemas/ProviderEnum'
+        terms:
+          type: string
+          maxLength: 4000
+        is_active:
+          type: boolean
+      required:
+      - duration_months
+      - name
+      - provider
   securitySchemes:
     customerSession:
       type: apiKey

@@ -36,6 +36,11 @@ INSTALLED_APPS = [
     "commerce.identity",
     "commerce.staff",
     "commerce.audit",
+    # Phase 04: product and inventory engine (docs/DATA_MODEL.md §2, D-050..D-058).
+    "commerce.media",
+    "commerce.catalog",
+    "commerce.pricing",
+    "commerce.inventory",
 ]
 
 MIDDLEWARE = [
@@ -146,6 +151,19 @@ MATECART_SMS_PROVIDER = env("MATECART_SMS_PROVIDER", default="")
 GOOGLE_OIDC_CLIENT_ID = env("GOOGLE_OIDC_CLIENT_ID", default="")
 GOOGLE_OIDC_CLIENT_SECRET = env("GOOGLE_OIDC_CLIENT_SECRET", default="")
 
+# --- Media (uploaded catalogue files; docs/SECURITY.md "Catalogue media") ---
+# Files live under tenants/<tenant id>/... (tenant_storage_path), never in PostgreSQL. Nothing
+# serves MEDIA_ROOT directly: API views stream files after checking publication or staff access.
+MEDIA_ROOT = env("MATECART_MEDIA_ROOT", default=str(BASE_DIR / "media"))
+STORAGES = {
+    "default": {
+        "BACKEND": "django.core.files.storage.FileSystemStorage",
+        "OPTIONS": {"file_permissions_mode": 0o640, "directory_permissions_mode": 0o750},
+    },
+}
+# Largest accepted upload; checked before the image decoder runs (commerce.media.services).
+MATECART_MEDIA_MAX_BYTES = env.int("MATECART_MEDIA_MAX_BYTES", default=10 * 1024 * 1024)
+
 # --- Cache (Redis) ---
 CACHES = {
     "default": {
@@ -204,6 +222,17 @@ SPECTACULAR_SETTINGS = {
         "StaffRoleEnum": "commerce.staff.permissions.StaffRole",
         "AssignableRoleEnum": "commerce.staff.permissions.ASSIGNABLE_ROLES",
         "MfaMethodEnum": "commerce.staff.serializers.MFA_METHODS",
+        "ProductStatusEnum": "commerce.catalog.models.ProductStatus",
+        "ProductTypeEnum": "commerce.catalog.models.ProductType",
+        "TrackingModeEnum": "commerce.catalog.models.TrackingMode",
+        "VariantKindEnum": "commerce.catalog.models.VariantKind",
+        "InventoryUnitEnum": "commerce.catalog.models.InventoryUnit",
+        "NetUnitEnum": "commerce.catalog.models.NetUnit",
+        "AttributeValueTypeEnum": "commerce.catalog.models.AttributeValueType",
+        "AttributeScopeEnum": "commerce.catalog.models.AttributeScope",
+        "MovementTypeEnum": "commerce.inventory.models.MovementType",
+        "SerialStatusEnum": "commerce.inventory.models.SerialStatus",
+        "MediaKindEnum": "commerce.media.models.MediaKind",
     },
 }
 API_SCHEMA_ENABLED = env.bool("DJANGO_API_SCHEMA_ENABLED", default=False)

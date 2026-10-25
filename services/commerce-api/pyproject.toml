@@ -20,6 +20,7 @@ dependencies = [
     "babel>=2.18.0",  # CLDR data: ISO 3166 countries and ISO 4217 currencies (BSD-3-Clause)
     "phonenumbers>=9.0.41",  # E.164 phone normalisation (Apache-2.0)
     "tzdata>=2026.5",  # IANA time zone database, independent of the OS image
+    "pillow>=12.3.0,<13",  # server-side image verification for catalogue media (MIT-CMU, D-050)
 ]
 
 [dependency-groups]

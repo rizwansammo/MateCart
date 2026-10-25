@@ -1,5 +1,8 @@
 """Host-run migration round-trip against temporary databases in MateCart's own PostgreSQL.
 
+Covers the authentication migrations (Phase 03) and the product and inventory engine (Phase 04:
+media, catalog, pricing, inventory, including the append-only ledger trigger).
+
 Never resets development data or reads passwords. Existing container environment supplies the
 credentials; only the database name is overridden in the temporary API process.
 """
@@ -31,7 +34,7 @@ call_command('migrate', interactive=False, verbosity=0)
 print('Fresh migration forward: OK')
 for app, target in {reversal!r}:
     call_command('migrate', app, target, interactive=False, verbosity=0)
-print('Authentication migration reverse: OK')
+print('Migration reverse: OK')
 call_command('migrate', interactive=False, verbosity=0)
 call_command('makemigrations', check=True, dry_run=True, verbosity=0)
 call_command('check', verbosity=0)
@@ -46,5 +49,16 @@ print('Reapply and drift check: OK')
 
 
 if __name__ == "__main__":
-    verify("commerce-api", "matecart_commerce", [("staff", "zero"), ("identity", "0002")])
+    verify(
+        "commerce-api",
+        "matecart_commerce",
+        [
+            ("inventory", "zero"),
+            ("pricing", "zero"),
+            ("catalog", "zero"),
+            ("media", "zero"),
+            ("staff", "zero"),
+            ("identity", "0002"),
+        ],
+    )
     verify("control-api", "matecart_control", [("accounts", "0001")])

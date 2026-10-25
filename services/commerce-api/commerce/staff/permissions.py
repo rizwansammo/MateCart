@@ -23,6 +23,8 @@ class Permission(models.TextChoices):
     MESSAGES_MANAGE = "messages.manage", "Answer customer messages"
     CUSTOMERS_VIEW = "customers.view", "View customers"
     CATALOG_MANAGE = "catalog.manage", "Manage products and inventory"
+    # Internal cost prices (margins): Owner and Manager only, never Content editor (D-053).
+    CATALOG_COSTS = "catalog.costs", "See and change cost prices"
     CONTENT_MANAGE = "content.manage", "Manage website content"
     PROMOTIONS_MANAGE = "promotions.manage", "Manage promotions"
     REPORTS_VIEW = "reports.view", "View reports"
