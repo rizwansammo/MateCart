@@ -1,0 +1,7 @@
+{% extends "email/_layout.html" %}
+{% block content %}
+<h1 style="margin:0 0 12px;font-size:22px;line-height:28px">Your verification code</h1>
+<p style="margin:0 0 20px;font-size:15px;line-height:22px">Enter this code to continue. It expires in 10 minutes.</p>
+<p style="margin:0 0 20px;font-size:32px;font-weight:700;letter-spacing:.3em;font-family:'Courier New',monospace">{{ code }}</p>
+<p style="margin:0;font-size:13px;line-height:20px;color:#5d6762">Never share this code. {{ store_name }} staff will never ask you for it.</p>
+{% endblock %}

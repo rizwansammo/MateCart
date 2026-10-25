@@ -22,6 +22,15 @@ export default defineConfig([
     files: ['scripts/**/*.mjs'],
     rules: { 'no-console': 'off' },
   },
+  {
+    // Auth navigation intentionally reloads the document to discard transient setup secrets,
+    // recovery codes and stale realm state. shared-ui is also independent of the Next router.
+    files: ['packages/shared-ui/src/**/*.tsx', 'apps/*/src/components/*-app.tsx'],
+    rules: {
+      '@next/next/no-html-link-for-pages': 'off',
+      '@next/next/no-location-assign-relative-destination': 'off',
+    },
+  },
   globalIgnores([
     '**/.next/**',
     '**/node_modules/**',

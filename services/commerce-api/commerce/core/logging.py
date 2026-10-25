@@ -1,5 +1,6 @@
 import json
 import logging
+import re
 from datetime import UTC, datetime
 from typing import Any
 
@@ -11,6 +12,11 @@ class RequestIdFilter(logging.Filter):
 
     def filter(self, record: logging.LogRecord) -> bool:
         record.request_id = get_request_id() or "-"
+        # Django's development access logger includes the entire request URL. OAuth callbacks
+        # and invitation previews contain credentials in the query string: never retain it.
+        if record.name in {"django.server", "django.request", "django.security.csrf"}:
+            record.msg = re.sub(r'(\S+)\?[^\s"\r\n]*', r"\1?[redacted]", record.getMessage())
+            record.args = ()
         return True
 
 

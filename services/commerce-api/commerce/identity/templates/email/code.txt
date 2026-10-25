@@ -1,0 +1,9 @@
+{% autoescape off %}{{ store_name }}
+
+Your verification code: {{ code }}
+
+Enter this code to continue. It expires in 10 minutes.
+Never share this code. {{ store_name }} staff will never ask you for it.
+
+If this wasn't you, you can ignore this email.
+{% endautoescape %}

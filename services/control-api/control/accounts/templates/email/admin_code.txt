@@ -1,0 +1,7 @@
+{% autoescape off %}NetaMate Console
+
+Your sign-in code: {{ code }}
+
+Enter this code to continue. It expires in 10 minutes.
+Never share this code with anyone, including NetaMate colleagues.
+{% endautoescape %}

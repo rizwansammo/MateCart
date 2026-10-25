@@ -5,8 +5,9 @@ from django.http import HttpRequest
 
 
 class NoLoginBackend(BaseBackend):
-    """Placeholder until Phase 03 adds console sign-in (with MFA): refuses every credential and
-    session, so "nobody can sign in yet" is explicit instead of an ImproperlyConfigured error."""
+    """Refuses every credential: Django's ``authenticate()``/``login()`` are never the way in.
+    Console sign-in runs through control.accounts.services with mandatory two-step verification
+    (D-045); this keeps the refusal explicit instead of an ImproperlyConfigured error."""
 
     def authenticate(self, request: HttpRequest | None, **credentials: Any) -> None:
         return None

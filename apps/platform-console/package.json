@@ -4,8 +4,8 @@
   "private": true,
   "description": "NetaMate Central Platform Console (internal operations UI, Next.js).",
   "scripts": {
-    "dev": "next dev --hostname 127.0.0.1 --port 3410",
-    "build": "next build",
+    "dev": "next dev --webpack --hostname 127.0.0.1 --port 3410",
+    "build": "next build --webpack",
     "start": "next start --hostname 127.0.0.1 --port 3410",
     "typecheck": "next typegen && tsc --noEmit"
   },

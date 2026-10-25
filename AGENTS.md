@@ -94,6 +94,8 @@ Details and reasoning: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 - Important changes write an `AuditEvent` with `record_audit_event()` inside the same `transaction.atomic()` block. Build `changes` with `field_changes(..., fields=[...])`, an explicit allowlist. Never record secrets, and record personal data only when the audit need is documented. Sanitisation is a safety net, not a licence (D-035).
 - Money is `Decimal` with an ISO 4217 currency, never float. Countries, currencies, time zones and phones use ISO, IANA and E.164 identifiers (`commerce.core.standards`, `commerce.core.contact`).
 - Users: `identity.User` (store customers and staff) and `accounts.AdminUser` (console) are the `AUTH_USER_MODEL`s. Never use Django's global groups and permissions for store roles.
+- Authentication: keep customer/staff/console cookie realms separate. Merchant routes are `/manage` in commerce-web. Merchant MFA is optional; console MFA is mandatory. Do not bypass pending MFA/enrollment, CSRF, recent-authentication or membership checks. Never merge Google accounts by email. See `docs/AUTHENTICATION.md` and `docs/SECURITY.md`.
+- Never log authentication query strings or provider exception payloads; they can contain action tokens or credentials. Auth responses are no-store. Keep Google/SMS unavailable until genuine providers are configured; test fakes are never live providers.
 
 ### Tests
 

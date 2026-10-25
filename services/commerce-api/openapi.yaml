@@ -4,6 +4,479 @@ info:
   version: 0.1.0
   description: Storefront, checkout and merchant API for a single MateCart store deployment.
 paths:
+  /api/account/code/resend/:
+    post:
+      operationId: account_code_resend
+      description: Resend a code for a registration, phone sign-in, or (signed in)
+        a linking or step-up code.
+      tags:
+      - account
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChallengeRefRequest'
+        required: true
+      security:
+      - customerSession: []
+      - {}
+      responses:
+        '202':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Challenge'
+          description: ''
+  /api/account/google/callback/:
+    get:
+      operationId: account_google_callback
+      description: Google redirects the browser here. Always answers with a redirect
+        to a storefront page.
+      parameters:
+      - in: query
+        name: code
+        schema:
+          type: string
+      - in: query
+        name: error
+        schema:
+          type: string
+      - in: query
+        name: state
+        schema:
+          type: string
+      tags:
+      - account
+      security:
+      - {}
+      responses:
+        '302':
+          description: Redirect to the storefront
+  /api/account/google/start/:
+    get:
+      operationId: account_google_start
+      description: 'Browser navigation (not XHR): redirects to Google''s consent screen.'
+      parameters:
+      - in: query
+        name: next
+        schema:
+          type: string
+      tags:
+      - account
+      security:
+      - {}
+      responses:
+        '302':
+          description: Redirect to Google
+  /api/account/link/email/start/:
+    post:
+      operationId: account_link_email_start
+      description: Base for every cookie-authenticated or sign-in endpoint.
+      tags:
+      - account
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EmailRequest'
+        required: true
+      security:
+      - customerSession: []
+      responses:
+        '202':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Challenge'
+          description: ''
+  /api/account/link/email/verify/:
+    post:
+      operationId: account_link_email_verify
+      description: Base for every cookie-authenticated or sign-in endpoint.
+      tags:
+      - account
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChallengeCodeRequest'
+        required: true
+      security:
+      - customerSession: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CustomerAccount'
+          description: ''
+  /api/account/link/google/remove/:
+    post:
+      operationId: account_unlink_google
+      description: Base for every cookie-authenticated or sign-in endpoint.
+      tags:
+      - account
+      security:
+      - customerSession: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CustomerAccount'
+          description: ''
+  /api/account/link/google/start/:
+    post:
+      operationId: account_link_google_start
+      description: Base for every cookie-authenticated or sign-in endpoint.
+      tags:
+      - account
+      security:
+      - customerSession: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GoogleStart'
+          description: ''
+  /api/account/link/phone/start/:
+    post:
+      operationId: account_link_phone_start
+      description: Base for every cookie-authenticated or sign-in endpoint.
+      tags:
+      - account
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PhoneRequest'
+        required: true
+      security:
+      - customerSession: []
+      responses:
+        '202':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Challenge'
+          description: ''
+  /api/account/link/phone/verify/:
+    post:
+      operationId: account_link_phone_verify
+      description: Base for every cookie-authenticated or sign-in endpoint.
+      tags:
+      - account
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChallengeCodeRequest'
+        required: true
+      security:
+      - customerSession: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CustomerAccount'
+          description: ''
+  /api/account/login/:
+    post:
+      operationId: account_login
+      description: Sign-in and registration steps. The customer cookie is read only
+        to sign out or link.
+      tags:
+      - account
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+        required: true
+      security:
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CustomerAccount'
+          description: ''
+  /api/account/logout/:
+    post:
+      operationId: account_logout
+      description: Sign-in and registration steps. The customer cookie is read only
+        to sign out or link.
+      tags:
+      - account
+      security:
+      - {}
+      responses:
+        '204':
+          description: No response body
+  /api/account/me/:
+    get:
+      operationId: account_me
+      description: Base for every cookie-authenticated or sign-in endpoint.
+      tags:
+      - account
+      security:
+      - customerSession: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CustomerAccount'
+          description: ''
+    patch:
+      operationId: account_me_update
+      description: Base for every cookie-authenticated or sign-in endpoint.
+      tags:
+      - account
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedProfileUpdateRequest'
+      security:
+      - customerSession: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CustomerAccount'
+          description: ''
+  /api/account/methods/:
+    get:
+      operationId: account_methods
+      description: Sign-in and registration steps. The customer cookie is read only
+        to sign out or link.
+      tags:
+      - account
+      security:
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SignInMethods'
+          description: ''
+  /api/account/password/change/:
+    post:
+      operationId: account_password_change
+      description: Change the password, or set one for accounts created by phone or
+        Google.
+      tags:
+      - account
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PasswordChangeRequest'
+        required: true
+      security:
+      - customerSession: []
+      responses:
+        '204':
+          description: No response body
+  /api/account/password/forgot/:
+    post:
+      operationId: account_password_forgot
+      description: 'Always 202: the response never reveals whether the email has an
+        account.'
+      tags:
+      - account
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EmailRequest'
+        required: true
+      security:
+      - {}
+      responses:
+        '202':
+          description: No response body
+  /api/account/password/reset/:
+    post:
+      operationId: account_password_reset
+      description: Sign-in and registration steps. The customer cookie is read only
+        to sign out or link.
+      tags:
+      - account
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PasswordResetRequest'
+        required: true
+      security:
+      - {}
+      responses:
+        '204':
+          description: No response body
+  /api/account/phone/complete/:
+    post:
+      operationId: account_phone_complete
+      description: Sign-in and registration steps. The customer cookie is read only
+        to sign out or link.
+      tags:
+      - account
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PhoneCompleteRequest'
+        required: true
+      security:
+      - {}
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CustomerAccount'
+          description: ''
+  /api/account/phone/start/:
+    post:
+      operationId: account_phone_start
+      description: Sign-in and registration steps. The customer cookie is read only
+        to sign out or link.
+      tags:
+      - account
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PhoneRequest'
+        required: true
+      security:
+      - {}
+      responses:
+        '202':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Challenge'
+          description: ''
+  /api/account/phone/verify/:
+    post:
+      operationId: account_phone_verify
+      description: Sign-in and registration steps. The customer cookie is read only
+        to sign out or link.
+      tags:
+      - account
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChallengeCodeRequest'
+        required: true
+      security:
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PhoneVerifyResult'
+          description: ''
+  /api/account/reauthenticate/:
+    post:
+      operationId: account_reauthenticate
+      description: Base for every cookie-authenticated or sign-in endpoint.
+      tags:
+      - account
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReauthenticateRequest'
+      security:
+      - customerSession: []
+      responses:
+        '204':
+          description: No response body
+  /api/account/reauthenticate/code/:
+    post:
+      operationId: account_reauthenticate_code
+      description: Base for every cookie-authenticated or sign-in endpoint.
+      tags:
+      - account
+      security:
+      - customerSession: []
+      responses:
+        '202':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Challenge'
+          description: ''
+  /api/account/register/:
+    post:
+      operationId: account_register
+      description: Sends a 6-digit code to the email; the account is created once
+        confirmed.
+      tags:
+      - account
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterRequest'
+        required: true
+      security:
+      - {}
+      responses:
+        '202':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Challenge'
+          description: ''
+  /api/account/register/verify/:
+    post:
+      operationId: account_register_verify
+      description: Sign-in and registration steps. The customer cookie is read only
+        to sign out or link.
+      tags:
+      - account
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChallengeCodeRequest'
+        required: true
+      security:
+      - {}
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CustomerAccount'
+          description: ''
+  /api/csrf/:
+    get:
+      operationId: csrf
+      description: Sets the CSRF cookie the web apps echo in X-CSRFToken on every
+        state-changing request.
+      tags:
+      - security
+      security:
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Csrf'
+          description: ''
   /api/health/live/:
     get:
       operationId: health_live
@@ -42,8 +515,559 @@ paths:
               schema:
                 $ref: '#/components/schemas/Readiness'
           description: ''
+  /api/manage/account/mfa/email/confirm/:
+    post:
+      operationId: manage_email_mfa_confirm
+      description: Base for every cookie-authenticated or sign-in endpoint.
+      tags:
+      - manage-security
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChallengeCodeRequest'
+        required: true
+      security:
+      - staffSession: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RecoveryCodes'
+          description: ''
+  /api/manage/account/mfa/email/disable/:
+    post:
+      operationId: manage_email_mfa_disable
+      description: Base for every cookie-authenticated or sign-in endpoint.
+      tags:
+      - manage-security
+      security:
+      - staffSession: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SecurityStatus'
+          description: ''
+  /api/manage/account/mfa/email/start/:
+    post:
+      operationId: manage_email_mfa_start
+      description: Base for every cookie-authenticated or sign-in endpoint.
+      tags:
+      - manage-security
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MfaEmailSendRequest'
+      security:
+      - staffSession: []
+      responses:
+        '202':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Challenge'
+          description: ''
+  /api/manage/account/mfa/recovery-codes/:
+    post:
+      operationId: manage_recovery_codes_regenerate
+      description: Base for every cookie-authenticated or sign-in endpoint.
+      tags:
+      - manage-security
+      security:
+      - staffSession: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RecoveryCodes'
+          description: ''
+  /api/manage/account/mfa/totp/confirm/:
+    post:
+      operationId: manage_totp_confirm
+      description: Base for every cookie-authenticated or sign-in endpoint.
+      tags:
+      - manage-security
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TotpConfirmRequest'
+        required: true
+      security:
+      - staffSession: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RecoveryCodes'
+          description: ''
+  /api/manage/account/mfa/totp/disable/:
+    post:
+      operationId: manage_totp_disable
+      description: Base for every cookie-authenticated or sign-in endpoint.
+      tags:
+      - manage-security
+      security:
+      - staffSession: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SecurityStatus'
+          description: ''
+  /api/manage/account/mfa/totp/setup/:
+    post:
+      operationId: manage_totp_setup
+      description: Base for every cookie-authenticated or sign-in endpoint.
+      tags:
+      - manage-security
+      security:
+      - staffSession: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TotpSetup'
+          description: ''
+  /api/manage/account/password/change/:
+    post:
+      operationId: manage_password_change
+      description: Base for every cookie-authenticated or sign-in endpoint.
+      tags:
+      - manage-security
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PasswordChangeRequest'
+        required: true
+      security:
+      - staffSession: []
+      responses:
+        '204':
+          description: No response body
+  /api/manage/account/reauthenticate/:
+    post:
+      operationId: manage_reauthenticate
+      description: Base for every cookie-authenticated or sign-in endpoint.
+      tags:
+      - manage-security
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PasswordConfirmRequest'
+        required: true
+      security:
+      - staffSession: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SecurityStatus'
+          description: ''
+  /api/manage/account/security/:
+    get:
+      operationId: manage_security
+      description: Base for every cookie-authenticated or sign-in endpoint.
+      tags:
+      - manage-security
+      security:
+      - staffSession: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SecurityStatus'
+          description: ''
+  /api/manage/auth/login/:
+    post:
+      operationId: manage_login
+      description: Base for every cookie-authenticated or sign-in endpoint.
+      tags:
+      - manage-auth
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+        required: true
+      security:
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SignInStatus'
+          description: ''
+  /api/manage/auth/logout/:
+    post:
+      operationId: manage_logout
+      description: Base for every cookie-authenticated or sign-in endpoint.
+      tags:
+      - manage-auth
+      security:
+      - {}
+      responses:
+        '204':
+          description: No response body
+  /api/manage/auth/mfa/email/:
+    post:
+      operationId: manage_mfa_email_send
+      description: Base for every cookie-authenticated or sign-in endpoint.
+      tags:
+      - manage-auth
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MfaEmailSendRequest'
+      security:
+      - staffPendingMfa: []
+      responses:
+        '202':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Challenge'
+          description: ''
+  /api/manage/auth/mfa/verify/:
+    post:
+      operationId: manage_mfa_verify
+      description: Base for every cookie-authenticated or sign-in endpoint.
+      tags:
+      - manage-auth
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MfaVerifyRequest'
+        required: true
+      security:
+      - staffPendingMfa: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SignInStatus'
+          description: ''
+  /api/manage/auth/password/forgot/:
+    post:
+      operationId: manage_password_forgot
+      description: Base for every cookie-authenticated or sign-in endpoint.
+      tags:
+      - manage-auth
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EmailRequest'
+        required: true
+      security:
+      - {}
+      responses:
+        '202':
+          description: No response body
+  /api/manage/auth/password/reset/:
+    post:
+      operationId: manage_password_reset
+      description: Base for every cookie-authenticated or sign-in endpoint.
+      tags:
+      - manage-auth
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PasswordResetRequest'
+        required: true
+      security:
+      - {}
+      responses:
+        '204':
+          description: No response body
+  /api/manage/auth/session/:
+    get:
+      operationId: manage_session
+      description: Base for every cookie-authenticated or sign-in endpoint.
+      tags:
+      - manage-auth
+      security:
+      - staffSession: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StaffSession'
+          description: ''
+  /api/manage/invitation/accept/:
+    post:
+      operationId: manage_invitation_accept
+      description: Base for every cookie-authenticated or sign-in endpoint.
+      tags:
+      - manage-team
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/InvitationAcceptRequest'
+        required: true
+      security:
+      - {}
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SignInStatus'
+          description: ''
+  /api/manage/invitation/inspect/:
+    post:
+      operationId: manage_invitation_inspect
+      description: POST keeps the token out of URLs and access logs.
+      tags:
+      - manage-team
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/InvitationTokenRequest'
+        required: true
+      security:
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InvitationPreview'
+          description: ''
+  /api/manage/team/:
+    get:
+      operationId: manage_team
+      description: Base for every cookie-authenticated or sign-in endpoint.
+      tags:
+      - manage-team
+      security:
+      - staffSession: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Team'
+          description: ''
+  /api/manage/team/invitations/:
+    post:
+      operationId: manage_invitation_create
+      description: Base for every cookie-authenticated or sign-in endpoint.
+      tags:
+      - manage-team
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/InvitationCreateRequest'
+        required: true
+      security:
+      - staffSession: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Invitation'
+          description: ''
+  /api/manage/team/invitations/{invitation_id}/resend/:
+    post:
+      operationId: manage_invitation_resend
+      description: Base for every cookie-authenticated or sign-in endpoint.
+      parameters:
+      - in: path
+        name: invitation_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - manage-team
+      security:
+      - staffSession: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Invitation'
+          description: ''
+  /api/manage/team/invitations/{invitation_id}/revoke/:
+    post:
+      operationId: manage_invitation_revoke
+      description: Base for every cookie-authenticated or sign-in endpoint.
+      parameters:
+      - in: path
+        name: invitation_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - manage-team
+      security:
+      - staffSession: []
+      responses:
+        '204':
+          description: No response body
+  /api/manage/team/members/{membership_id}/reactivate/:
+    post:
+      operationId: manage_member_reactivate
+      description: Base for every cookie-authenticated or sign-in endpoint.
+      parameters:
+      - in: path
+        name: membership_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - manage-team
+      security:
+      - staffSession: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Member'
+          description: ''
+  /api/manage/team/members/{membership_id}/role/:
+    post:
+      operationId: manage_member_role
+      description: Base for every cookie-authenticated or sign-in endpoint.
+      parameters:
+      - in: path
+        name: membership_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - manage-team
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RoleChangeRequest'
+        required: true
+      security:
+      - staffSession: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Member'
+          description: ''
+  /api/manage/team/members/{membership_id}/suspend/:
+    post:
+      operationId: manage_member_suspend
+      description: Base for every cookie-authenticated or sign-in endpoint.
+      parameters:
+      - in: path
+        name: membership_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - manage-team
+      security:
+      - staffSession: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Member'
+          description: ''
 components:
   schemas:
+    AssignableRoleEnum:
+      enum:
+      - manager
+      - order_handler
+      - content_editor
+      type: string
+      description: |-
+        * `manager` - manager
+        * `order_handler` - order_handler
+        * `content_editor` - content_editor
+    Challenge:
+      type: object
+      properties:
+        challenge_id:
+          type: string
+          format: uuid
+        channel:
+          $ref: '#/components/schemas/ChannelEnum'
+        destination:
+          type: string
+          readOnly: true
+        resend_in:
+          type: integer
+          readOnly: true
+          description: Seconds until a new code can be sent.
+        expires_in:
+          type: integer
+          readOnly: true
+          description: Seconds the code stays valid.
+      required:
+      - challenge_id
+      - channel
+      - destination
+      - expires_in
+      - resend_in
+    ChallengeCodeRequest:
+      type: object
+      properties:
+        challenge_id:
+          type: string
+          format: uuid
+        code:
+          type: string
+          minLength: 1
+          maxLength: 16
+      required:
+      - challenge_id
+      - code
+    ChallengeRefRequest:
+      type: object
+      properties:
+        challenge_id:
+          type: string
+          format: uuid
+      required:
+      - challenge_id
+    ChannelEnum:
+      enum:
+      - email
+      - sms
+      type: string
+      description: |-
+        * `email` - Email
+        * `sms` - SMS
     CheckStateEnum:
       enum:
       - ok
@@ -52,6 +1076,163 @@ components:
       description: |-
         * `ok` - ok
         * `error` - error
+    Csrf:
+      type: object
+      properties:
+        csrf_token:
+          type: string
+      required:
+      - csrf_token
+    CustomerAccount:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        full_name:
+          type: string
+        email:
+          type: string
+          format: email
+          nullable: true
+        email_verified:
+          type: boolean
+          readOnly: true
+        phone:
+          type: string
+          nullable: true
+        phone_verified:
+          type: boolean
+          readOnly: true
+        has_password:
+          type: boolean
+        google_linked:
+          type: boolean
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+      required:
+      - created_at
+      - email
+      - email_verified
+      - full_name
+      - google_linked
+      - has_password
+      - id
+      - phone
+      - phone_verified
+    EmailRequest:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+          minLength: 1
+          maxLength: 254
+      required:
+      - email
+    GoogleStart:
+      type: object
+      properties:
+        url:
+          type: string
+          format: uri
+      required:
+      - url
+    Invitation:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        email:
+          type: string
+          format: email
+        role:
+          $ref: '#/components/schemas/StaffRoleEnum'
+        created_at:
+          type: string
+          format: date-time
+        last_sent_at:
+          type: string
+          format: date-time
+        expires_at:
+          type: string
+          format: date-time
+      required:
+      - created_at
+      - email
+      - expires_at
+      - id
+      - last_sent_at
+      - role
+    InvitationAcceptRequest:
+      type: object
+      properties:
+        token:
+          type: string
+          minLength: 1
+          maxLength: 128
+        full_name:
+          type: string
+          minLength: 1
+          maxLength: 150
+        password:
+          type: string
+          writeOnly: true
+          minLength: 1
+          maxLength: 128
+      required:
+      - full_name
+      - password
+      - token
+    InvitationCreateRequest:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+          minLength: 1
+          maxLength: 254
+        role:
+          $ref: '#/components/schemas/AssignableRoleEnum'
+      required:
+      - email
+      - role
+    InvitationPreview:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+        role:
+          $ref: '#/components/schemas/StaffRoleEnum'
+        role_label:
+          type: string
+        role_description:
+          type: string
+        store_name:
+          type: string
+        expires_at:
+          type: string
+          format: date-time
+      required:
+      - email
+      - expires_at
+      - role
+      - role_description
+      - role_label
+      - store_name
+    InvitationTokenRequest:
+      type: object
+      properties:
+        token:
+          type: string
+          minLength: 1
+          maxLength: 128
+      required:
+      - token
     Liveness:
       type: object
       properties:
@@ -67,6 +1248,206 @@ components:
       - ok
       type: string
       description: '* `ok` - ok'
+    LoginRequest:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+          minLength: 1
+          maxLength: 254
+        password:
+          type: string
+          writeOnly: true
+          minLength: 1
+          maxLength: 128
+      required:
+      - email
+      - password
+    Member:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        user:
+          $ref: '#/components/schemas/StaffUser'
+        role:
+          $ref: '#/components/schemas/StaffRoleEnum'
+        status:
+          $ref: '#/components/schemas/MemberStatusEnum'
+        mfa_enabled:
+          type: boolean
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+      required:
+      - created_at
+      - id
+      - mfa_enabled
+      - role
+      - status
+      - user
+    MemberStatusEnum:
+      enum:
+      - active
+      - suspended
+      type: string
+      description: |-
+        * `active` - Active
+        * `suspended` - Suspended
+    MfaEmailSendRequest:
+      type: object
+      properties:
+        resend:
+          type: boolean
+          default: false
+    MfaMethodEnum:
+      enum:
+      - totp
+      - email
+      - recovery_code
+      type: string
+      description: |-
+        * `totp` - totp
+        * `email` - email
+        * `recovery_code` - recovery_code
+    MfaVerifyRequest:
+      type: object
+      properties:
+        method:
+          $ref: '#/components/schemas/MfaMethodEnum'
+        code:
+          type: string
+          minLength: 1
+          maxLength: 32
+        challenge_id:
+          type: string
+          format: uuid
+          nullable: true
+      required:
+      - code
+      - method
+    PasswordChangeRequest:
+      type: object
+      properties:
+        current_password:
+          type: string
+          writeOnly: true
+          default: ''
+          maxLength: 128
+        new_password:
+          type: string
+          writeOnly: true
+          minLength: 1
+          maxLength: 128
+      required:
+      - new_password
+    PasswordConfirmRequest:
+      type: object
+      properties:
+        password:
+          type: string
+          writeOnly: true
+          minLength: 1
+          maxLength: 128
+      required:
+      - password
+    PasswordResetRequest:
+      type: object
+      properties:
+        token:
+          type: string
+          minLength: 1
+          maxLength: 128
+        password:
+          type: string
+          writeOnly: true
+          minLength: 1
+          maxLength: 128
+      required:
+      - password
+      - token
+    PatchedProfileUpdateRequest:
+      type: object
+      properties:
+        full_name:
+          type: string
+          minLength: 1
+          maxLength: 150
+    PermissionsEnum:
+      enum:
+      - staff.manage
+      - store.settings
+      - payouts.manage
+      - orders.manage
+      - couriers.manage
+      - messages.manage
+      - customers.view
+      - catalog.manage
+      - content.manage
+      - promotions.manage
+      - reports.view
+      type: string
+      description: |-
+        * `staff.manage` - Invite and manage staff
+        * `store.settings` - Change store settings
+        * `payouts.manage` - Manage payouts
+        * `orders.manage` - Manage orders
+        * `couriers.manage` - Book and track couriers
+        * `messages.manage` - Answer customer messages
+        * `customers.view` - View customers
+        * `catalog.manage` - Manage products and inventory
+        * `content.manage` - Manage website content
+        * `promotions.manage` - Manage promotions
+        * `reports.view` - View reports
+    PhoneCompleteRequest:
+      type: object
+      properties:
+        challenge_id:
+          type: string
+          format: uuid
+        completion_token:
+          type: string
+          minLength: 1
+          maxLength: 128
+        full_name:
+          type: string
+          minLength: 1
+          maxLength: 150
+      required:
+      - challenge_id
+      - completion_token
+      - full_name
+    PhoneRequest:
+      type: object
+      properties:
+        phone:
+          type: string
+          minLength: 1
+          maxLength: 32
+      required:
+      - phone
+    PhoneVerifyResult:
+      type: object
+      properties:
+        status:
+          $ref: '#/components/schemas/PhoneVerifyResultStatusEnum'
+        completion_token:
+          type: string
+        account:
+          $ref: '#/components/schemas/CustomerAccount'
+      required:
+      - status
+    PhoneVerifyResultStatusEnum:
+      enum:
+      - signed_in
+      - needs_name
+      type: string
+      description: |-
+        * `signed_in` - signed_in
+        * `needs_name` - needs_name
     Readiness:
       type: object
       properties:
@@ -104,3 +1485,244 @@ components:
       description: |-
         * `ok` - ok
         * `unavailable` - unavailable
+    ReauthenticateRequest:
+      type: object
+      properties:
+        password:
+          type: string
+          writeOnly: true
+          default: ''
+          maxLength: 128
+        challenge_id:
+          type: string
+          format: uuid
+          nullable: true
+        code:
+          type: string
+          default: ''
+          maxLength: 16
+    RecoveryCodes:
+      type: object
+      properties:
+        recovery_codes:
+          type: array
+          items:
+            type: string
+          nullable: true
+      required:
+      - recovery_codes
+    RegisterRequest:
+      type: object
+      properties:
+        full_name:
+          type: string
+          minLength: 1
+          maxLength: 150
+        email:
+          type: string
+          format: email
+          minLength: 1
+          maxLength: 254
+        password:
+          type: string
+          writeOnly: true
+          minLength: 1
+          maxLength: 128
+      required:
+      - email
+      - full_name
+      - password
+    Role:
+      type: object
+      properties:
+        value:
+          $ref: '#/components/schemas/StaffRoleEnum'
+        label:
+          type: string
+        description:
+          type: string
+      required:
+      - description
+      - label
+      - value
+    RoleChangeRequest:
+      type: object
+      properties:
+        role:
+          $ref: '#/components/schemas/AssignableRoleEnum'
+      required:
+      - role
+    SecurityStatus:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+          nullable: true
+        totp:
+          type: boolean
+        email_codes:
+          type: boolean
+        recovery_codes_remaining:
+          type: integer
+        reauthenticated:
+          type: boolean
+          description: True while sensitive changes are allowed without re-entering
+            the password.
+      required:
+      - email
+      - email_codes
+      - reauthenticated
+      - recovery_codes_remaining
+      - totp
+    SignInMethods:
+      type: object
+      properties:
+        email_password:
+          type: boolean
+        phone:
+          type: boolean
+        google:
+          type: boolean
+        phone_country:
+          type: string
+          description: ISO 3166-1 alpha-2 of the store, for national numbers.
+      required:
+      - email_password
+      - google
+      - phone
+      - phone_country
+    SignInStatus:
+      type: object
+      properties:
+        status:
+          $ref: '#/components/schemas/SignInStatusStatusEnum'
+        methods:
+          type: array
+          items:
+            $ref: '#/components/schemas/MfaMethodEnum'
+        email_hint:
+          type: string
+      required:
+      - email_hint
+      - methods
+      - status
+    SignInStatusStatusEnum:
+      enum:
+      - signed_in
+      - mfa_required
+      type: string
+      description: |-
+        * `signed_in` - signed_in
+        * `mfa_required` - mfa_required
+    StaffRoleEnum:
+      enum:
+      - owner
+      - manager
+      - order_handler
+      - content_editor
+      type: string
+      description: |-
+        * `owner` - Owner
+        * `manager` - Manager
+        * `order_handler` - Order handler
+        * `content_editor` - Content editor
+    StaffSession:
+      type: object
+      properties:
+        user:
+          $ref: '#/components/schemas/StaffUser'
+        role:
+          $ref: '#/components/schemas/StaffRoleEnum'
+        role_label:
+          type: string
+        permissions:
+          type: array
+          items:
+            $ref: '#/components/schemas/PermissionsEnum'
+        store_name:
+          type: string
+        mfa_enabled:
+          type: boolean
+      required:
+      - mfa_enabled
+      - permissions
+      - role
+      - role_label
+      - store_name
+      - user
+    StaffUser:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        full_name:
+          type: string
+        email:
+          type: string
+          format: email
+          nullable: true
+      required:
+      - email
+      - full_name
+      - id
+    Team:
+      type: object
+      properties:
+        members:
+          type: array
+          items:
+            $ref: '#/components/schemas/Member'
+        invitations:
+          type: array
+          items:
+            $ref: '#/components/schemas/Invitation'
+        roles:
+          type: array
+          items:
+            $ref: '#/components/schemas/Role'
+      required:
+      - invitations
+      - members
+      - roles
+    TotpConfirmRequest:
+      type: object
+      properties:
+        code:
+          type: string
+          minLength: 1
+          maxLength: 16
+      required:
+      - code
+    TotpSetup:
+      type: object
+      properties:
+        qr_svg:
+          type: string
+          description: 'data: URI of an SVG QR code.'
+        secret:
+          type: string
+          description: The setup key, grouped for manual entry.
+        uri:
+          type: string
+      required:
+      - qr_svg
+      - secret
+      - uri
+  securitySchemes:
+    customerSession:
+      type: apiKey
+      in: cookie
+      name: mc_customer
+      description: Customer session (HttpOnly). Unsafe methods need X-CSRFToken.
+    staffPendingMfa:
+      type: apiKey
+      in: cookie
+      name: mc_staff
+      description: A password-verified staff session waiting for the second step.
+    staffSession:
+      type: apiKey
+      in: cookie
+      name: mc_staff
+      description: Merchant staff session (HttpOnly, path /api/manage).

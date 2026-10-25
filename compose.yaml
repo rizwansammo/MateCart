@@ -23,6 +23,21 @@ x-commerce-api-environment: &commerce-api-environment
   # The one store this deployment serves; never taken from requests (docs/ARCHITECTURE.md §3).
   MATECART_TENANCY_MODE: single
   MATECART_TENANT_ID: ${MATECART_TENANT_ID:?run `pnpm setup:env` to add MATECART_TENANT_ID to .env}
+  # Authentication (docs/SECURITY.md). Local HTTP only: cookies drop the Secure flag here, never
+  # in production. The storefront at :3400 proxies /api/* to this service (one trusted hop).
+  MATECART_ENCRYPTION_KEY: ${MATECART_COMMERCE_ENCRYPTION_KEY:?run `pnpm setup:env`}
+  MATECART_SECURE_COOKIES: 'false'
+  MATECART_PUBLIC_BASE_URL: http://127.0.0.1:3400
+  DJANGO_CSRF_TRUSTED_ORIGINS: http://127.0.0.1:3400,http://localhost:3400
+  MATECART_TRUSTED_PROXY_COUNT: '1'
+  # Every email goes to the local Mailpit inbox (http://127.0.0.1:18025); nothing leaves the machine.
+  EMAIL_URL: smtp://mailpit:1025
+  DEFAULT_FROM_EMAIL: MateCart Dev Store <no-reply@matecart.test>
+  # No SMS provider locally: phone sign-in stays disabled until a real gateway is configured.
+  MATECART_SMS_PROVIDER: ''
+  # Optional: Google OAuth client for local testing (docs/AUTHENTICATION.md). Empty hides the button.
+  GOOGLE_OIDC_CLIENT_ID: ${MATECART_GOOGLE_OIDC_CLIENT_ID:-}
+  GOOGLE_OIDC_CLIENT_SECRET: ${MATECART_GOOGLE_OIDC_CLIENT_SECRET:-}
 
 x-commerce-api-build: &commerce-api-build
   context: ./services/commerce-api
@@ -84,6 +99,7 @@ services:
     depends_on:
       commerce-db: { condition: service_healthy }
       commerce-redis: { condition: service_healthy }
+      mailpit: { condition: service_healthy }
     healthcheck:
       test:
         [
@@ -130,6 +146,25 @@ services:
       start_period: 30s
     restart: unless-stopped
 
+  # ---------------------------------------------------------------- local mail catcher
+  # Receives every email both APIs send in development (verification codes, invitations, resets)
+  # and shows them at http://127.0.0.1:18025. Nothing is relayed to real mailboxes.
+  mailpit:
+    image: axllent/mailpit:v1.31.4
+    environment:
+      MP_MAX_MESSAGES: 500
+      MP_SMTP_AUTH_ACCEPT_ANY: 1
+      MP_SMTP_AUTH_ALLOW_INSECURE: 1
+    ports:
+      - '127.0.0.1:${MATECART_MAILPIT_PORT:-18025}:8025'
+    networks: [commerce, control]
+    healthcheck:
+      test: ['CMD', '/mailpit', 'readyz']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
   # ---------------------------------------------------------------- control (NetaMate console)
   control-db:
     image: postgres:18.6-alpine3.24
@@ -144,6 +179,21 @@ services:
     networks: [control]
     healthcheck:
       test: ['CMD-SHELL', 'pg_isready -U matecart_control -d matecart_control']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  control-redis:
+    image: redis:8.10.2-alpine
+    environment:
+      REDIS_PASSWORD: ${MATECART_CONTROL_REDIS_PASSWORD:?run `pnpm setup:env`}
+    command: ['sh', '-c', 'exec redis-server --requirepass "$$REDIS_PASSWORD" --appendonly yes']
+    volumes:
+      - control-redis-data:/data
+    networks: [control]
+    healthcheck:
+      test: ['CMD-SHELL', 'REDISCLI_AUTH="$$REDIS_PASSWORD" redis-cli ping | grep -q PONG']
       interval: 5s
       timeout: 5s
       retries: 10
@@ -165,6 +215,14 @@ services:
       DJANGO_SECRET_KEY: ${MATECART_CONTROL_SECRET_KEY:?run `pnpm setup:env`}
       DJANGO_LOG_FORMAT: console
       DATABASE_URL: postgres://matecart_control:${MATECART_CONTROL_DB_PASSWORD}@control-db:5432/matecart_control
+      REDIS_URL: redis://:${MATECART_CONTROL_REDIS_PASSWORD}@control-redis:6379/0
+      MATECART_ENCRYPTION_KEY: ${MATECART_CONTROL_ENCRYPTION_KEY:?run `pnpm setup:env`}
+      MATECART_SECURE_COOKIES: 'false'
+      MATECART_CONSOLE_PUBLIC_BASE_URL: http://127.0.0.1:3410
+      DJANGO_CSRF_TRUSTED_ORIGINS: http://127.0.0.1:3410,http://localhost:3410
+      MATECART_TRUSTED_PROXY_COUNT: '1'
+      EMAIL_URL: smtp://mailpit:1025
+      DEFAULT_FROM_EMAIL: NetaMate Console <no-reply@console.matecart.test>
     ports:
       - '127.0.0.1:${MATECART_CONTROL_API_PORT:-8410}:8000'
     volumes:
@@ -172,6 +230,8 @@ services:
     networks: [control]
     depends_on:
       control-db: { condition: service_healthy }
+      control-redis: { condition: service_healthy }
+      mailpit: { condition: service_healthy }
     healthcheck:
       test:
         [
@@ -193,6 +253,8 @@ volumes:
     name: matecart-dev-commerce-redis-data
   control-db-data:
     name: matecart-dev-control-db-data
+  control-redis-data:
+    name: matecart-dev-control-redis-data
 
 networks:
   commerce:

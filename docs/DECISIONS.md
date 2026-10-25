@@ -250,14 +250,116 @@ Owner-confirmed product decisions (from the Phase 01 brief): multi-tenant-aware 
 
 ---
 
+### D-039 · Authentication cryptography and dependencies (2026-10-26, Phase 03)
+
+- **Decision:** Argon2 password hashing; random opaque tokens stored as SHA-256 hashes;
+  purpose-bound HMAC for short OTPs and recovery codes; Fernet/HKDF with a separate
+  encryption key for TOTP/PKCE material. No self-written password or TOTP algorithm.
+  Use argon2-cffi, cryptography, pyotp, segno and PyJWT with cryptography, locked
+  independently for both Python 3.13/Django 5.2 services. Segno renders QR locally.
+- **Verification:** both locked environments import and exercise these libraries in
+  their backend suites, including tamper, wrong token, expiry and TOTP replay tests.
+  Testing Library, user-event and jsdom exercise shared React 19 components.
+- **Consequence:** encryption keys are independent per service, must be backed up
+  securely and cannot be replaced without a migration/re-enrollment plan.
+
+### D-040 · Realm-specific browser sessions and same-origin CSRF (2026-10-26, Phase 03)
+
+- **Decision:** explicit database-backed customer/staff/console sessions with
+  different cookie names, paths and policies; HttpOnly, host-only, Secure in
+  deployments. Next proxies local `/api/*`; no browser CORS is necessary. All
+  state-changing requests, including sign-in, enforce CSRF. Backend permissions
+  and current membership are checked on every protected request. Django's generic
+  NoLoginBackend remains disabled; it is not the new realm login API.
+- **Consequence:** no browser localStorage tokens. Pending MFA/enrollment is a
+  restricted state, not authorization. Sessions rotate on sign-in and security
+  changes; password resets invalidate every existing session.
+
+### D-041 · Transactional authentication delivery and provider gates (2026-10-26, Phase 03)
+
+- **Decision:** send authentication email/SMS only after commit, without placing
+  secrets on Celery. Local SMTP is isolated Mailpit; control has its own Redis.
+  Public email acceptance messages remain enumeration-safe. Provider errors are
+  logged without credentials or exception payloads. SMS failure is unavailable,
+  not a fake success. SMS stays disabled without a genuine configured adapter;
+  production rejects `tests.*` providers.
+- **Trade-off:** synchronous after-commit delivery is small and inspectable, but
+  not a durable exactly-once delivery system. Queues/retries/deduplication and
+  managed masking senders are Phase 13. Tenant/purpose are passed to SMS adapters.
+  Included allowance before prepaid credits is approved future billing scope;
+  subscription, purchase, recharge and ledger features are not implemented.
+
+### D-042 · Optional merchant and mandatory console MFA (2026-10-26, Phase 03)
+
+- **Decision:** merchant MFA is optional, enforced once enabled. Console MFA is
+  mandatory, with restricted first enrollment and no removal of its last method.
+  Both offer TOTP, verified-email OTP and single-use hashed backup codes. Sensitive
+  settings require recent authentication; the UI explicitly confirms identity.
+- **UX:** QR visible by default, setup key revealed only deliberately; guided
+  confirmation and once-only recovery codes with Copy/Download and acknowledgment.
+  Email code inputs accept paste and explain destination, expiry and cooldown.
+
+### D-043 · Google OIDC and verified account linking (2026-10-26, Phase 03)
+
+- **Decision:** Google is customer-only and gated on server configuration. Validate
+  signed ID tokens, issuer/audience/expiry, nonce, state, browser binding and PKCE.
+  Use stable provider subjects. Never merge by email. Linking proves the current
+  account and the new method; phone-only accounts do not require an email.
+- **Consequence:** email/password, phone OTP and Google are supported schema/API
+  paths, but live Google and SMS remain unavailable until genuine providers are
+  configured and live-tested. Customer identity is distinct from delivery details.
+
+### D-044 · Provisioned owners, invited staff and `/manage` (2026-10-26, Phase 03)
+
+- **Decision:** first Owner activated from a provisioning-only invitation; no
+  public merchant registration. Owner invites staff. Roles are fixed code-owned
+  permission sets: Owner, Manager, Order handler, Content editor. Only Owner can
+  manage staff; Owner cannot be assigned through staff APIs. Every membership and
+  invitation is tenant-owned. Dashboard authentication/account/team screens use
+  `/manage` in commerce-web on the storefront domain.
+- **Scope:** full merchant operations are Phase 11. Role editing, suspension,
+  activation, expiry, revocation and single-use invitations are implemented now.
+
+### D-045 · Independent console identity and enrollment (2026-10-26, Phase 03)
+
+- **Decision:** console administrators are created only through an authorized
+  personnel command. Activation sets credentials and grants only MFA enrollment;
+  protected console sessions require the second step. Separate database, Redis,
+  master keys, cookies and origins. Commerce never calls control-api for sign-in.
+- **Scope:** only a protected account shell now. Registry, infrastructure,
+  management permissions and full central audit functionality remain Phase 16.
+
+### D-046 · Supported Webpack compiler fallback (2026-10-26, Phase 03)
+
+- **Evidence:** local Next 16.4.3 Turbopack builds crashed while starting the CSS
+  subprocess on Windows; repeating outside the restricted process had the same
+  failure. Installed Next CLI documentation explicitly supports `--webpack` for
+  both dev and build. Both apps compiled and built successfully using it.
+- **Decision:** use that flag in both scripts; keep the approved Next/React stack,
+  strict type checking and typed routes. Do not run dev and typegen/build against
+  the same generated `.next` files concurrently. Re-evaluate Turbopack separately.
+
+### D-047 · Authentication review guardrails (2026-10-26, Phase 03)
+
+- **Decision:** reject repeated pending-session activation under row locks;
+  serialize resend and last-console-factor removal; limit password step-up and
+  TOTP enrollment attempts. Rotate active credentials after password/MFA changes
+  without extending expiry. All authentication responses are no-store. Strip
+  auth query values from Django access logs and disable Next request logging.
+- **Evidence:** negative PostgreSQL/API tests cover stale sessions, cross-tenant
+  rows for all nine new commerce models, query bypass guardrails, cooldowns,
+  provider-error sanitization and cookie rotation. Old private `_do_update()`
+  regression tests remain mandatory. Production proxy logs/database privileges
+  are Phase 17; final Django compatibility and isolation audit are Phase 18.
+
 ## Open questions for the owner
 
-| #   | Question                                                                                                                                                                                                           | Status                                                                                                    | Needed by |
-| --- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------- | --------- |
-| Q1  | Does the **Optimus Custom** font licence allow redistribution and web embedding?                                                                                                                                   | Open. Not relevant to Phase 02.                                                                           | Phase 05  |
-| Q2  | Is **Redis 8** licensing (RSALv2 / SSPLv1 / AGPLv3) acceptable for client deployments, or should we switch to **Valkey** (BSD-3, drop-in)?                                                                         | Open. Redis stays as adopted; nothing in Phase 02 depends on it. Reviewed with infrastructure.            | Phase 17  |
-| Q3  | Initial market: Bangladesh?                                                                                                                                                                                        | **Resolved (Phase 02 brief):** Bangladesh is the first market; data structures are international (D-031). | —         |
-| Q4  | Merchant dashboard placement: path in `commerce-web` (for example `/admin`) or a separate subdomain?                                                                                                               | Open. Affects cookies and sessions in Phase 03, UI in Phase 11.                                           | Phase 03  |
-| Q5  | Branching and first commit.                                                                                                                                                                                        | **Resolved:** Phase 01 committed on `main` (`8f3e34b`).                                                   | —         |
-| Q6  | Customer login: email + password, phone + OTP, or both?                                                                                                                                                            | Open for Phase 03. **No longer blocking the schema:** the user table supports all three (D-027).          | Phase 03  |
-| Q7  | Customer and staff realms are separate accounts even for the same email (D-027). Confirm this matches the business expectation (a store owner who also shops in their own store uses a separate customer account). | New, non-blocking. Reversible until the first production launch.                                          | Phase 03  |
+| #   | Question                                                                                                                                   | Status                                                                                                    | Needed by |
+| --- | ------------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------- | --------- |
+| Q1  | Does the **Optimus Custom** font licence allow redistribution and web embedding?                                                           | Open. Not relevant to Phase 02.                                                                           | Phase 05  |
+| Q2  | Is **Redis 8** licensing (RSALv2 / SSPLv1 / AGPLv3) acceptable for client deployments, or should we switch to **Valkey** (BSD-3, drop-in)? | Open. Redis stays as adopted; nothing in Phase 02 depends on it. Reviewed with infrastructure.            | Phase 17  |
+| Q3  | Initial market: Bangladesh?                                                                                                                | **Resolved (Phase 02 brief):** Bangladesh is the first market; data structures are international (D-031). | —         |
+| Q4  | Merchant dashboard placement                                                                                                               | **Resolved:** `/manage` on the storefront domain in commerce-web (D-044).                                 | —         |
+| Q5  | Branching and first commit.                                                                                                                | **Resolved:** Phase 01 committed on `main` (`8f3e34b`).                                                   | —         |
+| Q6  | Customer login methods                                                                                                                     | **Resolved:** email/password, phone OTP and Google OIDC; real provider gates apply (D-043).               | —         |
+| Q7  | Customer versus merchant identity                                                                                                          | **Resolved:** separate accounts, credentials, sessions and permissions, even for matching emails (D-040). | —         |

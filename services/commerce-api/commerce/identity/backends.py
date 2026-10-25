@@ -5,10 +5,11 @@ from django.http import HttpRequest
 
 
 class NoLoginBackend(BaseBackend):
-    """Placeholder until Phase 03 adds tenant-aware login: refuses every credential and session.
+    """Refuses every credential: Django's ``authenticate()``/``login()`` are never the way in.
 
-    With no backend at all Django raises ImproperlyConfigured on ``authenticate()``; this makes
-    "nobody can sign in yet" an explicit, tested behaviour instead.
+    Sign-in runs through realm-aware services (commerce.identity.passwords, phone codes, Google)
+    that issue realm sessions (D-040). With no backend at all Django raises ImproperlyConfigured
+    on ``authenticate()``; this keeps the refusal explicit and tested.
     """
 
     def authenticate(self, request: HttpRequest | None, **credentials: Any) -> None:

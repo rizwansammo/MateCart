@@ -4,6 +4,413 @@ info:
   version: 0.1.0
   description: Internal API behind the NetaMate Central Platform Console.
 paths:
+  /api/console/account/mfa/email/confirm/:
+    post:
+      operationId: console_email_codes_confirm
+      tags:
+      - console-security
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChallengeCodeRequest'
+        required: true
+      security:
+      - consoleSession: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RecoveryCodes'
+          description: ''
+  /api/console/account/mfa/email/disable/:
+    post:
+      operationId: console_email_codes_disable
+      tags:
+      - console-security
+      security:
+      - consoleSession: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SecurityStatus'
+          description: ''
+  /api/console/account/mfa/email/start/:
+    post:
+      operationId: console_email_codes_start
+      tags:
+      - console-security
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ResendRequest'
+      security:
+      - consoleSession: []
+      responses:
+        '202':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Challenge'
+          description: ''
+  /api/console/account/mfa/recovery-codes/:
+    post:
+      operationId: console_recovery_codes_regenerate
+      tags:
+      - console-security
+      security:
+      - consoleSession: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RecoveryCodes'
+          description: ''
+  /api/console/account/mfa/totp/confirm/:
+    post:
+      operationId: console_totp_confirm
+      tags:
+      - console-security
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CodeRequest'
+        required: true
+      security:
+      - consoleSession: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RecoveryCodes'
+          description: ''
+  /api/console/account/mfa/totp/disable/:
+    post:
+      operationId: console_totp_disable
+      tags:
+      - console-security
+      security:
+      - consoleSession: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SecurityStatus'
+          description: ''
+  /api/console/account/mfa/totp/setup/:
+    post:
+      operationId: console_totp_setup
+      tags:
+      - console-security
+      security:
+      - consoleSession: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TotpSetup'
+          description: ''
+  /api/console/account/password/change/:
+    post:
+      operationId: console_password_change
+      tags:
+      - console-security
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PasswordChangeRequest'
+        required: true
+      security:
+      - consoleSession: []
+      responses:
+        '204':
+          description: No response body
+  /api/console/account/reauthenticate/:
+    post:
+      operationId: console_reauthenticate
+      tags:
+      - console-security
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PasswordRequest'
+        required: true
+      security:
+      - consoleSession: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SecurityStatus'
+          description: ''
+  /api/console/account/security/:
+    get:
+      operationId: console_security
+      tags:
+      - console-security
+      security:
+      - consoleSession: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SecurityStatus'
+          description: ''
+  /api/console/auth/activate/:
+    post:
+      operationId: console_activate
+      tags:
+      - console-auth
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TokenPasswordRequest'
+        required: true
+      security:
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SignInStatus'
+          description: ''
+  /api/console/auth/activate/inspect/:
+    post:
+      operationId: console_activation_inspect
+      tags:
+      - console-auth
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TokenRequest'
+        required: true
+      security:
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ActivationPreview'
+          description: ''
+  /api/console/auth/login/:
+    post:
+      operationId: console_login
+      tags:
+      - console-auth
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+        required: true
+      security:
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SignInStatus'
+          description: ''
+  /api/console/auth/logout/:
+    post:
+      operationId: console_logout
+      tags:
+      - console-auth
+      security:
+      - {}
+      responses:
+        '204':
+          description: No response body
+  /api/console/auth/mfa/email/:
+    post:
+      operationId: console_mfa_email_send
+      tags:
+      - console-auth
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ResendRequest'
+      security:
+      - consolePendingMfa: []
+      responses:
+        '202':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Challenge'
+          description: ''
+  /api/console/auth/mfa/verify/:
+    post:
+      operationId: console_mfa_verify
+      tags:
+      - console-auth
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SecondStepRequest'
+        required: true
+      security:
+      - consolePendingMfa: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SignInStatus'
+          description: ''
+  /api/console/auth/password/forgot/:
+    post:
+      operationId: console_password_forgot
+      tags:
+      - console-auth
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EmailRequest'
+        required: true
+      security:
+      - {}
+      responses:
+        '202':
+          description: No response body
+  /api/console/auth/password/reset/:
+    post:
+      operationId: console_password_reset
+      tags:
+      - console-auth
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TokenPasswordRequest'
+        required: true
+      security:
+      - {}
+      responses:
+        '204':
+          description: No response body
+  /api/console/auth/session/:
+    get:
+      operationId: console_session
+      tags:
+      - console-auth
+      security:
+      - consoleSession: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Admin'
+          description: ''
+  /api/console/enroll/email/confirm/:
+    post:
+      operationId: console_enroll_email_confirm
+      tags:
+      - console-auth
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChallengeCodeRequest'
+        required: true
+      security:
+      - consolePendingEnrollment: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RecoveryCodes'
+          description: ''
+  /api/console/enroll/email/start/:
+    post:
+      operationId: console_enroll_email_start
+      tags:
+      - console-auth
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ResendRequest'
+      security:
+      - consolePendingEnrollment: []
+      responses:
+        '202':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Challenge'
+          description: ''
+  /api/console/enroll/totp/confirm/:
+    post:
+      operationId: console_enroll_totp_confirm
+      tags:
+      - console-auth
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CodeRequest'
+        required: true
+      security:
+      - consolePendingEnrollment: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RecoveryCodes'
+          description: ''
+  /api/console/enroll/totp/setup/:
+    post:
+      operationId: console_enroll_totp_setup
+      tags:
+      - console-auth
+      security:
+      - consolePendingEnrollment: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TotpSetup'
+          description: ''
+  /api/csrf/:
+    get:
+      operationId: csrf
+      tags:
+      - security
+      security:
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Csrf'
+          description: ''
   /api/health/live/:
     get:
       operationId: health_live
@@ -42,6 +449,69 @@ paths:
           description: ''
 components:
   schemas:
+    ActivationPreview:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+        full_name:
+          type: string
+      required:
+      - email
+      - full_name
+    Admin:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        email:
+          type: string
+          format: email
+        full_name:
+          type: string
+      required:
+      - email
+      - full_name
+      - id
+    Challenge:
+      type: object
+      properties:
+        challenge_id:
+          type: string
+          format: uuid
+        channel:
+          type: string
+          readOnly: true
+        destination:
+          type: string
+          readOnly: true
+        resend_in:
+          type: integer
+          readOnly: true
+        expires_in:
+          type: integer
+          readOnly: true
+      required:
+      - challenge_id
+      - channel
+      - destination
+      - expires_in
+      - resend_in
+    ChallengeCodeRequest:
+      type: object
+      properties:
+        challenge_id:
+          type: string
+          format: uuid
+        code:
+          type: string
+          minLength: 1
+          maxLength: 16
+      required:
+      - challenge_id
+      - code
     CheckStateEnum:
       enum:
       - ok
@@ -50,6 +520,32 @@ components:
       description: |-
         * `ok` - ok
         * `error` - error
+    CodeRequest:
+      type: object
+      properties:
+        code:
+          type: string
+          minLength: 1
+          maxLength: 16
+      required:
+      - code
+    Csrf:
+      type: object
+      properties:
+        csrf_token:
+          type: string
+      required:
+      - csrf_token
+    EmailRequest:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+          minLength: 1
+          maxLength: 254
+      required:
+      - email
     Liveness:
       type: object
       properties:
@@ -65,6 +561,48 @@ components:
       - ok
       type: string
       description: '* `ok` - ok'
+    LoginRequest:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+          minLength: 1
+          maxLength: 254
+        password:
+          type: string
+          writeOnly: true
+          minLength: 1
+          maxLength: 128
+      required:
+      - email
+      - password
+    PasswordChangeRequest:
+      type: object
+      properties:
+        current_password:
+          type: string
+          writeOnly: true
+          minLength: 1
+          maxLength: 128
+        new_password:
+          type: string
+          writeOnly: true
+          minLength: 1
+          maxLength: 128
+      required:
+      - current_password
+      - new_password
+    PasswordRequest:
+      type: object
+      properties:
+        password:
+          type: string
+          writeOnly: true
+          minLength: 1
+          maxLength: 128
+      required:
+      - password
     Readiness:
       type: object
       properties:
@@ -93,3 +631,151 @@ components:
       description: |-
         * `ok` - ok
         * `unavailable` - unavailable
+    RecoveryCodes:
+      type: object
+      properties:
+        status:
+          $ref: '#/components/schemas/RecoveryCodesStatusEnum'
+        recovery_codes:
+          type: array
+          items:
+            type: string
+          nullable: true
+      required:
+      - recovery_codes
+    RecoveryCodesStatusEnum:
+      enum:
+      - signed_in
+      type: string
+      description: '* `signed_in` - signed_in'
+    ResendRequest:
+      type: object
+      properties:
+        resend:
+          type: boolean
+          default: false
+    SecondStepMethodEnum:
+      enum:
+      - totp
+      - email
+      - recovery_code
+      type: string
+      description: |-
+        * `totp` - totp
+        * `email` - email
+        * `recovery_code` - recovery_code
+    SecondStepRequest:
+      type: object
+      properties:
+        method:
+          $ref: '#/components/schemas/SecondStepMethodEnum'
+        code:
+          type: string
+          minLength: 1
+          maxLength: 32
+        challenge_id:
+          type: string
+          format: uuid
+          nullable: true
+      required:
+      - code
+      - method
+    SecurityStatus:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+        totp:
+          type: boolean
+        email_codes:
+          type: boolean
+        recovery_codes_remaining:
+          type: integer
+        reauthenticated:
+          type: boolean
+      required:
+      - email
+      - email_codes
+      - reauthenticated
+      - recovery_codes_remaining
+      - totp
+    SignInStatus:
+      type: object
+      properties:
+        status:
+          $ref: '#/components/schemas/SignInStatusStatusEnum'
+        methods:
+          type: array
+          items:
+            $ref: '#/components/schemas/SecondStepMethodEnum'
+        email_hint:
+          type: string
+      required:
+      - email_hint
+      - methods
+      - status
+    SignInStatusStatusEnum:
+      enum:
+      - signed_in
+      - mfa_required
+      - enrollment_required
+      type: string
+      description: |-
+        * `signed_in` - signed_in
+        * `mfa_required` - mfa_required
+        * `enrollment_required` - enrollment_required
+    TokenPasswordRequest:
+      type: object
+      properties:
+        token:
+          type: string
+          minLength: 1
+          maxLength: 128
+        password:
+          type: string
+          writeOnly: true
+          minLength: 1
+          maxLength: 128
+      required:
+      - password
+      - token
+    TokenRequest:
+      type: object
+      properties:
+        token:
+          type: string
+          minLength: 1
+          maxLength: 128
+      required:
+      - token
+    TotpSetup:
+      type: object
+      properties:
+        qr_svg:
+          type: string
+        secret:
+          type: string
+        uri:
+          type: string
+      required:
+      - qr_svg
+      - secret
+      - uri
+  securitySchemes:
+    consolePendingEnrollment:
+      type: apiKey
+      in: cookie
+      name: mc_console
+      description: A session that must set up two-step verification before anything
+        else.
+    consolePendingMfa:
+      type: apiKey
+      in: cookie
+      name: mc_console
+      description: A password-verified session waiting for the second step.
+    consoleSession:
+      type: apiKey
+      in: cookie
+      name: mc_console
+      description: Console session after both sign-in steps (HttpOnly, SameSite=Strict).

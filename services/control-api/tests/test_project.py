@@ -27,10 +27,23 @@ def test_committed_openapi_schema_is_up_to_date(tmp_path: Path) -> None:
 
 
 def _manage_with_production_settings(*args: str, **env: str) -> subprocess.CompletedProcess[str]:
+    # A complete, valid production configuration; each test overrides what it checks.
+    production = {
+        "MATECART_ENCRYPTION_KEY": secrets.token_urlsafe(48),
+        "MATECART_SECURE_COOKIES": "true",
+        "MATECART_CONSOLE_PUBLIC_BASE_URL": "https://console.example.com",
+        "EMAIL_URL": "smtp+tls://mailer:unused@smtp.example.com:587",
+        "REDIS_URL": "redis://:unused@redis.example.com:6379/0",
+    }
     return subprocess.run(
         [sys.executable, "manage.py", *args],
         cwd=settings.BASE_DIR,
-        env={**os.environ, "DJANGO_SETTINGS_MODULE": "config.settings.production", **env},
+        env={
+            **os.environ,
+            "DJANGO_SETTINGS_MODULE": "config.settings.production",
+            **production,
+            **env,
+        },
         capture_output=True,
         text=True,
         timeout=120,
@@ -68,3 +81,32 @@ def test_production_settings_require_allowed_hosts() -> None:
 
     assert result.returncode != 0
     assert "DJANGO_ALLOWED_HOSTS must list the console" in result.stderr
+
+
+@pytest.mark.parametrize(
+    ("variable", "value", "message"),
+    [
+        ("MATECART_ENCRYPTION_KEY", "", "MATECART_ENCRYPTION_KEY must be"),
+        ("MATECART_SECURE_COOKIES", "false", "MATECART_SECURE_COOKIES cannot be disabled"),
+        ("MATECART_CONSOLE_PUBLIC_BASE_URL", "http://console.example.com", "https:// origin"),
+        ("EMAIL_URL", "consolemail://", "EMAIL_URL must point to a real SMTP service"),
+    ],
+)
+def test_unsafe_authentication_configuration_stops_startup(
+    variable: str, value: str, message: str
+) -> None:
+    result = _manage_with_production_settings(
+        "check",
+        DJANGO_SECRET_KEY=secrets.token_urlsafe(64),
+        DJANGO_ALLOWED_HOSTS="console.example.com",
+        **{variable: value},
+    )
+
+    assert result.returncode != 0
+    assert message in result.stderr
+
+
+def test_deployments_hash_passwords_with_argon2() -> None:
+    from config.settings import base
+
+    assert base.PASSWORD_HASHERS[0] == "django.contrib.auth.hashers.Argon2PasswordHasher"

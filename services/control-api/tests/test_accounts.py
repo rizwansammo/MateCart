@@ -46,7 +46,7 @@ def test_postgresql_enforces_the_email_rules() -> None:
         AdminUser.objects.bulk_create([AdminUser(email="ops@netamate.example", password="!")])
 
 
-def test_nothing_authenticates_until_console_sign_in_exists() -> None:
+def test_django_authenticate_is_never_the_way_in() -> None:
     AdminUser.objects.create_user("ops@netamate.example", password="pw-123456789")
 
     assert authenticate(email="ops@netamate.example", password="pw-123456789") is None

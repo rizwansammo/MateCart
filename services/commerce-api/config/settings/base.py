@@ -7,6 +7,7 @@ production) import this module and override only what differs. Never put secrets
 
 import uuid
 from pathlib import Path
+from typing import Any
 
 import environ
 from django.core.exceptions import ImproperlyConfigured
@@ -23,9 +24,9 @@ ALLOWED_HOSTS: list[str] = env.list("DJANGO_ALLOWED_HOSTS", default=[])
 
 INSTALLED_APPS = [
     "django.contrib.contenttypes",
-    # Installed for AbstractBaseUser, password hashing and the auth framework. Its global Group and
-    # Permission tables are not used for store roles (not tenant-scoped; RBAC arrives in Phase 03).
-    # Admin and sessions stay out until Phase 03 designs login and session handling.
+    # Installed for AbstractBaseUser, password hashing and validators. Its global Group and
+    # Permission tables are not used: store roles are tenant-scoped (commerce.staff, D-044).
+    # Django's admin and session apps are not used: realm sessions live in identity (D-040).
     "django.contrib.auth",
     "rest_framework",
     "drf_spectacular",
@@ -33,6 +34,7 @@ INSTALLED_APPS = [
     "commerce.tenancy",
     "commerce.stores",
     "commerce.identity",
+    "commerce.staff",
     "commerce.audit",
 ]
 
@@ -74,8 +76,75 @@ if MATECART_TENANT_ID is not None and MATECART_TENANT_ID.variant != uuid.RFC_412
 
 # --- Identity (docs/DATA_MODEL.md) ---
 AUTH_USER_MODEL = "identity.User"
-# Nothing can authenticate until Phase 03 replaces this with tenant-aware login backends.
+# Django's authenticate() is never used: sign-in runs through realm-aware services
+# (commerce.identity.passwords and friends), so this backend refuses everything.
 AUTHENTICATION_BACKENDS = ["commerce.identity.backends.NoLoginBackend"]
+
+# --- Authentication & security (docs/SECURITY.md, D-039..D-044) ---
+PASSWORD_HASHERS = [
+    "django.contrib.auth.hashers.Argon2PasswordHasher",
+    "django.contrib.auth.hashers.PBKDF2PasswordHasher",
+]
+AUTH_PASSWORD_VALIDATORS: list[dict[str, Any]] = [
+    {
+        "NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator",
+        "OPTIONS": {"user_attributes": ("email", "full_name")},
+    },
+    {
+        "NAME": "django.contrib.auth.password_validation.MinimumLengthValidator",
+        "OPTIONS": {"min_length": 10},
+    },
+    {"NAME": "django.contrib.auth.password_validation.CommonPasswordValidator"},
+    {"NAME": "django.contrib.auth.password_validation.NumericPasswordValidator"},
+]
+# Encrypts secrets that must be read back (TOTP seeds) and keys code hashes. Separate from
+# SECRET_KEY; rotating it invalidates authenticator-app enrolments and open codes.
+MATECART_ENCRYPTION_KEY = env("MATECART_ENCRYPTION_KEY", default="")
+# Cookies carry the Secure flag unless explicitly disabled for plain-HTTP local development.
+MATECART_SECURE_COOKIES = env.bool("MATECART_SECURE_COOKIES", default=True)
+MATECART_SESSIONS = {
+    "customer": {
+        "absolute_seconds": env.int("MATECART_CUSTOMER_SESSION_SECONDS", default=30 * 24 * 3600),
+        "idle_seconds": env.int("MATECART_CUSTOMER_IDLE_SECONDS", default=14 * 24 * 3600),
+    },
+    "staff": {
+        "absolute_seconds": env.int("MATECART_STAFF_SESSION_SECONDS", default=12 * 3600),
+        "idle_seconds": env.int("MATECART_STAFF_IDLE_SECONDS", default=2 * 3600),
+    },
+}
+# The staff cookie is only ever sent to the merchant API, never to storefront or customer routes.
+MATECART_SESSION_COOKIES = {
+    "customer": {"name": "mc_customer", "path": "/"},
+    "staff": {"name": "mc_staff", "path": "/api/manage"},
+}
+CSRF_COOKIE_NAME = "mc_csrf"
+CSRF_COOKIE_SAMESITE = "Lax"
+CSRF_COOKIE_HTTPONLY = False  # the web apps echo it in X-CSRFToken
+CSRF_COOKIE_SECURE = MATECART_SECURE_COOKIES
+CSRF_TRUSTED_ORIGINS: list[str] = env.list("DJANGO_CSRF_TRUSTED_ORIGINS", default=[])
+# Number of reverse proxies in front of the API whose X-Forwarded-For entries are trusted.
+MATECART_TRUSTED_PROXY_COUNT = env.int("MATECART_TRUSTED_PROXY_COUNT", default=0)
+# The storefront's public origin (e.g. https://shop.example.com): links in emails, OAuth redirect.
+MATECART_PUBLIC_BASE_URL = env("MATECART_PUBLIC_BASE_URL", default="").rstrip("/")
+
+# Email: smtp://, smtp+tls://, smtp+ssl:// in deployments; Mailpit locally. The default discards
+# mail, and the console backend is never used, because messages contain sign-in codes.
+_email = env.email_url("EMAIL_URL", default="dummymail://")
+EMAIL_BACKEND: str = _email["EMAIL_BACKEND"]
+EMAIL_HOST: str = _email.get("EMAIL_HOST") or "localhost"
+EMAIL_PORT: int = _email.get("EMAIL_PORT") or 25
+EMAIL_HOST_USER: str = _email.get("EMAIL_HOST_USER") or ""
+EMAIL_HOST_PASSWORD: str = _email.get("EMAIL_HOST_PASSWORD") or ""
+EMAIL_USE_TLS: bool = bool(_email.get("EMAIL_USE_TLS"))
+EMAIL_USE_SSL: bool = bool(_email.get("EMAIL_USE_SSL"))
+DEFAULT_FROM_EMAIL = env("DEFAULT_FROM_EMAIL", default="MateCart <no-reply@matecart.invalid>")
+EMAIL_TIMEOUT = 10
+# Dotted path to an SMS provider class (commerce.core.delivery.SmsProvider). Empty disables phone
+# sign-in. The managed gateway and per-store usage billing arrive in Phase 13.
+MATECART_SMS_PROVIDER = env("MATECART_SMS_PROVIDER", default="")
+# "Continue with Google" (OpenID Connect). Both empty keeps the option hidden.
+GOOGLE_OIDC_CLIENT_ID = env("GOOGLE_OIDC_CLIENT_ID", default="")
+GOOGLE_OIDC_CLIENT_SECRET = env("GOOGLE_OIDC_CLIENT_SECRET", default="")
 
 # --- Cache (Redis) ---
 CACHES = {
@@ -84,8 +153,24 @@ CACHES = {
         "LOCATION": env("REDIS_URL"),
         "KEY_PREFIX": "commerce",
         "OPTIONS": {"socket_connect_timeout": 2, "socket_timeout": 2},
-    }
+    },
+    # Sign-in attempt counters (commerce.core.ratelimit), kept apart from application caching.
+    "ratelimit": {
+        "BACKEND": "django.core.cache.backends.redis.RedisCache",
+        "LOCATION": env("REDIS_URL"),
+        "KEY_PREFIX": "commerce-rl",
+        "OPTIONS": {"socket_connect_timeout": 2, "socket_timeout": 2},
+    },
 }
+
+# --- Templates (email bodies only; the web UI is the Next.js apps) ---
+TEMPLATES = [
+    {
+        "BACKEND": "django.template.backends.django.DjangoTemplates",
+        "APP_DIRS": True,
+        "OPTIONS": {"context_processors": []},
+    }
+]
 
 # --- Internationalisation (store-level language and time zone arrive with store configuration) ---
 LANGUAGE_CODE = "en-us"
@@ -94,8 +179,8 @@ USE_I18N = True
 USE_TZ = True
 
 # --- Django REST Framework ---
-# Secure by default: no authentication backends exist yet, so every endpoint that does not
-# explicitly allow anonymous access is denied. Phase 03 adds authentication and RBAC.
+# Secure by default: views choose their realm's authentication explicitly (commerce.identity.auth);
+# with none, every endpoint that does not explicitly allow anonymous access is denied.
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": [],
     "DEFAULT_PERMISSION_CLASSES": ["rest_framework.permissions.IsAuthenticated"],
@@ -114,7 +199,12 @@ SPECTACULAR_SETTINGS = {
     "VERSION": "0.1.0",
     "SERVE_INCLUDE_SCHEMA": False,
     "COMPONENT_SPLIT_REQUEST": True,
-    "ENUM_NAME_OVERRIDES": {"CheckStateEnum": "commerce.core.serializers.CHECK_STATES"},
+    "ENUM_NAME_OVERRIDES": {
+        "CheckStateEnum": "commerce.core.serializers.CHECK_STATES",
+        "StaffRoleEnum": "commerce.staff.permissions.StaffRole",
+        "AssignableRoleEnum": "commerce.staff.permissions.ASSIGNABLE_ROLES",
+        "MfaMethodEnum": "commerce.staff.serializers.MFA_METHODS",
+    },
 }
 API_SCHEMA_ENABLED = env.bool("DJANGO_API_SCHEMA_ENABLED", default=False)
 

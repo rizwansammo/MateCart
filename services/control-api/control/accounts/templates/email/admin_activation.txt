@@ -1,0 +1,8 @@
+{% autoescape off %}NetaMate Console
+
+{% if name %}Hi {{ name }}, a{% else %}A{% endif %} NetaMate Console account was created for you.
+Choose a password, then set up two-step verification to finish:
+{{ link }}
+
+The link works once and expires in 72 hours.
+{% endautoescape %}

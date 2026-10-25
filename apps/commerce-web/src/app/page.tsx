@@ -1,4 +1,5 @@
 import { Wordmark } from '@matecart/shared-ui';
+import Link from 'next/link';
 
 import { ReadinessSummary } from '@/components/readiness-summary';
 import { getCommerceApiReadiness } from '@/lib/commerce-api';
@@ -12,6 +13,10 @@ export default async function FoundationPage() {
   return (
     <main className="mx-auto flex min-h-dvh max-w-xl flex-col justify-center gap-6 px-6 py-16">
       <Wordmark className="text-3xl" />
+      <nav aria-label="Account access" className="flex gap-5 text-sm font-semibold text-brand-deep">
+        <Link href="/account/sign-in">My account</Link>
+        <Link href="/manage">Manage store</Link>
+      </nav>
       <section className="rounded-base border border-line bg-surface p-6 shadow-card">
         <p className="text-xs font-bold tracking-[0.08em] text-brand-deep uppercase">
           Phase 01 · Foundation build

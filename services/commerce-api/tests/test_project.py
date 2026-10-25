@@ -28,11 +28,26 @@ def test_committed_openapi_schema_is_up_to_date(tmp_path: Path) -> None:
 
 
 def _manage_with_production_settings(*args: str, **env: str) -> subprocess.CompletedProcess[str]:
-    tenant = {"MATECART_TENANT_ID": str(uuid.uuid4())}
+    # A complete, valid production configuration; each test overrides what it checks.
+    production = {
+        "MATECART_TENANT_ID": str(uuid.uuid4()),
+        "MATECART_ENCRYPTION_KEY": secrets.token_urlsafe(48),
+        "MATECART_SECURE_COOKIES": "true",
+        "MATECART_PUBLIC_BASE_URL": "https://store.example.com",
+        "EMAIL_URL": "smtp+tls://mailer:unused@smtp.example.com:587",
+        "MATECART_SMS_PROVIDER": "",
+        "GOOGLE_OIDC_CLIENT_ID": "",
+        "GOOGLE_OIDC_CLIENT_SECRET": "",
+    }
     return subprocess.run(
         [sys.executable, "manage.py", *args],
         cwd=settings.BASE_DIR,
-        env={**os.environ, "DJANGO_SETTINGS_MODULE": "config.settings.production", **tenant, **env},
+        env={
+            **os.environ,
+            "DJANGO_SETTINGS_MODULE": "config.settings.production",
+            **production,
+            **env,
+        },
         capture_output=True,
         text=True,
         timeout=120,
@@ -105,3 +120,54 @@ def test_invalid_tenancy_configuration_stops_startup(
 
     assert result.returncode != 0
     assert message in result.stderr
+
+
+@pytest.mark.parametrize(
+    ("variable", "value", "message"),
+    [
+        ("MATECART_ENCRYPTION_KEY", "", "MATECART_ENCRYPTION_KEY must be"),
+        ("MATECART_ENCRYPTION_KEY", "__GENERATE__", "MATECART_ENCRYPTION_KEY must be"),
+        ("MATECART_SECURE_COOKIES", "false", "MATECART_SECURE_COOKIES cannot be disabled"),
+        ("MATECART_PUBLIC_BASE_URL", "http://store.example.com", "must be the store's https://"),
+        ("EMAIL_URL", "consolemail://", "EMAIL_URL must point to a real SMTP service"),
+        ("EMAIL_URL", "dummymail://", "EMAIL_URL must point to a real SMTP service"),
+        ("MATECART_SMS_PROVIDER", "tests.fakes.FakeSmsProvider", "cannot be a test fake"),
+        ("GOOGLE_OIDC_CLIENT_ID", "client-id-only", "Set both GOOGLE_OIDC_CLIENT_ID"),
+    ],
+)
+def test_unsafe_authentication_configuration_stops_startup(
+    variable: str, value: str, message: str
+) -> None:
+    result = _manage_with_production_settings(
+        "check",
+        DJANGO_SECRET_KEY=secrets.token_urlsafe(64),
+        DJANGO_ALLOWED_HOSTS="store.example.com",
+        **{variable: value},
+    )
+
+    assert result.returncode != 0
+    assert message in result.stderr
+
+
+def test_encryption_key_must_differ_from_the_secret_key() -> None:
+    shared = secrets.token_urlsafe(64)
+    result = _manage_with_production_settings(
+        "check",
+        DJANGO_SECRET_KEY=shared,
+        DJANGO_ALLOWED_HOSTS="store.example.com",
+        MATECART_ENCRYPTION_KEY=shared,
+    )
+
+    assert result.returncode != 0
+    assert "must differ from DJANGO_SECRET_KEY" in result.stderr
+
+
+def test_deployments_hash_passwords_with_argon2() -> None:
+    # Test settings swap in a fast hasher; the shared base settings are what deployments run.
+    from config.settings import base
+
+    assert base.PASSWORD_HASHERS[0] == "django.contrib.auth.hashers.Argon2PasswordHasher"
+    assert any(
+        rule["NAME"].endswith("MinimumLengthValidator") and rule["OPTIONS"]["min_length"] >= 10
+        for rule in base.AUTH_PASSWORD_VALIDATORS
+    )

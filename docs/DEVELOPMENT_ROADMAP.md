@@ -4,27 +4,27 @@
 
 ## Status board
 
-| #   | Phase                                       | Stage                         | Status                                                                                                                                      |
-| --- | ------------------------------------------- | ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
-| 01  | Project Foundation                          | A — Foundation                | **Complete — accepted** (`8f3e34b`, CI passed 4/4)                                                                                          |
-| 02  | Database & Tenant Architecture              | A — Foundation                | **Complete — accepted** (`72f277e`); 02.1 accepted (`ba513b5`, CI passed 4/4); corrective **02.2 complete (local) — awaiting owner review** |
-| 03  | Authentication & Security                   | A — Foundation                | Pending                                                                                                                                     |
-| 04  | Product & Inventory Engine                  | A — Foundation                | Pending                                                                                                                                     |
-| 05  | Presets, Themes & Branding                  | B — Commerce Application      | Pending                                                                                                                                     |
-| 06  | Customer Storefront                         | B — Commerce Application      | Pending                                                                                                                                     |
-| 07  | Cart & Checkout                             | B — Commerce Application      | Pending                                                                                                                                     |
-| 08  | Orders, Payments & Invoices                 | B — Commerce Application      | Pending                                                                                                                                     |
-| 09  | Fulfillment & Courier                       | B — Commerce Application      | Pending                                                                                                                                     |
-| 10  | Customer Accounts & After-sales             | B — Commerce Application      | Pending                                                                                                                                     |
-| 11  | Merchant Management Dashboard               | B — Commerce Application      | Pending                                                                                                                                     |
-| 12  | Marketing, SEO & Analytics                  | C — Growth & Integrations     | Pending                                                                                                                                     |
-| 13  | Mail & Notification Engine                  | C — Growth & Integrations     | Pending                                                                                                                                     |
-| 14  | Social Commerce & Unified Inbox             | C — Growth & Integrations     | Pending                                                                                                                                     |
-| 15  | AI & Advanced Extensions                    | C — Growth & Integrations     | Pending                                                                                                                                     |
-| 16  | Central Platform Console                    | D — Platform & Infrastructure | Pending                                                                                                                                     |
-| 17  | Deployment Automation                       | D — Platform & Infrastructure | Pending                                                                                                                                     |
-| 18  | Final Quality, Performance & Security       | D — Platform & Infrastructure | Pending                                                                                                                                     |
-| 19  | Production Deployment & Private Beta Launch | E — Production Launch         | Pending (never before 01–18 are accepted)                                                                                                   |
+| #   | Phase                                       | Stage                         | Status                                                                                    |
+| --- | ------------------------------------------- | ----------------------------- | ----------------------------------------------------------------------------------------- |
+| 01  | Project Foundation                          | A — Foundation                | **Complete — accepted** (`8f3e34b`, CI passed 4/4)                                        |
+| 02  | Database & Tenant Architecture              | A — Foundation                | **Accepted and closed**, including 02.1/02.2 (`aceae6f`, CI 40213680998: 4/4, 260 tests). |
+| 03  | Authentication & Security                   | A — Foundation                | **Complete locally — independent owner review, CI and security audit pending.**           |
+| 04  | Product & Inventory Engine                  | A — Foundation                | Pending                                                                                   |
+| 05  | Presets, Themes & Branding                  | B — Commerce Application      | Pending                                                                                   |
+| 06  | Customer Storefront                         | B — Commerce Application      | Pending                                                                                   |
+| 07  | Cart & Checkout                             | B — Commerce Application      | Pending                                                                                   |
+| 08  | Orders, Payments & Invoices                 | B — Commerce Application      | Pending                                                                                   |
+| 09  | Fulfillment & Courier                       | B — Commerce Application      | Pending                                                                                   |
+| 10  | Customer Accounts & After-sales             | B — Commerce Application      | Pending                                                                                   |
+| 11  | Merchant Management Dashboard               | B — Commerce Application      | Pending                                                                                   |
+| 12  | Marketing, SEO & Analytics                  | C — Growth & Integrations     | Pending                                                                                   |
+| 13  | Mail & Notification Engine                  | C — Growth & Integrations     | Pending                                                                                   |
+| 14  | Social Commerce & Unified Inbox             | C — Growth & Integrations     | Pending                                                                                   |
+| 15  | AI & Advanced Extensions                    | C — Growth & Integrations     | Pending                                                                                   |
+| 16  | Central Platform Console                    | D — Platform & Infrastructure | Pending                                                                                   |
+| 17  | Deployment Automation                       | D — Platform & Infrastructure | Pending                                                                                   |
+| 18  | Final Quality, Performance & Security       | D — Platform & Infrastructure | Pending                                                                                   |
+| 19  | Production Deployment & Private Beta Launch | E — Production Launch         | Pending (never before 01–18 are accepted)                                                 |
 
 | Standing item                          | Status                                     |
 | -------------------------------------- | ------------------------------------------ |

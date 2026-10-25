@@ -1,0 +1,8 @@
+{% extends "email/_layout.html" %}
+{% block content %}
+<h1 style="margin:0 0 12px;font-size:22px;line-height:28px">{% if is_owner %}Set up your store dashboard{% else %}You're invited to {{ store_name }}{% endif %}</h1>
+<p style="margin:0 0 12px;font-size:15px;line-height:22px">{% if is_owner %}Your {{ store_name }} store is ready. Create your owner account to start managing it.{% else %}{{ inviter_name }} invited you to help manage {{ store_name }}.{% endif %}</p>
+<p style="margin:0 0 20px;font-size:15px;line-height:22px"><strong>Role:</strong> {{ role }} &mdash; {{ role_description }}</p>
+<p style="margin:0 0 20px"><a href="{{ link }}" style="display:inline-block;padding:12px 20px;background:#00843c;color:#ffffff;text-decoration:none;font-weight:700;border-radius:4px">Accept invitation</a></p>
+<p style="margin:0;font-size:13px;line-height:20px;color:#5d6762">This invitation works once and expires on {{ expires_at|date:"j F Y" }}. If you weren't expecting it, you can ignore this email.</p>
+{% endblock %}

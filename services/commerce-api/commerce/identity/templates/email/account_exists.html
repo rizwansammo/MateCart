@@ -1,0 +1,7 @@
+{% extends "email/_layout.html" %}
+{% block content %}
+<h1 style="margin:0 0 12px;font-size:22px;line-height:28px">You already have an account</h1>
+<p style="margin:0 0 20px;font-size:15px;line-height:22px">Someone tried to create a new {{ store_name }} account with this email address. You already have one, so no new account was created.</p>
+<p style="margin:0 0 20px"><a href="{{ base_url }}/account/sign-in" style="display:inline-block;padding:12px 20px;background:#00843c;color:#ffffff;text-decoration:none;font-weight:700;border-radius:4px">Sign in</a></p>
+<p style="margin:0;font-size:13px;line-height:20px;color:#5d6762">Forgot your password? <a href="{{ base_url }}/account/forgot-password" style="color:#00843c">Reset it here</a>.</p>
+{% endblock %}

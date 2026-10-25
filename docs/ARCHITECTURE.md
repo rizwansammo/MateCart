@@ -1,6 +1,6 @@
 # Architecture
 
-Status: Phase 02 (database and tenant architecture). Sections marked **(planned)** describe intent that later phases must design and verify. The schema and domain blueprint are in [DATA_MODEL.md](DATA_MODEL.md).
+Status: Phase 03 (authentication and security). Phase 02 and its corrections are accepted and closed. Sections marked **(planned)** describe later work. Schema: [DATA_MODEL.md](DATA_MODEL.md). Authentication: [AUTHENTICATION.md](AUTHENTICATION.md), security controls: [SECURITY.md](SECURITY.md).
 
 ## 1. System overview
 
@@ -107,7 +107,9 @@ Outside the database: cache keys use `tenant_cache_key(...)` (`tenant:<id>:...`)
 
 - **Store identities** (`identity.User`, the `AUTH_USER_MODEL` of commerce-api) are per tenant, in two separate realms: `customer` and `staff`. Email and phone are each optional, at least one is required, both are normalised and unique per tenant and realm. Phase 03 can offer email, phone OTP, or both without migrating the user table.
 - **NetaMate administrators** (`accounts.AdminUser`, the `AUTH_USER_MODEL` of control-api) exist only in the console database.
-- Until Phase 03 both services use `NoLoginBackend`: nothing can sign in.
+- Customer email/password, phone OTP and Google OIDC have explicit realm-aware service paths. Phone/Google remain unavailable without a real provider configuration. Verified linking never merges accounts by email. Delivery information is separate (07/10).
+- `NoLoginBackend` continues to refuse generic Django login; realm-specific cookie authentication is now implemented. Owner activation is provisioning-only; staff use owner invitations. Store management routes live at `/manage`, in the same web app/domain.
+- Merchant MFA is optional; console MFA is mandatory. Password-only pending sessions cannot access protected functionality. See D-039 through D-047 and the authentication guide for exact cookie policies, setup UX and provider boundaries.
 
 ### Independence from the Central Console
 
@@ -117,18 +119,20 @@ Outside the database: cache keys use `tenant_cache_key(...)` (`tenant:<id>:...`)
 
 ## 4. Runtime topology (local development)
 
-| Service            | Runs on           | URL / port (host, 127.0.0.1 only)             | Network                 |
-| ------------------ | ----------------- | --------------------------------------------- | ----------------------- |
-| `commerce-web`     | host (`pnpm dev`) | http://127.0.0.1:3400                         | —                       |
-| `platform-console` | host (`pnpm dev`) | http://127.0.0.1:3410                         | —                       |
-| `commerce-api`     | Docker            | http://127.0.0.1:8400                         | `matecart-dev-commerce` |
-| `commerce-worker`  | Docker            | not published                                 | `matecart-dev-commerce` |
-| `commerce-db`      | Docker            | 127.0.0.1:15440 (PostgreSQL 18)               | `matecart-dev-commerce` |
-| `commerce-redis`   | Docker            | 127.0.0.1:16380 (Redis 8, password protected) | `matecart-dev-commerce` |
-| `control-api`      | Docker            | http://127.0.0.1:8410                         | `matecart-dev-control`  |
-| `control-db`       | Docker            | 127.0.0.1:15441 (PostgreSQL 18)               | `matecart-dev-control`  |
+| Service            | Runs on                  | URL / port (host, 127.0.0.1 only)                          | Network                 |
+| ------------------ | ------------------------ | ---------------------------------------------------------- | ----------------------- |
+| `commerce-web`     | host (`pnpm dev`)        | http://127.0.0.1:3400                                      | —                       |
+| `platform-console` | host (`pnpm dev`)        | http://127.0.0.1:3410                                      | —                       |
+| `commerce-api`     | Docker                   | http://127.0.0.1:8400                                      | `matecart-dev-commerce` |
+| `commerce-worker`  | Docker                   | not published                                              | `matecart-dev-commerce` |
+| `commerce-db`      | Docker                   | 127.0.0.1:15440 (PostgreSQL 18)                            | `matecart-dev-commerce` |
+| `commerce-redis`   | Docker                   | 127.0.0.1:16380 (Redis 8, password protected)              | `matecart-dev-commerce` |
+| `control-api`      | Docker                   | http://127.0.0.1:8410                                      | `matecart-dev-control`  |
+| `control-db`       | Docker                   | 127.0.0.1:15441 (PostgreSQL 18)                            | `matecart-dev-control`  |
+| `control-redis`    | Docker                   | internal only (independent rate-limit Redis)               | `matecart-dev-control`  |
+| `mailpit`          | Docker, development only | http://127.0.0.1:18025 (testing inbox; SMTP internal only) | both MateCart networks  |
 
-Commerce and control use separate networks, so `control-api` cannot reach the commerce database, as in production. Redis logical databases: `0` cache, `1` Celery broker, `2` Celery results.
+Commerce and control use separate networks, so control-api cannot reach the commerce database. Only local Mailpit joins both for testing; it has no mail-forwarding configuration. Commerce Redis databases: `0` cache/rate limits, `1` Celery broker, `2` results. Control has its own Redis instance/volume, never commerce Redis.
 
 ## 5. Cross-cutting foundations
 
@@ -143,7 +147,7 @@ Commerce and control use separate networks, so `control-api` cannot reach the co
 ### HTTP API conventions
 
 - All Django routes live under `/api/`; a reverse proxy can send `/api/*` to Django and everything else to Next.js.
-- **Default deny:** DRF has no authentication classes yet and defaults to `IsAuthenticated`, and Django's only backend is `NoLoginBackend`, so any endpoint that does not explicitly opt in is refused. Phase 03 adds authentication.
+- **Default deny:** DRF defaults to `IsAuthenticated` without a global login fallback. Each protected endpoint declares its realm cookie authentication class; public registration/recovery/health endpoints explicitly opt in to anonymous access. CSRF checks cover all unsafe authentication requests, including anonymous ones.
 - **Error envelope** (`ApiErrorBody` in shared-contracts):
   `{"error": {"code": "not_found", "message": "Not found.", "details": {...}}}`. `details` is present for validation errors. Tenancy failures return `503 tenant_unavailable`. Unhandled errors return a generic `server_error`; details are only logged.
 - **Request ids:** every response carries `X-Request-ID`. A well-formed incoming id (8–64 characters of `[A-Za-z0-9._-]`) is reused for cross-hop correlation; anything else is replaced. The id is attached to every log line.
@@ -169,10 +173,10 @@ Redis broker, JSON-only serialisation, `acks_late` + `reject_on_worker_lost` + p
 
 ### Frontend foundations
 
-- Next.js 16 App Router with Turbopack, React 19, strict TypeScript with typed routes, Tailwind CSS v4.
+- Next.js 16 App Router with the supported Webpack compiler flag (D-046), React 19, strict TypeScript/typed routes, Tailwind CSS v4.
 - Design tokens live in `@matecart/shared-ui/theme.css` (core tokens from the prototype design system v1.0). Importing the theme also registers the package's components as Tailwind sources. Font CSS variables come from `next/font` (self-hosted at build time, no runtime calls to Google).
 - Baseline security headers on every route (`nosniff`, `Referrer-Policy`, `X-Frame-Options: DENY`, `Permissions-Policy`) and no `X-Powered-By`. **(planned)** A nonce-based Content Security Policy is designed once payment and analytics scripts are known (Phases 08 and 12).
-- Foundation pages are noindex developer status pages. They are replaced in Phases 06, 11 and 16.
+- Customer account, merchant sign-in/team/security and console sign-in/enrollment/security pages use shared typed controls and runtime-validated responses. Protected shells fetch their realm session before showing account data; the API is always authoritative. Foundation storefront and console `/status` pages remain until 06/16. Full merchant operations remain 11.
 
 ## 6. Security baseline
 
@@ -184,13 +188,13 @@ Redis broker, JSON-only serialisation, `acks_late` + `reject_on_worker_lost` + p
 
 ## 7. Planned architecture (not built yet)
 
-| Topic                                                                              | Phase       |
-| ---------------------------------------------------------------------------------- | ----------- |
-| Login flows (email, phone OTP), sessions, tenant-scoped RBAC, MFA, console sign-in | 03          |
-| Catalogue and inventory with preset-specific attributes                            | 04          |
-| Preset and theme system, white-label branding                                      | 05          |
-| Production reverse proxy, production images, GHCR releases, installer, agent, TLS  | 17          |
-| Rate limiting, bot protection, CDN, horizontal scaling validation                  | 12, 17, 18  |
-| AI provider abstraction (GroqCloud first)                                          | 15          |
-| Store → console metrics channel, alerting                                          | 12, 13, 16  |
-| Row-level security and verified domain → tenant resolution (pooled mode)           | if approved |
+| Topic                                                                             | Phase                           |
+| --------------------------------------------------------------------------------- | ------------------------------- |
+| Live Google/SMS provider configuration and acceptance; full notification delivery | 13 (or approved provider setup) |
+| Catalogue and inventory with preset-specific attributes                           | 04                              |
+| Preset and theme system, white-label branding                                     | 05                              |
+| Production reverse proxy, production images, GHCR releases, installer, agent, TLS | 17                              |
+| Rate limiting, bot protection, CDN, horizontal scaling validation                 | 12, 17, 18                      |
+| AI provider abstraction (GroqCloud first)                                         | 15                              |
+| Store → console metrics channel, alerting                                         | 12, 13, 16                      |
+| Row-level security and verified domain → tenant resolution (pooled mode)          | if approved                     |

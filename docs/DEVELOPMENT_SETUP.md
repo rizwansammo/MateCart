@@ -23,7 +23,11 @@ pnpm dev              # starts commerce-web (3400) and platform-console (3410) o
 pnpm health           # in a second terminal: checks all six services
 ```
 
-Open http://127.0.0.1:3400 (commerce web) and http://127.0.0.1:3410 (platform console). Each shows a Phase 01 status page with its API's live readiness.
+Open http://127.0.0.1:3400 (commerce foundation) and http://127.0.0.1:3410
+(protected console, redirects to sign-in). Customer sign-in is `/account/sign-in`;
+merchant sign-in is `/manage/sign-in` on port 3400. Local email inbox:
+http://127.0.0.1:18025. Provisioning and complete account/MFA review instructions
+are in [AUTHENTICATION.md](AUTHENTICATION.md).
 
 ## Services, ports and URLs
 
@@ -38,6 +42,8 @@ Open http://127.0.0.1:3400 (commerce web) and http://127.0.0.1:3410 (platform co
 | control-db          | `127.0.0.1:15441`, db/user `matecart_control`  | password in `.env`                        |
 | commerce-redis      | `127.0.0.1:16380` (password in `.env`)         | db 0 cache, 1 broker, 2 results           |
 | commerce-worker     | not published                                  | `celery inspect ping` healthcheck         |
+| control-redis       | not published, own password/volume             | internal console rate limits              |
+| mailpit             | http://127.0.0.1:18025                         | development inbox only; SMTP internal     |
 
 API and database ports can be changed in `.env`. The Next.js ports live in `apps/*/package.json` (and in `scripts/check-health.mjs`).
 
@@ -101,6 +107,19 @@ docker compose run --rm commerce-api pytest tests/test_health.py -k readiness
 Source code is bind-mounted, so Django's dev server reloads automatically. The Celery worker does not reload. Restart it with `docker compose restart commerce-worker`.
 
 Tests use the real PostgreSQL and Redis containers. pytest-django creates and drops a `test_*` database automatically.
+
+Authentication tests isolate rate-limit counters in an in-process cache; the live
+smoke script uses the real Redis instances. `python scripts/verify_auth_migrations.py`
+creates uniquely named temporary databases, verifies fresh install/reversal/reapply
+for both services, then removes only those temporary databases. It does not roll
+back the development databases. `node scripts/auth-smoke.mjs --local` creates
+labelled local review accounts and captures messages in Mailpit; see the guide
+before running it.
+
+Both apps use Next's supported `--webpack` dev/build flag (D-046). Stop `pnpm dev`
+before `pnpm build` or simultaneous route generation: competing writes to `.next`
+can otherwise produce a transient generated-types error. Restart `pnpm dev` after
+checks so the owner can review. No source/type-checking relaxation is needed.
 
 ### Optional: host Python environment for IDE support
 

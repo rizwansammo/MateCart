@@ -2,7 +2,7 @@
 
 White-label e-commerce platform by **NetaMate Solutions**. Each client gets an independently deployed, branded online store with a storefront and a merchant dashboard. NetaMate operates the fleet through the internal Central Platform Console.
 
-> **Status:** Phase 01 accepted. Phase 02 (Database & Tenant Architecture) is complete locally and awaiting owner review. See [docs/PROGRESS.md](docs/PROGRESS.md).
+> **Status:** Phases 01–02 accepted and closed. Phase 03 authentication and security is complete locally and ready for independent owner review. See [docs/PROGRESS.md](docs/PROGRESS.md).
 
 ## Repository
 
@@ -27,13 +27,17 @@ Requires Node.js 24, pnpm 11 and Docker Desktop.
 ```bash
 pnpm install
 pnpm setup:env      # local .env files with generated secrets (never committed)
-pnpm stack:up       # PostgreSQL, Redis, commerce-api, commerce-worker, control-api
+pnpm stack:up       # independent databases/Redis, APIs, commerce-worker and local Mailpit
 pnpm api:provision  # create the local dev store (one tenant per deployment)
 pnpm dev            # commerce-web on :3400, platform-console on :3410
 pnpm health         # verify every service
 ```
 
 Everyday commands, ports and troubleshooting: [docs/DEVELOPMENT_SETUP.md](docs/DEVELOPMENT_SETUP.md).
+
+Customer sign-in: http://127.0.0.1:3400/account/sign-in. Merchant sign-in:
+http://127.0.0.1:3400/manage/sign-in. Console sign-in: http://127.0.0.1:3410/sign-in.
+Provisioning, local email, Google/SMS gates and MFA: [authentication guide](docs/AUTHENTICATION.md).
 
 ## Documentation
 
@@ -50,6 +54,8 @@ Everyday commands, ports and troubleshooting: [docs/DEVELOPMENT_SETUP.md](docs/D
 | [docs/DEVELOPMENT_SETUP.md](docs/DEVELOPMENT_SETUP.md)     | Local environment and commands                                            |
 
 ## Ground rules
+
+Authentication security controls and production follow-up: [docs/SECURITY.md](docs/SECURITY.md).
 
 - The UI prototype ([MateCart-UI](https://github.com/rizwansammo/MateCart-UI)) is the approved design reference and is **strictly read-only**.
 - The local Docker Desktop is shared with other projects. MateCart only ever touches its own `matecart-dev` Compose project.

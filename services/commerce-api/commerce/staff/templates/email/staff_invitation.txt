@@ -1,0 +1,11 @@
+{% autoescape off %}{{ store_name }}
+
+{% if is_owner %}Your {{ store_name }} store is ready. Create your owner account to start managing it.{% else %}{{ inviter_name }} invited you to help manage {{ store_name }}.{% endif %}
+
+Role: {{ role }} - {{ role_description }}
+
+Accept the invitation: {{ link }}
+
+This invitation works once and expires on {{ expires_at|date:"j F Y" }}.
+If you weren't expecting it, you can ignore this email.
+{% endautoescape %}

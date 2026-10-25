@@ -10,6 +10,11 @@ dependencies = [
     "django-environ>=0.14.0",
     "django-stubs-ext>=5.2.9,<5.3",  # runtime half of django-stubs: makes generic classes subscriptable
     "psycopg[binary]>=3.3.6",
+    "argon2-cffi>=25.1.0",  # Argon2id password hashing (Django's recommended hasher)
+    "pyotp>=2.10.0",  # RFC 6238 TOTP for authenticator apps
+    "segno>=1.6.6",  # QR codes for authenticator setup (BSD-3-Clause, no dependencies)
+    "cryptography>=50.0.2",  # Fernet encryption of TOTP secrets at rest
+    "redis>=6.4",  # rate limiting store
 ]
 
 [dependency-groups]

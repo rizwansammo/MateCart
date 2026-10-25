@@ -45,11 +45,31 @@ Update the status in the same change that completes a feature.
 - [x] Async refresh covered; protection verified on more than one tenant-owned model
 - [x] System check E005 (scoped default and base managers); state-only migrations verified as no-ops
 
+## Authentication and security (Phase 03)
+
+- [x] Email/password customer registration, verification, sign-in, recovery, logout and profile
+- [x] Phone-only OTP registration/sign-in and provider contract; controlled-provider tests
+- [x] Google OIDC state/nonce/PKCE, signed tokens, stable subjects and safe account linking tests
+- [x] Explicit UI gates for unconfigured Google/SMS; no fake live delivery
+- [x] Separate customer, merchant and console credentials, cookies and authorization
+- [x] Provisioning-only Owner activation; expiring single-use staff invitations
+- [x] Tenant-scoped role permissions, owner-only team management, suspension/reactivation
+- [x] Merchant optional MFA; console mandatory MFA and restricted initial enrollment
+- [x] Guided TOTP QR/key reveal/confirmation; email OTP resend and expiry handling
+- [x] Single-use hashed recovery codes, copy/download/confirmation and regeneration
+- [x] Reauthentication, rate limits, cookie rotation, CSRF, session expiration/revocation
+- [x] PostgreSQL ownership tests for all nine new commerce authentication models
+- [x] Preserve forged-instance, refresh/deferred relation and append-only audit regressions
+- [x] Local email capture, separate control Redis, auth response/logging protections
+- [x] Customer account, `/manage` login/team/security and separate console account interfaces
+- [ ] Live Google, SMS and external SMTP acceptance (requires genuine provider configuration)
+- [ ] Independent owner/security review and pushed Phase 03 CI run
+
 ## Commerce core
 
 - [ ] Store modules, theme and branding; preset engine (05)
 - [ ] Store domains and TLS (17)
-- [ ] Customer, merchant-staff and central-admin sign-in (email and/or phone OTP); tenant-scoped RBAC; MFA; sessions (03)
+- [x] Customer, merchant-staff and central-admin sign-in foundations, tenant-scoped RBAC, MFA and sessions (03; provider limits above)
 - [ ] Catalogue, categories, variants, SKUs, pricing, stock movements (04)
 - [ ] Preset-specific attributes: fashion variants and size guides; grocery weight, expiry, batch, delivery slots; electronics specs, warranty, serial numbers, comparison, EMI; bookstore ISBN, author, publisher, language, edition, genre, format, pages, series, pre-orders, digital editions (04, 05)
 - [ ] Five presets with distinct visual identities; white-label branding; theming (05)
@@ -64,7 +84,8 @@ Update the status in the same change that completes a feature.
 
 - [ ] Horizontal scaling of web and API processes where infrastructure permits; stateless processes (17, 18)
 - [ ] Redis caching and background workers used appropriately (ongoing; foundation done in 01)
-- [ ] Rate limiting and bot protection (03, 12, 17)
+- [x] Authentication rate-limiting foundation (03)
+- [ ] General bot protection and edge limits (12, 17, 18)
 - [ ] CDN compatibility (06, 17)
 - [ ] Checkout and inventory protection against duplicate operations and overselling (07, 08)
 - [ ] Resource-based scaling decisions; client-owned VPS limits respected (17, 18)
@@ -78,6 +99,12 @@ Update the status in the same change that completes a feature.
 - [ ] Capacity-aware alert thresholds per store, not one global visitor number (16)
 
 ## Email integrations (13)
+
+Authentication-only SMTP abstraction and local Mailpit are implemented in 03.
+Full notification delivery, queues/retries, native MateMail and masking SMS remain below.
+
+- [ ] Managed masking SMS gateway and approved store sender identities (13)
+- [ ] Per-store SMS accounting: included allowance before prepaid credits (future billing scope; no recharge/purchase UI now)
 
 - [ ] Standard SMTP and IMAP connection
 - [ ] Native MateMail Connected App with properly scoped tenant and application credentials
@@ -113,6 +140,9 @@ Delivery requirements:
 
 ## Other pending features (must not be dropped)
 
+- [ ] Delivery address selection and order recipient snapshots (07/08)
+- [ ] Multiple customer addresses and a default address, separate recipient phone/name (10)
+
 - [ ] Consistent customer and merchant order synchronisation (08, 10, 11)
 - [ ] Product publishing and stock synchronisation (04, 11)
 - [ ] Complete bookstore-specific merchant workflows (04, 05, 11)
@@ -125,6 +155,9 @@ Delivery requirements:
 - [ ] Full production-quality type safety and tests (ongoing; enforced from 01; verified in 18)
 
 ## Platform and operations
+
+- [ ] Production PostgreSQL runtime/migration role separation and privilege hardening (17)
+- [ ] Final Django private-hook compatibility and tenant/authentication audit (18)
 
 - [ ] Central Console: client registry, onboarding, store configuration, preset selection, feature and module configuration, server registry (16)
 - [ ] Deployment orchestration, release and update management, domain and SSL workflows, integration provisioning (16, 17)
