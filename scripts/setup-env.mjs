@@ -1,36 +1,49 @@
 #!/usr/bin/env node
-// Creates local, git-ignored environment files from the committed examples.
-//   .env.example                 -> .env          (__GENERATE__ values become random secrets)
+// Creates and updates local, git-ignored environment files from the committed examples.
+//   .env.example                 -> .env          (__GENERATE__ / __GENERATE_UUID__ become values)
 //   apps/<app>/.env.example      -> apps/<app>/.env.local
-// Existing files are never overwritten, so re-running is always safe.
+// Existing values are never changed. Keys added to an example later are appended to the
+// existing file, so re-running after pulling new changes is always safe.
 
-import { randomBytes } from 'node:crypto';
-import { copyFileSync, existsSync, readFileSync, writeFileSync } from 'node:fs';
+import { randomBytes, randomUUID } from 'node:crypto';
+import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 
-function createFrom(example, target, transform) {
+// 64 hex characters: URL-safe for connection strings and strong enough for Django's SECRET_KEY.
+const generateValues = (text) =>
+  text
+    .replaceAll('__GENERATE_UUID__', () => randomUUID())
+    .replaceAll('__GENERATE__', () => randomBytes(32).toString('hex'));
+
+const keyOf = (line) => /^\s*([A-Z0-9_]+)\s*=/.exec(line)?.[1];
+
+function sync(example, target) {
   const label = relative(root, target);
-  if (existsSync(target)) {
-    console.log(`kept     ${label} (already exists)`);
+  const exampleText = readFileSync(example, 'utf8');
+  if (!existsSync(target)) {
+    writeFileSync(target, generateValues(exampleText));
+    console.log(`created  ${label}`);
     return;
   }
-  if (transform) {
-    writeFileSync(target, transform(readFileSync(example, 'utf8')));
-  } else {
-    copyFileSync(example, target);
+  const current = readFileSync(target, 'utf8');
+  const present = new Set(current.split(/\r?\n/).map(keyOf).filter(Boolean));
+  const missing = exampleText
+    .split(/\r?\n/)
+    .filter((line) => keyOf(line) && !present.has(keyOf(line)));
+  if (missing.length === 0) {
+    console.log(`kept     ${label} (up to date)`);
+    return;
   }
-  console.log(`created  ${label}`);
+  const separator = current.endsWith('\n') ? '' : '\n';
+  writeFileSync(target, `${current}${separator}${generateValues(missing.join('\n'))}\n`);
+  console.log(`updated  ${label} (added ${missing.map(keyOf).join(', ')})`);
 }
 
-// 64 hex characters: URL-safe for connection strings and strong enough for Django's SECRET_KEY.
-const generateSecrets = (text) =>
-  text.replaceAll('__GENERATE__', () => randomBytes(32).toString('hex'));
-
-createFrom(join(root, '.env.example'), join(root, '.env'), generateSecrets);
+sync(join(root, '.env.example'), join(root, '.env'));
 for (const app of ['commerce-web', 'platform-console']) {
   const dir = join(root, 'apps', app);
-  createFrom(join(dir, '.env.example'), join(dir, '.env.local'));
+  sync(join(dir, '.env.example'), join(dir, '.env.local'));
 }

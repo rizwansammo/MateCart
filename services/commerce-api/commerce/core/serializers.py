@@ -14,6 +14,7 @@ class ReadinessChecksSerializer(serializers.Serializer[dict[str, Any]]):
     database = serializers.ChoiceField(choices=CHECK_STATES)
     cache = serializers.ChoiceField(choices=CHECK_STATES)
     broker = serializers.ChoiceField(choices=CHECK_STATES)
+    tenant = serializers.ChoiceField(choices=CHECK_STATES)
 
 
 class ReadinessSerializer(serializers.Serializer[dict[str, Any]]):

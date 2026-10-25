@@ -2,118 +2,116 @@
 
 **Read this first in every session.** Update it at the end of every session and every phase (see AGENTS.md §7).
 
-Last updated: 2026-10-25 · by Claude Code (Opus 5.5) · end of Phase 01 implementation.
+Last updated: 2026-10-25 · by Claude Code (Opus 5.5) · end of Phase 02 implementation.
 
 ## Project status board
 
-| Item                          | Status                                                                                                |
-| ----------------------------- | ----------------------------------------------------------------------------------------------------- |
-| Active phase                  | **Phase 01 — Project Foundation**                                                                     |
-| Phase 01                      | **Complete (verified locally) — awaiting owner review and approval**                                  |
-| Phases 02–19                  | Pending. Do not start Phase 02 without explicit owner approval.                                       |
-| Public subscription / billing | Deferred                                                                                              |
-| Initial deployment model      | Single tenant                                                                                         |
-| Future architecture           | Multi-tenant ready / hybrid                                                                           |
-| UI prototype (MateCart-UI)    | Strictly read-only (verified untouched: HEAD `9ff1361`, clean)                                        |
-| Business model                | Private beta, manual client onboarding                                                                |
-| Git                           | `main` has no commits. All Phase 01 work is uncommitted in the working tree, for the owner to commit. |
+| Item                          | Status                                                                                                                                                                          |
+| ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Active phase                  | **Phase 02 — Database & Tenant Architecture**                                                                                                                                   |
+| Phase 01                      | **Complete — accepted by the owner.** Baseline commit `8f3e34b` on `main`; GitHub Actions run 40201938872 **passed (4/4 jobs)**.                                                |
+| Phase 02                      | **Complete (verified locally) — awaiting owner review.** Uncommitted in the working tree for the owner to commit. Its GitHub CI has **not** run yet (runs on the owner's push). |
+| Phases 03–19                  | Pending. Do not start Phase 03 without explicit owner approval.                                                                                                                 |
+| Public subscription / billing | Deferred                                                                                                                                                                        |
+| Deployment model              | Single tenant (strictly enforced at runtime, D-026)                                                                                                                             |
+| Future architecture           | Multi-tenant ready / hybrid (D-025, DATA_MODEL §5)                                                                                                                              |
+| UI prototype (MateCart-UI)    | Strictly read-only (verified untouched: HEAD `9ff1361`, clean)                                                                                                                  |
+| Business model                | Private beta, manual client onboarding                                                                                                                                          |
+| Repository                    | Public on GitHub by owner's choice; secrets policy unchanged                                                                                                                    |
 
-## Phase 01 quality gates
+## Phase 01 record
 
-| #   | Gate                                           | Result | Evidence (2026-10-25)                                                                                                                                              |
-| --- | ---------------------------------------------- | ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| 1   | Structure coherent and documented              | Pass   | README, ARCHITECTURE §2                                                                                                                                            |
-| 2   | Local dependencies configured                  | Pass   | `pnpm install` (pnpm 11.18, lockfile verified); `uv.lock` per service, `uv sync --locked` in images                                                                |
-| 3   | Dedicated Docker environment works             | Pass   | `pnpm stack:up`: all 6 `matecart-dev` containers healthy; full `down` → `up` cycle repeated                                                                        |
-| 4   | Unrelated Docker applications untouched        | Pass   | Before/after snapshot of non-MateCart containers (IDs, states, created times), volumes and networks: identical. See note 1.                                        |
-| 5   | Frontend apps run                              | Pass   | `pnpm dev`: both apps serve `/` and `/healthz` (200); pages render live API readiness server-side; visually checked in headless Edge                               |
-| 6   | Backends start and answer health checks        | Pass   | `/api/health/live/` and `/api/health/ready/` return 200 on both APIs                                                                                               |
-| 7   | Database and Redis connections verified        | Pass   | commerce readiness `database/cache/broker: ok`; control readiness `database: ok`; integration tests against real PostgreSQL and Redis                              |
-| 8   | Celery configuration validated                 | Pass   | `pnpm api:celery-check`: real round-trip API → Redis → worker → result returned `'pong'`; worker healthcheck uses `celery inspect ping`; config tests              |
-| 9   | Test, lint, type-check and build commands work | Pass   | See verification log                                                                                                                                               |
-| 10  | No secrets committed                           | Pass   | Nothing committed. All 136 commit-candidate files scanned: none of the generated secrets present, no credential patterns. `.env` and `.env.local` are git-ignored. |
-| 11  | Architecture and roadmap docs exist            | Pass   | `docs/`                                                                                                                                                            |
-| 12  | Claude/Codex handoff ready                     | Pass   | `AGENTS.md` (canonical), `CLAUDE.md` (imports it), this file                                                                                                       |
-| 13  | Known issues and open decisions documented     | Pass   | Below, and DECISIONS "Open questions"                                                                                                                              |
+Phase 01 was verified locally on 2026-10-25 (51 backend tests, 6 contract tests, both builds). Its handoff noted that GitHub CI had not yet run; that was accurate at the time. The owner then committed and pushed `8f3e34b`, and CI passed 4/4. Phase 01 is accepted.
 
-## Verification log (final run, 2026-10-25, after a full `pnpm stack:down` → `pnpm stack:up`)
+## Phase 02 — what was delivered
 
-| Command                         | Result                                                                                       |
-| ------------------------------- | -------------------------------------------------------------------------------------------- |
-| `pnpm format:check`             | exit 0: all files use Prettier style                                                         |
-| `pnpm lint`                     | exit 0: ESLint, 0 problems (24 files linted)                                                 |
-| `pnpm typecheck`                | exit 0: 4 packages; Next typed routes generated                                              |
-| `pnpm test`                     | exit 0: Vitest 6/6 passed (shared-contracts)                                                 |
-| `pnpm build`                    | exit 0: both Next.js apps built (Next 16.4.3, Turbopack)                                     |
-| `pnpm api:lint`                 | exit 0: ruff check, ruff format (34 + 28 files), mypy strict (no issues, 34 + 28 files)      |
-| `pnpm api:test`                 | exit 0: commerce-api **27 passed**, control-api **24 passed**                                |
-| `pnpm api:celery-check`         | exit 0: `Celery round-trip OK … returned 'pong'`                                             |
-| `pnpm health`                   | exit 0: 6/6 OK (both APIs live and ready, both web apps)                                     |
-| `docker compose config --quiet` | valid                                                                                        |
-| actionlint (CI workflow)        | no findings. Action references verified to exist on GitHub.                                  |
-| Data persistence                | after removing all containers, recreated APIs report "No migrations to apply" (volumes kept) |
+### Architecture decisions (D-023 to D-033 in DECISIONS.md)
 
-Backend tests cover: liveness and readiness (including a 503 path that must not leak failure details), the error envelope (404, 500, validation, API exceptions), default-deny permissions, request id generation, reuse and rejection, log filter and JSON formatter, Celery task and config, migrations in sync, OpenAPI drift, production `check --deploy`, and refusal of weak secret keys and empty allowed hosts.
+- **Tenant strategy:** tenant-aware commerce core; strict single-tenant runtime (`MATECART_TENANCY_MODE=single`, `MATECART_TENANT_ID`), tenant resolved from configuration only, explicit atomic provisioning, readiness fails closed.
+- **Isolation:** fail-closed scoped managers, guarded writes, immutable ownership, PostgreSQL composite tenant foreign keys, build-time system checks, logged `unscoped_access`, tenant-verified Celery tasks, tenant cache keys and storage paths. RLS deferred to a future pooled mode, with documented reasons.
+- **Database ownership:** each store's commerce database holds only its own business data; control-api holds NetaMate data only; opaque UUID references, no cross-database keys.
+- **Identity:** `identity.User` (per tenant; `customer` and `staff` realms; email and/or phone, normalised and unique per tenant and realm) and `accounts.AdminUser` (console only). Login flows wait for Phase 03 (`NoLoginBackend`).
+- **Conventions:** UUIDv7 keys, timestamps, per-tenant uniqueness, `CHECK`-backed choices, ISO/IANA/E.164 data, `Decimal` money, no global soft delete, append-only audit events in the same transaction.
 
-**Not verified:** the GitHub Actions workflow has not run on GitHub. Assistants do not push. The first run happens when the owner pushes or opens a pull request. Every step it runs passed locally (frontend directly, backend inside the containers).
+### New modules and models
 
-## What Phase 01 delivered
+| Service      | App                 | Contents                                                                                                                                                                                                                                                                          |
+| ------------ | ------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| commerce-api | `commerce.core`     | `ids.uuid7`, `UUIDModel`, `TimestampedModel`, `standards` (country/currency/time zone/language validation via Babel and zoneinfo), `contact` (email and E.164 phone normalisation), `TenantUnavailable` error mapping, `tenant` readiness check                                   |
+| commerce-api | `commerce.tenancy`  | `Tenant`, `TenantOwnedModel`, `TenantScopedManager`/`TenantQuerySet`, `TenantForeignKeyConstraint`, `context` (`tenant_context`, `unscoped_access`), `TenantMiddleware`, `resolution`, `TenantTask`, `keys`, system checks E001–E004, `provisioning` + `provision_tenant` command |
+| commerce-api | `commerce.stores`   | `StoreSettings`, `StorePreset`                                                                                                                                                                                                                                                    |
+| commerce-api | `commerce.identity` | `User` (`AUTH_USER_MODEL`), `UserManager`, `AccountType`, `NoLoginBackend`                                                                                                                                                                                                        |
+| commerce-api | `commerce.audit`    | `AuditEvent` (append-only), `record_audit_event`, `field_changes`, redaction                                                                                                                                                                                                      |
+| control-api  | `control.core`      | `ids.uuid7`, `UUIDModel`, `TimestampedModel`                                                                                                                                                                                                                                      |
+| control-api  | `control.accounts`  | `AdminUser` (`AUTH_USER_MODEL`), `AdminUserManager`, `NoLoginBackend`                                                                                                                                                                                                             |
 
-- **Monorepo** (pnpm workspaces): `apps/commerce-web`, `apps/platform-console`, `packages/shared-ui`, `packages/shared-contracts`, root tooling (strict `tsconfig.base.json`, ESLint flat config, Prettier with Tailwind plugin, `.editorconfig`, `.gitattributes` LF).
-- **Frontends:** Next.js 16.4 App Router, React 19.3, Tailwind 4.3 with shared prototype tokens, self-hosted fonts (Geist, Geist Mono, Hind Siliguri), typed routes, baseline security headers, `/healthz`, server-only env access, noindex Phase 01 status pages showing their API's readiness.
-- **Backends:** Django 5.2 LTS + DRF projects `commerce-api` (with Celery and Redis) and `control-api`; settings `base/development/test/production`; health endpoints; request id middleware; JSON or console logging; error envelope; default-deny DRF; OpenAPI schemas (`openapi.yaml`) with drift test; `check_celery` command; non-root dev images with uv.
-- **Docker:** `compose.yaml` (project `matecart-dev`) with healthchecks, isolated networks and named volumes.
-- **Scripts:** `pnpm setup:env` (generates local secrets), `pnpm health`.
-- **CI:** `.github/workflows/ci.yml` (checks only, no deployment).
-- **Docs:** README, AGENTS, CLAUDE, and `docs/` (PROJECT_CONTEXT, ARCHITECTURE, DEVELOPMENT_ROADMAP, FEATURE_CHECKLIST, DECISIONS, PROGRESS, DEVELOPMENT_SETUP).
+### Migrations
 
-### Docker resources created (all MateCart-only)
+| Migration                         | Content                                                                                                                      |
+| --------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| `tenancy.0001_initial`            | `tenancy_tenant` (handle format, status `CHECK`s)                                                                            |
+| `stores.0001_initial`             | `stores_storesettings` (one per tenant, `(tenant, id)` key, preset/country/currency/language/phone `CHECK`s)                 |
+| `identity.0001_initial`           | `identity_user` (`(tenant, id)` key, partial unique email/phone per tenant and realm, identifier and normalisation `CHECK`s) |
+| `audit.0001_initial`              | `audit_auditevent` (composite tenant FK to `identity_user`, action and actor `CHECK`s, tenant-prefixed indexes)              |
+| `audit.0002_append_only`          | Trigger refusing UPDATE and DELETE (`RunSQL` with reverse)                                                                   |
+| `accounts.0001_initial` (control) | `accounts_adminuser` (unique lowercase email `CHECK`)                                                                        |
+| Django `auth.0001`–`0012`         | Installed now that the custom user models exist (D-010 fulfilled)                                                            |
 
-- Containers: `matecart-dev-{commerce-db,commerce-redis,commerce-api,commerce-worker,control-db,control-api}-1`
-- Volumes: `matecart-dev-commerce-db-data`, `matecart-dev-commerce-redis-data`, `matecart-dev-control-db-data`
-- Networks: `matecart-dev-commerce`, `matecart-dev-control`
-- Images built: `matecart-dev/commerce-api:dev`, `matecart-dev/control-api:dev`
-- Public images pulled: `python:3.13.17-slim-trixie`, `redis:8.10.2-alpine`. `postgres:18.6-alpine3.24` was already present and is used read-only. A temporary `rhysd/actionlint` image was pulled for workflow linting and removed afterwards.
-- Throwaway containers (auto-removed): `matecart-dev-uv-lock` (generated the `uv.lock` files), `matecart-dev-actionlint`.
+### Other changes
 
-### Ports (127.0.0.1 only)
+- `compose.yaml`: `MATECART_TENANCY_MODE` and `MATECART_TENANT_ID` for commerce-api and commerce-worker.
+- `.env.example`: `MATECART_TENANT_ID=__GENERATE_UUID__`. `scripts/setup-env.mjs` now **adds** missing keys to existing env files, never changing existing values.
+- `package.json`: `pnpm api:provision` (idempotent dev store).
+- Dependencies (commerce): `babel` 2.18.0, `phonenumbers` 9.0.41, `tzdata` 2026.5 (lockfile regenerated in a container).
+- Ruff: generated migrations excluded; `RUF012` relaxed only for Django `Meta` lists in `models.py` and tests.
+- OpenAPI: commerce readiness gained `tenant` (`openapi.yaml` regenerated; shared-contracts unchanged because checks are a map).
+- Docs: new [DATA_MODEL.md](DATA_MODEL.md); ARCHITECTURE §3 rewritten (final tenancy strategy); DECISIONS D-023–D-033 and updated questions; ROADMAP, FEATURE_CHECKLIST, DEVELOPMENT_SETUP, README and AGENTS (tenant data rules) updated.
 
-| Service          | Port  |
-| ---------------- | ----- |
-| commerce-web     | 3400  |
-| platform-console | 3410  |
-| commerce-api     | 8400  |
-| control-api      | 8410  |
-| commerce-db      | 15440 |
-| control-db       | 15441 |
-| commerce-redis   | 16380 |
+## Verification log (2026-10-25, final run)
 
-Details: DEVELOPMENT_SETUP.md.
+| Check                                                                         | Result                                                                                                                                                                                                      |
+| ----------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Migrations on a **temporary** commerce database                               | forward from empty OK; `makemigrations --check` no changes; reversed to zero (no tables left); re-applied OK; database dropped                                                                              |
+| Migrations on a **temporary** control database                                | forward OK; no drift; `accounts` zero and back OK; database dropped                                                                                                                                         |
+| Migrations on development databases                                           | applied additively at container start (tenancy, stores, identity, audit 0001–0002, auth 0001–0012, accounts 0001); no reset, volumes kept                                                                   |
+| `sqlmigrate` review                                                           | composite FK `(tenant_id, actor_user_id) → identity_user (tenant_id, id)`, partial unique indexes, all `CHECK`s as designed                                                                                 |
+| `pnpm api:test`                                                               | commerce-api **142 passed**; control-api **31 passed**                                                                                                                                                      |
+| Two-tenant isolation tests                                                    | 22 in `test_tenant_isolation.py` + 5 context + 4 system-check tests: all passed                                                                                                                             |
+| `pnpm api:lint`                                                               | ruff check and format clean; **mypy strict: no issues (74 + 35 files)**                                                                                                                                     |
+| `manage.py check`                                                             | no issues (includes tenancy checks E001–E004)                                                                                                                                                               |
+| `pnpm format:check`, `pnpm lint`, `pnpm typecheck`, `pnpm test`, `pnpm build` | all exit 0 (Vitest 6/6; both Next.js builds)                                                                                                                                                                |
+| `pnpm api:celery-check`                                                       | real round-trip OK (`'pong'`)                                                                                                                                                                               |
+| `docker compose config --quiet`                                               | valid                                                                                                                                                                                                       |
+| Provisioning on the dev stack                                                 | readiness `tenant: error` (503) before; `pnpm api:provision` created tenant `dev-store` with the `.env` UUID, store settings and a `tenant.provisioned` audit event; rerun "Nothing changed"; readiness 200 |
+| `pnpm health`                                                                 | 6/6 OK; commerce-web status page shows `tenant ok`                                                                                                                                                          |
+| Docker isolation                                                              | non-MateCart containers, volumes and networks identical before and after                                                                                                                                    |
+| Secrets                                                                       | 86 commit candidates scanned: no generated secret, no credential patterns; `.env` and `.env.local` ignored                                                                                                  |
+
+Commerce test breakdown: isolation 22, conventions 26, identity 16, provisioning 14, store settings 14, audit 9, project 9, request id 9, errors 6, health 5, context 5, checks 4, Celery 3.
+
+**Not verified:** the Phase 02 GitHub Actions run (happens on the owner's push). The CI workflow itself is unchanged; every step it runs passed locally.
 
 ## Known issues and limitations
 
-1. **Docker default `bridge` network ID changed** between the first read-only inspection and the first MateCart command. The engine's event log starts afresh at that point, which indicates a Docker engine restart (likely Docker Desktop Resource Saver, since all containers were idle). No MateCart command can cause this. Other projects' own networks, containers and volumes are unchanged.
-2. **CI not yet executed on GitHub** (see above).
-3. **ESLint 9 is end-of-life** but required by the Next.js 16.4 ESLint plugin set (D-005).
-4. **TypeScript contracts are hand-mirrored** from `openapi.yaml` until a code generator is chosen (D-013).
-5. **Frontends run on the host, not in Docker**, by design (D-008). Production frontend images arrive in Phase 17.
-6. **`control-api` has no Redis or Celery yet.** They are added when the console gets async work (Phase 16).
-7. **Production settings are a skeleton**, not deployment-verified (Phase 17). The readiness endpoint should be made internal-only then.
-8. In development (`DEBUG=True`), unknown URLs show Django's HTML debug 404. The JSON 404 envelope applies with `DEBUG=False` and is covered by tests.
-9. MateCart containers use `restart: unless-stopped`: if left running, they start again with Docker Desktop. Run `pnpm stack:down` to stop them.
-10. Python editor intellisense needs the optional host venv (DEVELOPMENT_SETUP.md).
-11. Next.js 16.4 writes `apps/*/AGENTS.md` when `next dev` runs under an AI agent. Disabled with `agentRules: false`; Next removed the generated files itself.
+1. **Nobody can sign in yet** by design (`NoLoginBackend` in both services) until Phase 03.
+2. **Customer and staff realms** (D-027, Q7) are a deliberate choice awaiting the owner's confirmation. Reversible until the first production launch.
+3. **Raw SQL is not tenant-scoped.** Scoping covers the ORM; composite foreign keys protect references. Raw SQL on tenant data must be reviewed (AGENTS.md).
+4. **No production consumers yet** for `TenantTask`, `tenant_cache_key` and `tenant_storage_path`; they are verified by tests and will be used from Phase 04.
+5. `phonenumbers` declares Python classifiers only up to 3.12; it passes all tests on 3.13 (D-031).
+6. **TRUNCATE on the audit table** is not blocked (test-database flushes need it). Production will use a runtime database role that does not own tables (Phase 17).
+7. While working on Windows, inline edit scripts briefly produced CRLF line endings and one cp1252-encoded file. Both were caught and fixed; a final scan confirmed every file is LF and valid UTF-8.
+8. Phase 01 limitations that still apply: ESLint 9 (D-005), hand-mirrored TypeScript contracts (D-013), frontends run on the host in development (D-008).
 
 ## Decisions needing the owner
 
-See [DECISIONS.md → Open questions](DECISIONS.md#open-questions-for-the-owner-none-block-phase-01). Q1 Optimus font licence · Q2 Redis vs Valkey licensing · Q3 confirm Bangladesh market · Q4 dashboard placement · Q5 first commit and branching · Q6 customer login identity. None block Phase 01. Q3, Q5 and Q6 are best answered before or early in Phase 02.
+[DECISIONS.md → Open questions](DECISIONS.md#open-questions-for-the-owner): Q1 Optimus font licence (Phase 05) · Q2 Redis vs Valkey licensing (Phase 17) · Q4 dashboard placement (Phase 03) · Q6 customer login method (Phase 03; no longer blocks the schema) · **Q7 confirm separate customer and staff accounts** (Phase 03). Q3 and Q5 are resolved.
 
 ## Handoff: next steps
 
-1. **Owner:** review Phase 01 and commit it. Recommendation: root commit on `main`, then `phase/02-*` feature branches with pull requests, so CI runs on GitHub for the first time.
-2. **Owner:** approve the start of Phase 02, ideally with answers to Q3 and Q6.
-3. **Next assistant (Phase 02, Database & Tenant Architecture), once approved:**
-   - Read AGENTS.md, this file, DECISIONS (especially D-010) and ARCHITECTURE §3.
-   - `pnpm install && pnpm setup:env && pnpm stack:up && pnpm health --skip-web` to confirm the baseline.
-   - Design the tenant scoping mechanism, base models and managers, auditing, and the store configuration model. Coordinate the custom user model with Phase 03 before installing `django.contrib.auth`.
-   - Keep updating this file, DECISIONS and FEATURE_CHECKLIST.
+1. **Owner:** review Phase 02, commit it, push, and report the CI result.
+2. **Owner:** approve Phase 03, ideally answering Q4, Q6 and Q7.
+3. **Next assistant (Phase 03, Authentication & Security), once approved:**
+   - Read AGENTS.md (tenant data rules), this file, DECISIONS D-025–D-029, ARCHITECTURE §3 and DATA_MODEL §3.
+   - Baseline: `pnpm install && pnpm setup:env && pnpm stack:rebuild && pnpm api:provision && pnpm health --skip-web`.
+   - Replace `NoLoginBackend` with tenant-aware backends that resolve email or phone within the active tenant and realm; design sessions or tokens, MFA, tenant-scoped RBAC (staff membership and roles as tenant-owned models with tenant foreign keys), password hashing (consider Argon2), rate limiting, CORS and CSRF.
+   - Keep every new model on `TenantOwnedModel` and prove isolation with two-tenant tests.

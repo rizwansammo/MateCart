@@ -5,6 +5,7 @@ All configuration comes from environment variables. Environment modules (develop
 production) import this module and override only what differs. Never put secrets in this file.
 """
 
+import uuid
 from pathlib import Path
 
 import environ
@@ -21,17 +22,24 @@ DEBUG = False
 ALLOWED_HOSTS: list[str] = env.list("DJANGO_ALLOWED_HOSTS", default=[])
 
 INSTALLED_APPS = [
-    # django.contrib.auth, admin and sessions are deliberately not installed yet. The custom user
-    # model is designed in Phases 02-03, and AUTH_USER_MODEL must be set before auth migrates.
     "django.contrib.contenttypes",
+    # Installed for AbstractBaseUser, password hashing and the auth framework. Its global Group and
+    # Permission tables are not used for store roles (not tenant-scoped; RBAC arrives in Phase 03).
+    # Admin and sessions stay out until Phase 03 designs login and session handling.
+    "django.contrib.auth",
     "rest_framework",
     "drf_spectacular",
     "commerce.core",
+    "commerce.tenancy",
+    "commerce.stores",
+    "commerce.identity",
+    "commerce.audit",
 ]
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
     "commerce.core.middleware.RequestIdMiddleware",
+    "commerce.tenancy.middleware.TenantMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
@@ -48,6 +56,23 @@ DATABASES["default"].setdefault("OPTIONS", {})["connect_timeout"] = env.int(
     "DJANGO_DB_CONNECT_TIMEOUT", default=5
 )
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
+
+# --- Tenancy (docs/ARCHITECTURE.md §3) ---
+# "single" is the only supported mode: this deployment serves exactly one tenant, configured here
+# and never taken from requests. A pooled mode would be a new, documented decision (D-026).
+MATECART_TENANCY_MODE = env("MATECART_TENANCY_MODE", default="single")
+if MATECART_TENANCY_MODE != "single":
+    raise ImproperlyConfigured("MATECART_TENANCY_MODE must be 'single'; no other mode exists yet.")
+_tenant_id = env("MATECART_TENANT_ID", default="").strip()
+try:
+    MATECART_TENANT_ID: uuid.UUID | None = uuid.UUID(_tenant_id) if _tenant_id else None
+except ValueError as exc:
+    raise ImproperlyConfigured("MATECART_TENANT_ID must be a UUID.") from exc
+
+# --- Identity (docs/DATA_MODEL.md) ---
+AUTH_USER_MODEL = "identity.User"
+# Nothing can authenticate until Phase 03 replaces this with tenant-aware login backends.
+AUTHENTICATION_BACKENDS = ["commerce.identity.backends.NoLoginBackend"]
 
 # --- Cache (Redis) ---
 CACHES = {

@@ -25,12 +25,14 @@ DEBUG = False
 ALLOWED_HOSTS: list[str] = env.list("DJANGO_ALLOWED_HOSTS", default=[])
 
 INSTALLED_APPS = [
-    # django.contrib.auth, admin and sessions are deliberately not installed yet. Central
-    # administrator authentication is designed in Phase 03 (separate from merchant accounts).
     "django.contrib.contenttypes",
+    # Installed for AbstractBaseUser, password hashing and the auth framework. Admin and sessions
+    # stay out until Phase 03 designs console sign-in (with MFA).
+    "django.contrib.auth",
     "rest_framework",
     "drf_spectacular",
     "control.core",
+    "control.accounts",
 ]
 
 MIDDLEWARE = [
@@ -52,6 +54,11 @@ DATABASES["default"].setdefault("OPTIONS", {})["connect_timeout"] = env.int(
     "DJANGO_DB_CONNECT_TIMEOUT", default=5
 )
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
+
+# --- Identity: NetaMate console administrators, never store accounts (docs/DATA_MODEL.md) ---
+AUTH_USER_MODEL = "accounts.AdminUser"
+# Nothing can authenticate until Phase 03 replaces this with console sign-in.
+AUTHENTICATION_BACKENDS = ["control.accounts.backends.NoLoginBackend"]
 
 LANGUAGE_CODE = "en-us"
 TIME_ZONE = "UTC"

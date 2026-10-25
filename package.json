@@ -33,7 +33,8 @@
     "api:lint:control": "docker compose run --rm --no-deps control-api sh -c \"ruff check . && ruff format --check . && mypy .\"",
     "api:format": "docker compose run --rm --no-deps commerce-api ruff format . && docker compose run --rm --no-deps control-api ruff format .",
     "api:schema": "docker compose run --rm --no-deps commerce-api python manage.py spectacular --file openapi.yaml --validate --fail-on-warn && docker compose run --rm --no-deps control-api python manage.py spectacular --file openapi.yaml --validate --fail-on-warn",
-    "api:celery-check": "docker compose exec commerce-api python manage.py check_celery"
+    "api:celery-check": "docker compose exec commerce-api python manage.py check_celery",
+    "api:provision": "docker compose exec commerce-api python manage.py provision_tenant --if-missing --handle dev-store --name \"MateCart Dev Store\" --preset general --country BD --currency BDT --timezone Asia/Dhaka --language en --languages en,bn"
   },
   "devDependencies": {
     "eslint": "^9.39.5",

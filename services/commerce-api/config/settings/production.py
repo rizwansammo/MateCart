@@ -11,6 +11,8 @@ if len(SECRET_KEY) < 50 or SECRET_KEY.startswith(("__GENERATE__", "insecure")):
     raise ImproperlyConfigured("DJANGO_SECRET_KEY must be a unique random value of 50+ characters.")
 if not ALLOWED_HOSTS:
     raise ImproperlyConfigured("DJANGO_ALLOWED_HOSTS must list the store's domains.")
+if MATECART_TENANT_ID is None:
+    raise ImproperlyConfigured("MATECART_TENANT_ID must identify the store this deployment serves.")
 
 # The reverse proxy terminates TLS and must overwrite (never pass through) X-Forwarded-Proto.
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")

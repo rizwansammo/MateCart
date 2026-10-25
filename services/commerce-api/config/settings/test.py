@@ -12,6 +12,13 @@ from .base import *
 
 CACHES["default"]["KEY_PREFIX"] = "commerce-test"
 
+# Tests configure the deployment tenant explicitly (settings fixture), never from the environment:
+# the Compose container sets MATECART_TENANT_ID for development, CI does not.
+MATECART_TENANT_ID = None
+
+# Fast hashing for tests only; real hashers are chosen in Phase 03.
+PASSWORD_HASHERS = ["django.contrib.auth.hashers.MD5PasswordHasher"]
+
 CELERY_TASK_ALWAYS_EAGER = True
 CELERY_TASK_EAGER_PROPAGATES = True
 

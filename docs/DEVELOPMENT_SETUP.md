@@ -18,6 +18,7 @@ Local environment for Windows 11 (primary), macOS or Linux. All commands run fro
 pnpm install          # workspace dependencies (install scripts denied by default)
 pnpm setup:env        # creates .env and apps/*/.env.local with random local secrets
 pnpm stack:up         # builds and starts matecart-dev, waits until every service is healthy
+pnpm api:provision    # creates the local dev store (tenant MATECART_TENANT_ID from .env)
 pnpm dev              # starts commerce-web (3400) and platform-console (3410) on the host
 pnpm health           # in a second terminal: checks all six services
 ```
@@ -59,9 +60,26 @@ API and database ports can be changed in `.env`. The Next.js ports live in `apps
 | Format backend code                             | `pnpm api:format`                                                  |
 | Regenerate OpenAPI schemas                      | `pnpm api:schema`                                                  |
 | Celery round-trip check                         | `pnpm api:celery-check`                                            |
+| Provision the local dev store (idempotent)      | `pnpm api:provision`                                               |
 | Health of everything                            | `pnpm health` (`pnpm health --skip-web` for the Docker stack only) |
 
 Every Docker command is scoped to the Compose project `matecart-dev`. None of them touch other projects.
+
+## After pulling changes
+
+Run `pnpm install`, then `pnpm setup:env` (it **adds** new keys such as `MATECART_TENANT_ID` to an existing `.env` and never changes existing values), then `pnpm stack:rebuild`. Migrations apply automatically when the API containers start.
+
+## Tenancy in development
+
+The local commerce stack serves one store, like production: `MATECART_TENANT_ID` in `.env`. Until `pnpm api:provision` has created it, commerce readiness reports `tenant: error` (HTTP 503) and tenant data is unreachable. That is the fail-closed behaviour, not a bug. Inside `docker compose exec commerce-api python manage.py shell`, wrap tenant data access in `tenant_context(...)`:
+
+```python
+from commerce.tenancy.context import tenant_context
+from commerce.tenancy.resolution import get_deployment_tenant
+
+with tenant_context(get_deployment_tenant()):
+    ...  # User.objects, StoreSettings.objects, AuditEvent.objects
+```
 
 ## Backend workflows
 
@@ -99,7 +117,9 @@ The backend does not need host Python. For editor autocompletion only, install u
 
 | Symptom                                                                                       | Fix                                                                                                                                                                           |
 | --------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `required variable … is missing a value`                                                      | Run `pnpm setup:env` to create `.env`.                                                                                                                                        |
+| Readiness shows `"tenant": "error"`                                                           | Run `pnpm api:provision`. If it says the id does not match, the database was provisioned for a different `MATECART_TENANT_ID`.                                                |
+| `TenantContextMissing` in a shell or script                                                   | Wrap the code in `tenant_context(...)` (see Tenancy in development).                                                                                                          |
+| `required variable … is missing a value`                                                      | Run `pnpm setup:env` to create `.env` or add newly introduced keys to it.                                                                                                     |
 | `bind: An attempt was made to access a socket in a way forbidden` or `address already in use` | Port taken or reserved by Windows. Check with `netstat -ano \| findstr :PORT` and `netsh interface ipv4 show excludedportrange protocol=tcp`, then change the port in `.env`. |
 | Container exits with `/bin/sh^M` or similar                                                   | CRLF line endings. Keep `.gitattributes`; re-checkout with `git add --renormalize .`                                                                                          |
 | Web page shows "The API did not respond"                                                      | `pnpm stack:up`, then `pnpm health`.                                                                                                                                          |

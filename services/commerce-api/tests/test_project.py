@@ -4,6 +4,7 @@ import os
 import secrets
 import subprocess
 import sys
+import uuid
 from pathlib import Path
 
 import pytest
@@ -27,10 +28,11 @@ def test_committed_openapi_schema_is_up_to_date(tmp_path: Path) -> None:
 
 
 def _manage_with_production_settings(*args: str, **env: str) -> subprocess.CompletedProcess[str]:
+    tenant = {"MATECART_TENANT_ID": str(uuid.uuid4())}
     return subprocess.run(
         [sys.executable, "manage.py", *args],
         cwd=settings.BASE_DIR,
-        env={**os.environ, "DJANGO_SETTINGS_MODULE": "config.settings.production", **env},
+        env={**os.environ, "DJANGO_SETTINGS_MODULE": "config.settings.production", **tenant, **env},
         capture_output=True,
         text=True,
         timeout=120,
@@ -68,3 +70,36 @@ def test_production_settings_require_allowed_hosts() -> None:
 
     assert result.returncode != 0
     assert "DJANGO_ALLOWED_HOSTS must list" in result.stderr
+
+
+def test_production_settings_require_the_served_tenant() -> None:
+    result = _manage_with_production_settings(
+        "check",
+        DJANGO_SECRET_KEY=secrets.token_urlsafe(64),
+        DJANGO_ALLOWED_HOSTS="store.example.com",
+        MATECART_TENANT_ID="",
+    )
+
+    assert result.returncode != 0
+    assert "MATECART_TENANT_ID must identify" in result.stderr
+
+
+@pytest.mark.parametrize(
+    ("variable", "value", "message"),
+    [
+        ("MATECART_TENANT_ID", "not-a-uuid", "MATECART_TENANT_ID must be a UUID"),
+        ("MATECART_TENANCY_MODE", "pooled", "MATECART_TENANCY_MODE must be 'single'"),
+    ],
+)
+def test_invalid_tenancy_configuration_stops_startup(
+    variable: str, value: str, message: str
+) -> None:
+    result = _manage_with_production_settings(
+        "check",
+        DJANGO_SECRET_KEY=secrets.token_urlsafe(64),
+        DJANGO_ALLOWED_HOSTS="store.example.com",
+        **{variable: value},
+    )
+
+    assert result.returncode != 0
+    assert message in result.stderr

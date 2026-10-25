@@ -14,6 +14,8 @@ from django.conf import settings
 from django.core.cache import cache
 from django.db import connection
 
+from commerce.tenancy.resolution import check_deployment_tenant
+
 logger = logging.getLogger(__name__)
 
 CheckState = Literal["ok", "error"]
@@ -47,6 +49,8 @@ READINESS_CHECKS: dict[str, Callable[[], None]] = {
     "database": check_database,
     "cache": check_cache,
     "broker": check_broker,
+    # The configured tenant is provisioned and is the only tenant (single-tenant mode).
+    "tenant": check_deployment_tenant,
 }
 
 

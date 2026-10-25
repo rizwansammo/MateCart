@@ -20,6 +20,9 @@ x-commerce-api-environment: &commerce-api-environment
   REDIS_URL: redis://:${MATECART_COMMERCE_REDIS_PASSWORD:?run `pnpm setup:env`}@commerce-redis:6379/0
   CELERY_BROKER_URL: redis://:${MATECART_COMMERCE_REDIS_PASSWORD}@commerce-redis:6379/1
   CELERY_RESULT_BACKEND: redis://:${MATECART_COMMERCE_REDIS_PASSWORD}@commerce-redis:6379/2
+  # The one store this deployment serves; never taken from requests (docs/ARCHITECTURE.md §3).
+  MATECART_TENANCY_MODE: single
+  MATECART_TENANT_ID: ${MATECART_TENANT_ID:?run `pnpm setup:env` to add MATECART_TENANT_ID to .env}
 
 x-commerce-api-build: &commerce-api-build
   context: ./services/commerce-api

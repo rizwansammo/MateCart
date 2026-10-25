@@ -2,7 +2,7 @@
 
 White-label e-commerce platform by **NetaMate Solutions**. Each client gets an independently deployed, branded online store with a storefront and a merchant dashboard. NetaMate operates the fleet through the internal Central Platform Console.
 
-> **Status:** Phase 01 (Project Foundation) is complete locally and awaiting owner review. See [docs/PROGRESS.md](docs/PROGRESS.md).
+> **Status:** Phase 01 accepted. Phase 02 (Database & Tenant Architecture) is complete locally and awaiting owner review. See [docs/PROGRESS.md](docs/PROGRESS.md).
 
 ## Repository
 
@@ -28,6 +28,7 @@ Requires Node.js 24, pnpm 11 and Docker Desktop.
 pnpm install
 pnpm setup:env      # local .env files with generated secrets (never committed)
 pnpm stack:up       # PostgreSQL, Redis, commerce-api, commerce-worker, control-api
+pnpm api:provision  # create the local dev store (one tenant per deployment)
 pnpm dev            # commerce-web on :3400, platform-console on :3410
 pnpm health         # verify every service
 ```
@@ -42,6 +43,7 @@ Everyday commands, ports and troubleshooting: [docs/DEVELOPMENT_SETUP.md](docs/D
 | [docs/PROGRESS.md](docs/PROGRESS.md)                       | Current phase, verification results, handoff                              |
 | [docs/PROJECT_CONTEXT.md](docs/PROJECT_CONTEXT.md)         | Product vision, presets, business model                                   |
 | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)               | System design, tenancy model, conventions                                 |
+| [docs/DATA_MODEL.md](docs/DATA_MODEL.md)                   | Database conventions, implemented schema, domain blueprint                |
 | [docs/DEVELOPMENT_ROADMAP.md](docs/DEVELOPMENT_ROADMAP.md) | The 19 phases and their status                                            |
 | [docs/FEATURE_CHECKLIST.md](docs/FEATURE_CHECKLIST.md)     | Long-term feature scope and status                                        |
 | [docs/DECISIONS.md](docs/DECISIONS.md)                     | Decision log and open questions                                           |

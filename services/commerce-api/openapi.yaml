@@ -22,8 +22,9 @@ paths:
   /api/health/ready/:
     get:
       operationId: health_ready
-      description: 'The service can do useful work: database, cache and broker are
-        reachable.'
+      description: |-
+        The service can do useful work: database, cache and broker are reachable and the
+        deployment's tenant is provisioned.
       tags:
       - health
       security:
@@ -88,10 +89,13 @@ components:
           $ref: '#/components/schemas/CheckStateEnum'
         broker:
           $ref: '#/components/schemas/CheckStateEnum'
+        tenant:
+          $ref: '#/components/schemas/CheckStateEnum'
       required:
       - broker
       - cache
       - database
+      - tenant
     ReadinessStatusEnum:
       enum:
       - ok

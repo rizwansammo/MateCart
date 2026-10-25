@@ -11,7 +11,7 @@ Read, in this order, before changing anything:
 1. This file.
 2. [docs/PROGRESS.md](docs/PROGRESS.md): active phase, what is done, what is next, known issues. **The handoff lives here.**
 3. [docs/DECISIONS.md](docs/DECISIONS.md): decisions already made. Do not reverse one without the owner's approval.
-4. [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) and [docs/DEVELOPMENT_ROADMAP.md](docs/DEVELOPMENT_ROADMAP.md) for the area you will touch.
+4. [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md), [docs/DATA_MODEL.md](docs/DATA_MODEL.md) and [docs/DEVELOPMENT_ROADMAP.md](docs/DEVELOPMENT_ROADMAP.md) for the area you will touch.
 
 Then run `git status` and inspect the real state of the files, the Docker stack (`pnpm stack:ps`) and the tools. Never assume.
 
@@ -55,7 +55,7 @@ Then run `git status` and inspect the real state of the files, the Docker stack 
 
 Details and reasoning: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
-- **Single-tenant-first, multi-tenant-ready.** Each client store is its own deployment (app, database, secrets, media, domain, credentials). Code must stay tenant-aware so a shared mode is possible later, but do not add multi-tenant runtime machinery before the phase that designs it. A `tenant_id` column alone is not isolation.
+- **Single-tenant-first, multi-tenant-ready.** Each client store is its own deployment (app, database, secrets, media, domain, credentials), serving exactly the tenant in `MATECART_TENANT_ID`. Code stays tenant-aware so a shared mode is possible later, but do not add pooled-mode machinery without an approved decision. A `tenant_id` column alone is not isolation.
 - **Independent operation.** A store's storefront, checkout, dashboard and integrations must keep working when the NetaMate Central Console is down. `commerce-*` never calls `control-api` at runtime for anything a store needs to serve customers.
 - **Data boundaries.** `control-api` never stores copies of client business data. Commerce data stays in the store's own database.
 - **Routing.** All Django routes live under `/api/`. Next.js owns every other path.
@@ -80,7 +80,17 @@ Details and reasoning: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 - Celery tasks must be **idempotent**: tasks are acknowledged late and re-queued if a worker dies.
 - Every model change ships with its migration. `makemigrations --check` must pass.
 - API changes regenerate the committed OpenAPI schema (`pnpm api:schema`) and update `packages/shared-contracts`. A test fails when `openapi.yaml` is stale.
-- Do not install `django.contrib.auth` until the custom user model is designed (Phases 02–03).
+- **Tenant data rules** (ARCHITECTURE §3, DATA_MODEL §1):
+  - Every business model extends `TenantOwnedModel`; extend `TenantOwnedModel.Meta.constraints`, never replace them.
+  - Every FK from a tenant-owned model to another tenant-owned model gets a `TenantForeignKeyConstraint`. The `tenancy` system checks fail the build otherwise.
+  - Business keys are unique per tenant, for example `UniqueConstraint(fields=['tenant', 'sku'])`.
+  - Never take a tenant from request data. Never use `_base_manager`, raw SQL or `unscoped_access()` in request paths. `unscoped_access(reason)` is for reviewed platform maintenance only.
+  - Celery tasks touching tenant data use `base=TenantTask` and receive `tenant_id` explicitly.
+  - Cache keys use `tenant_cache_key()`; uploaded files use `tenant_storage_path`.
+  - Prove isolation with two-tenant tests for every new model and endpoint.
+- Important changes write an `AuditEvent` with `record_audit_event()` inside the same `transaction.atomic()` block. Never put secrets in `changes`.
+- Money is `Decimal` with an ISO 4217 currency, never float. Countries, currencies, time zones and phones use ISO, IANA and E.164 identifiers (`commerce.core.standards`, `commerce.core.contact`).
+- Users: `identity.User` (store customers and staff) and `accounts.AdminUser` (console) are the `AUTH_USER_MODEL`s. Never use Django's global groups and permissions for store roles.
 
 ### Tests
 
@@ -114,5 +124,7 @@ Update `docs/PROGRESS.md` with:
 - the exact next step for the next assistant.
 
 Keep it factual and current, so the next assistant (Claude Code or Codex) can continue without this conversation.
+
+At the end of every phase, leave the app running on localhost for the owner to review: run `pnpm stack:up` and `pnpm dev`, confirm http://127.0.0.1:3400 and http://127.0.0.1:3410 respond, and share the URLs.
 
 At the end of every phase, also give the owner a ready-to-use commit message for that phase's changes. Use an imperative subject of about 72 characters, then a body wrapped at 72 columns and grouped by area. Describe what was built and leave out the phase number. Do not run `git commit`, and never add co-author or attribution trailers.

@@ -27,7 +27,8 @@ class LivenessView(APIView):
 
 @method_decorator(never_cache, name="dispatch")
 class ReadinessView(APIView):
-    """The service can do useful work: database, cache and broker are reachable."""
+    """The service can do useful work: database, cache and broker are reachable and the
+    deployment's tenant is provisioned."""
 
     authentication_classes = ()
     permission_classes = (AllowAny,)

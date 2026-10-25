@@ -8,3 +8,6 @@ os.environ.setdefault("DJANGO_SECRET_KEY", "insecure-test-only-secret-key-never-
 from .base import *
 
 API_SCHEMA_ENABLED = True
+
+# Fast hashing for tests only; real hashers are chosen in Phase 03.
+PASSWORD_HASHERS = ["django.contrib.auth.hashers.MD5PasswordHasher"]

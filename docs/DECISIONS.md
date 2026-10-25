@@ -70,6 +70,8 @@ Owner-confirmed product decisions (from the Phase 01 brief): multi-tenant-aware 
 
 ### D-010 · `django.contrib.auth` is not installed yet (2026-10-25, Phase 01)
 
+- **Status:** fulfilled in Phase 02 by D-027 (custom user model created before auth migrated).
+
 - **Context:** Django's `AUTH_USER_MODEL` must be set before auth's first migration. MateCart needs distinct customer, merchant-staff and central-admin identities (possibly phone/OTP based), which is a Phase 02–03 design question.
 - **Decision:** Phase 01 installs only `contenttypes`, DRF, drf-spectacular and the `core` app. DRF runs with `UNAUTHENTICATED_USER = None` and no authentication classes.
 - **Consequence:** Phase 02 or 03 must define the custom user model before adding `django.contrib.auth`, admin or sessions. Local dev databases contain no auth tables, so no reset is needed.
@@ -130,15 +132,75 @@ Owner-confirmed product decisions (from the Phase 01 brief): multi-tenant-aware 
 
 - **Decision:** Vitest 5 in `packages/shared-contracts`. Component and browser testing tools are added when the UI phases need them.
 
+### D-023 · UUIDv7 primary keys for every MateCart table (2026-10-25, Phase 02)
+
+- **Context:** sequential integers leak volumes and are guessable, and they collide when databases are merged. Random UUIDv4 keys fragment B-tree indexes.
+- **Decision:** `UUIDModel.id = UUIDField(default=uuid7)`, using an in-house RFC 9562 implementation (`commerce/core/ids.py`, tested; Python 3.13 has no `uuid.uuid7`). Human-readable numbers (orders, invoices) are separate per-tenant sequences in their phases.
+- **Consequences:** 16-byte keys (acceptable at e-commerce scale). Stores can move between dedicated and shared databases without re-keying. Creation time is visible inside the id, which is not a secret for these records.
+- **Revisit:** switch to `uuid.uuid7()` when the services move to Python 3.14.
+
+### D-024 · Tenant, store settings and identity are separate concepts (2026-10-25, Phase 02)
+
+- **Decision:** `tenancy.Tenant` is the commerce isolation and ownership root (UUID id, DNS-label `handle`, lifecycle `status`). `stores.StoreSettings` (one per tenant) holds business configuration. NetaMate clients, store registrations and deployments belong to control-api (Phase 16). Customers and staff are `identity.User` rows. The commerce tenant id **is** the console's store registration id, the only cross-service reference.
+- **Consequences:** one tenant serves one store. Several storefronts for one client would be several tenants (a new decision if ever needed).
+
+### D-025 · Tenant isolation: fail-closed application scoping plus database-enforced tenant foreign keys; RLS deferred (2026-10-25, Phase 02)
+
+- **Context:** a `tenant_id` column alone does not isolate anything. Options assessed: hand-written filters, scoped managers, composite foreign keys, PostgreSQL RLS, schema-per-tenant (comparison in ARCHITECTURE §3).
+- **Decision:** `TenantOwnedModel` with a scoped default manager that **raises** without a tenant context; guarded `save`, `delete` and bulk operations; immutable ownership; `TenantForeignKeyConstraint` composite foreign keys enforced by PostgreSQL; system checks E001–E004 that fail the build when a model skips a rule; `unscoped_access(reason)` as the single logged escape hatch.
+- **Not chosen now:** PostgreSQL RLS. Dedicated deployments hold one tenant, so RLS adds complexity (per-transaction settings, pooler behaviour, migration roles) without extra protection. It becomes the defence-in-depth layer if pooled mode is approved.
+- **Consequences:** Django's `_base_manager` stays unscoped (used to follow already-scoped foreign keys); the composite foreign keys make that safe. `QuerySet.update()` and bulk operations are scoped, but raw SQL is not, so raw SQL on tenant data needs review.
+
+### D-026 · Strict single-tenant runtime, configuration-only resolution and explicit provisioning (2026-10-25, Phase 02)
+
+- **Decision:** `MATECART_TENANCY_MODE` accepts only `single`. `MATECART_TENANT_ID` (UUID) identifies the served tenant and is required in production. `TenantMiddleware` activates it per request from configuration only (request data is never read). Readiness fails unless that tenant exists and is the only one. `provision_tenant` is the only way to create a tenant: it must match the configured id, refuses a second tenant, validates input and writes tenant, settings and audit event atomically (`--if-missing` makes it idempotent for automation).
+- **Future pooled mode** (separate decision, not built): verified domain-to-tenant resolution in `resolve_request_tenant_id`, RLS, per-tenant quotas and rate limits, provisioning without the one-tenant rule.
+
+### D-027 · Commerce identity: one per-tenant user table with customer and staff realms (2026-10-25, Phase 02)
+
+- **Context:** D-010 required the custom user model before auth migrations. Login method (email, phone OTP or both) is decided in Phase 03 (Q6), so the table must support every option.
+- **Decision:** `identity.User` (`AUTH_USER_MODEL`) extends `TenantOwnedModel` and `AbstractBaseUser`. `account_type` is `customer` or `staff` (separate realms: the same email may hold one customer and one staff account, never sharing credentials). `email` (lowercase) and `phone` (E.164 via `phonenumbers`) are nullable, at least one required, with verification timestamps, unique per `(tenant, account_type)` through partial unique indexes. `USERNAME_FIELD = "id"` (opaque); Phase 03 backends resolve email or phone within tenant and realm. No `PermissionsMixin`: Django's groups and permissions are global, not tenant-scoped, so store RBAC is designed in Phase 03. Until then `AUTHENTICATION_BACKENDS = [NoLoginBackend]` (an empty list would make `authenticate()` raise).
+- **Why not separate customer and staff tables:** Django supports one `AUTH_USER_MODEL`; two tables would push one population outside Django's auth framework. The realm column gives the same separation with one, well-tested model. (This is also the mainstream Django e-commerce pattern.)
+- **Reversibility:** nothing is deployed yet, so this initial migration can still be reshaped before the first production launch (Phase 19). After that, user-table changes need data migrations.
+- **Status of D-010:** fulfilled. `django.contrib.auth` is now installed with this model in place before its first migration.
+
+### D-028 · Console identity: `accounts.AdminUser` in control-api only (2026-10-25, Phase 02)
+
+- **Decision:** control-api's `AUTH_USER_MODEL` is `accounts.AdminUser`: UUIDv7 id, email unique and lowercase (database `CHECK`), no store or tenant fields. Console identities never exist in store databases and vice versa (tested). `NoLoginBackend` until Phase 03; MFA will be mandatory for console sign-in.
+
+### D-029 · Append-only audit events, written in the same transaction (2026-10-25, Phase 02)
+
+- **Decision:** implement a minimal audit foundation now: `audit.AuditEvent` (tenant, time, dotted action, actor user or system label, resource type and id, redacted field changes, request id). `record_audit_event()` refuses to run outside a transaction, so an event exists exactly when its change commits. Sensitive keys (password, secret, token, otp, api_key, cvv, card number…) are stored as `[REDACTED]`. Immutable in the ORM and in PostgreSQL (trigger refuses UPDATE and DELETE). Actors are `PROTECT`ed, so accounts with history are deactivated or anonymised, not deleted.
+- **Not chosen:** event sourcing. Business modules write explicit audit events for important changes; `created_at`/`updated_at` metadata stays separate from history.
+- **Later:** retention and archival (Phase 18); console audit log in control-api (Phase 16); runtime database role without table ownership so TRUNCATE is also unavailable to the application (Phase 17).
+
+### D-030 · No global soft delete; explicit lifecycle per model (2026-10-25, Phase 02)
+
+- **Decision:** no `deleted_at` on every table (it silently breaks uniqueness and leaks deleted rows into queries). Each model states its lifecycle (`Tenant.status`, `User.is_active`, future `archived_at`). History-bearing rows (orders, payments, stock movements, audit) are never hard-deleted. Personal-data erasure anonymises (Phases 10 and 18).
+
+### D-031 · International data standards, money convention and new dependencies (2026-10-25, Phase 02)
+
+- **Decision:** ISO 3166-1 countries and ISO 4217 currencies validated with **Babel** (CLDR, BSD-3-Clause; chosen over `pycountry`, which is LGPL), IANA time zones via `zoneinfo` plus the **tzdata** package, phones in E.164 via **phonenumbers** (Apache-2.0), languages from `PLATFORM_LANGUAGES` (`en`, `bn`). Store settings enforce formats and language rules with database `CHECK`s. Money (from Phase 04): `Decimal(19,4)` plus currency code, never float. Bangladesh is the first market, not a schema assumption (answers Q3).
+- **Note:** `phonenumbers` 9.0.41 lists classifiers only up to Python 3.12; it is pure Python and passes its tests on 3.13.
+
+### D-032 · Tenant readiness and the `tenant_unavailable` error (2026-10-25, Phase 02)
+
+- **Decision:** commerce readiness gains a `tenant` check (configured, provisioned, only tenant). Any `TenancyError` reaching the API becomes `503 {"error": {"code": "tenant_unavailable"}}` with details only in logs. A fresh development stack therefore reports `tenant: error` until `pnpm api:provision` runs. The OpenAPI schema changed accordingly; `shared-contracts` already models checks as a map, so no TypeScript change was needed.
+
+### D-033 · Migration verification workflow (2026-10-25, Phase 02)
+
+- **Decision:** every new migration is (1) generated with `makemigrations`, (2) reviewed with `sqlmigrate`, (3) applied forward, reversed to zero and re-applied on a **temporary** database created and dropped inside the MateCart PostgreSQL container, (4) checked for drift (`makemigrations --check`, also a test), and only then (5) applied to development databases, additively. Generated migrations are excluded from ruff; hand-written SQL uses `RunSQL` with `reverse_sql`.
+
 ---
 
-## Open questions for the owner (none block Phase 01)
+## Open questions for the owner
 
-| #   | Question                                                                                                                                                                              | Why it matters                                                                                                 | Needed by       |
-| --- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- | --------------- |
-| Q1  | Does the **Optimus Custom** font licence allow redistribution and web embedding?                                                                                                      | It is the MateCART wordmark font in the prototype. Unconfirmed licences must not ship in a commercial product. | Phase 05        |
-| Q2  | Is **Redis 8** licensing (RSALv2 / SSPLv1 / AGPLv3 choice) acceptable for client deployments, or should we use **Valkey** (BSD-3, drop-in compatible)?                                | NetaMate deploys and operates Redis for clients. This is a legal review, not a technical blocker.              | Phase 17        |
-| Q3  | Confirm the initial market is **Bangladesh** (BDT, bKash/Nagad/Rocket, COD, Pathao/Steadfast/RedX/Paperfly, English and Bangla), as the prototype implies. Any other markets planned? | Drives currency, tax, address, phone and payment modelling in Phases 02, 04 and 07–09.                         | Phase 02        |
-| Q4  | Merchant dashboard placement: same `commerce-web` app under a path (for example `/admin`) or a separate subdomain?                                                                    | Affects routing, cookies and session boundaries (Phase 03) and proxy configuration.                            | Phase 03        |
-| Q5  | Branching: `main` has no commits yet. Recommended: commit the Phase 01 foundation as the root commit on `main`, then use `phase/NN-*` feature branches and pull requests.             | Assistants never commit; the owner chooses the history.                                                        | Before Phase 02 |
-| Q6  | Customer login identity: phone + OTP, email + password, or both? Separate staff identities per store?                                                                                 | Shapes the custom user model, which must exist before `django.contrib.auth` is installed (D-010).              | Phase 02/03     |
+| #   | Question                                                                                                                                                                                                           | Status                                                                                                    | Needed by |
+| --- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------- | --------- |
+| Q1  | Does the **Optimus Custom** font licence allow redistribution and web embedding?                                                                                                                                   | Open. Not relevant to Phase 02.                                                                           | Phase 05  |
+| Q2  | Is **Redis 8** licensing (RSALv2 / SSPLv1 / AGPLv3) acceptable for client deployments, or should we switch to **Valkey** (BSD-3, drop-in)?                                                                         | Open. Redis stays as adopted; nothing in Phase 02 depends on it. Reviewed with infrastructure.            | Phase 17  |
+| Q3  | Initial market: Bangladesh?                                                                                                                                                                                        | **Resolved (Phase 02 brief):** Bangladesh is the first market; data structures are international (D-031). | —         |
+| Q4  | Merchant dashboard placement: path in `commerce-web` (for example `/admin`) or a separate subdomain?                                                                                                               | Open. Affects cookies and sessions in Phase 03, UI in Phase 11.                                           | Phase 03  |
+| Q5  | Branching and first commit.                                                                                                                                                                                        | **Resolved:** Phase 01 committed on `main` (`8f3e34b`).                                                   | —         |
+| Q6  | Customer login: email + password, phone + OTP, or both?                                                                                                                                                            | Open for Phase 03. **No longer blocking the schema:** the user table supports all three (D-027).          | Phase 03  |
+| Q7  | Customer and staff realms are separate accounts even for the same email (D-027). Confirm this matches the business expectation (a store owner who also shops in their own store uses a separate customer account). | New, non-blocking. Reversible until the first production launch.                                          | Phase 03  |

@@ -15,11 +15,25 @@ Update the status in the same change that completes a feature.
 - [x] OpenAPI schemas committed with drift test
 - [x] Canonical documentation and AI handoff protocol
 
+## Database and tenant architecture (Phase 02)
+
+- [x] Domain blueprint and conventions documented (docs/DATA_MODEL.md)
+- [x] UUIDv7 primary keys; timestamp, choice, uniqueness and index conventions
+- [x] Tenant model, strict single-tenant runtime, configuration-only tenant resolution
+- [x] Safe tenant provisioning command (atomic, validated, one tenant per database)
+- [x] Fail-closed tenant-scoped data access, guarded writes, immutable ownership
+- [x] Database-enforced same-tenant foreign keys; tenancy system checks
+- [x] Tenant-aware Celery tasks, cache keys and storage paths
+- [x] Store settings foundation (preset, country, currency, time zone, languages, contact)
+- [x] Custom user models: per-tenant customer and staff realms (commerce), console administrators (control)
+- [x] Append-only, transactional, redacted audit events
+- [x] Two-tenant isolation tests at every implemented boundary
+
 ## Commerce core
 
-- [ ] Tenant-aware domain model, scoping and isolation boundaries; auditing (02)
-- [ ] Store configuration model (02, 05)
-- [ ] Customer, merchant-staff and central-admin authentication; RBAC; MFA; sessions (03)
+- [ ] Store modules, theme and branding; preset engine (05)
+- [ ] Store domains and TLS (17)
+- [ ] Customer, merchant-staff and central-admin sign-in (email and/or phone OTP); tenant-scoped RBAC; MFA; sessions (03)
 - [ ] Catalogue, categories, variants, SKUs, pricing, stock movements (04)
 - [ ] Preset-specific attributes: fashion variants and size guides; grocery weight, expiry, batch, delivery slots; electronics specs, warranty, serial numbers, comparison, EMI; bookstore ISBN, author, publisher, language, edition, genre, format, pages, series, pre-orders, digital editions (04, 05)
 - [ ] Five presets with distinct visual identities; white-label branding; theming (05)
