@@ -1,3 +1,26 @@
+## Phase 10 work in progress (GitHub feature branch, 2026-10-27)
+
+Branch: `feature/phase-10-customer-after-sales`, created from accepted Phase 09.1 main
+commit `1ffdf365b45773913be0431a7c64045cbcaac32e` (CI run 40399357939:
+4/4 successful jobs, 1,072 tests passed). Phase 09 and correction 09.1 are
+accepted and closed. The historical status below predates that acceptance.
+
+Implemented on the feature branch so far:
+- New authenticated `GET /api/orders/` listing, filtered to the current customer,
+  with existing bounded page pagination and minimal order summary fields.
+- Targeted regression tests for unauthenticated access, customer ownership,
+  pagination and invalid query limits.
+
+Not yet verified: backend tests, committed OpenAPI synchronization, frontend
+account order history integration, and the remainder of Phase 10. This branch
+is not ready to merge. No deployment or local Docker commands have run.
+
+Next: run schema generation and focused tests in a suitable runtime, complete
+account UI and after-sales workflows, update shared contracts and documentation,
+then run all quality gates before opening and merging a PR.
+
+---
+
 # Progress and handoff
 
 Updated: 2026-10-27 (Asia/Dhaka). **Phase 08 — Orders, Payments & Invoices and Correction 08.1 are
