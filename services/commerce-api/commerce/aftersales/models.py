@@ -61,6 +61,7 @@ class AfterSalesCase(TenantOwnedModel, TimestampedModel):
     kind = models.CharField(max_length=16, choices=CaseKind.choices)
     status = models.CharField(max_length=24, choices=CaseStatus.choices, default=CaseStatus.REQUESTED)
     quantity = models.DecimalField(max_digits=12, decimal_places=3, default=1)
+    request_key_hash = models.CharField(max_length=64)
     subject = models.CharField(max_length=150)
     reason = models.TextField(max_length=2000)
     decision_reason = models.CharField(max_length=300, blank=True)
@@ -70,6 +71,7 @@ class AfterSalesCase(TenantOwnedModel, TimestampedModel):
             *TenantOwnedModel.Meta.constraints,
             TenantForeignKeyConstraint(field="customer", name="after_case_customer_tenant"),
             TenantForeignKeyConstraint(field="order_item", name="after_case_item_tenant"),
+            models.UniqueConstraint(fields=["tenant", "customer", "request_key_hash"], name="after_case_key_unique"),
             models.CheckConstraint(condition=Q(kind__in=CaseKind.values), name="after_case_kind_valid"),
             models.CheckConstraint(condition=Q(status__in=CaseStatus.values), name="after_case_status_valid"),
             models.CheckConstraint(condition=Q(quantity__gt=0), name="after_case_quantity_positive"),
