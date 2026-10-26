@@ -580,6 +580,18 @@ paths:
           maxLength: 140
           pattern: ^[-a-zA-Z0-9_]+$
       - in: query
+        name: max_price
+        schema:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,15}(?:\.\d{0,4})?$
+      - in: query
+        name: min_price
+        schema:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,15}(?:\.\d{0,4})?$
+      - in: query
         name: ordering
         schema:
           enum:
@@ -4608,10 +4620,18 @@ components:
           type: string
         page_type:
           $ref: '#/components/schemas/PageTypeEnum'
+        translations:
+          type: object
+          additionalProperties:
+            type: object
+            additionalProperties:
+              type: string
+          readOnly: true
       required:
       - page_type
       - slug
       - title
+      - translations
     GoogleStart:
       type: object
       properties:
@@ -6818,6 +6838,11 @@ components:
         in_stock:
           type: boolean
         translations: {}
+        authors:
+          type: array
+          items:
+            type: string
+          readOnly: true
         description:
           type: string
         seo_title:
@@ -6866,6 +6891,7 @@ components:
           readOnly: true
       required:
       - apparel
+      - authors
       - book
       - brand
       - categories
@@ -6933,7 +6959,13 @@ components:
         in_stock:
           type: boolean
         translations: {}
+        authors:
+          type: array
+          items:
+            type: string
+          readOnly: true
       required:
+      - authors
       - brand
       - id
       - image
@@ -7024,6 +7056,9 @@ components:
           type: string
           format: date
           nullable: true
+        isbn:
+          type: string
+          nullable: true
         price:
           allOf:
           - $ref: '#/components/schemas/PublicPrice'
@@ -7036,6 +7071,7 @@ components:
       - digital_format
       - id
       - in_stock
+      - isbn
       - kind
       - net_quantity
       - net_unit

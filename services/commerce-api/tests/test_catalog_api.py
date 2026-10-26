@@ -7,7 +7,7 @@ from typing import Any
 import pytest
 from rest_framework.test import APIClient
 
-from commerce.catalog.models import AttributeDefinition, AttributeOption, Category
+from commerce.catalog.models import AttributeDefinition, AttributeOption, Brand, Category
 from commerce.identity import sessions
 from commerce.staff.permissions import StaffRole
 from commerce.tenancy.context import tenant_context
@@ -456,3 +456,52 @@ def test_public_browsing_by_category_and_collection(
     assert [row["slug"] for row in cheapest["results"]] == ["beta", "alpha"]
     assert visitor.get("/api/catalog/products/", category="hidden").status_code == 404
     assert visitor.post("/api/catalog/products/", {}).status_code == 405
+
+
+def test_public_search_price_range_and_book_fields(
+    owner: Api, make_api: Callable[[], Api], deployment_tenant: Tenant
+) -> None:
+    """Phase 06 discovery: search covers brand, authors and ISBN; prices filter by range."""
+    brand = owner.post("/api/manage/catalog/brands/", {"name": "Shapla"}).json()
+    simple_product(
+        deployment_tenant,
+        sku="BK-1",
+        name="Gitanjali",
+        amount="450",
+        publish=True,
+        product_type="book",
+        details={"authors": ["Rabindranath Tagore"], "publisher": "Shapla Classics"},
+        variant={"isbn": "978-0-306-40615-7"},
+    )
+    with tenant_context(deployment_tenant):
+        shapla = Brand.objects.get(pk=brand["id"])
+    simple_product(
+        deployment_tenant, sku="KT-1", name="Kettle", amount="2400", publish=True, brand=shapla
+    )
+    simple_product(deployment_tenant, sku="MG-1", name="Mug", amount="300", publish=True)
+    visitor = make_api()
+
+    def slugs(**params: str) -> list[str]:
+        response = visitor.get("/api/catalog/products/", ordering="name", **params)
+        assert response.status_code == 200, response.json()
+        return [row["slug"] for row in response.json()["results"]]
+
+    assert slugs(q="tagore") == ["gitanjali"]
+    assert slugs(q="9780306406157") == ["gitanjali"]
+    assert slugs(q="978-0-306-40615-7") == ["gitanjali"]
+    assert slugs(q="shapla") == ["kettle"]  # brand name; the publisher is not searched
+    assert slugs(q="   ") == ["gitanjali", "kettle", "mug"]
+    assert slugs(min_price="400") == ["gitanjali", "kettle"]
+    assert slugs(max_price="450") == ["gitanjali", "mug"]
+    assert slugs(min_price="400", max_price="450") == ["gitanjali"]
+    assert slugs(min_price="5000") == []
+    bad = visitor.get("/api/catalog/products/", min_price="10", max_price="5")
+    assert bad.status_code == 400
+    assert bad.json()["error"]["code"] == "validation_error"
+    assert visitor.get("/api/catalog/products/", min_price="-1").status_code == 400
+
+    listing = visitor.get("/api/catalog/products/", ordering="name").json()["results"]
+    assert [row["authors"] for row in listing] == [["Rabindranath Tagore"], [], []]
+    detail = visitor.get("/api/catalog/products/gitanjali/").json()
+    assert detail["variants"][0]["isbn"] == "9780306406157"
+    assert detail["book"]["publisher"] == "Shapla Classics"

@@ -6,10 +6,23 @@ never expose drafts, archived products, cost prices, stock quantities, staff dat
 history. Files are served only when an active product, category or collection uses them.
 """
 
+import re
 import uuid
+from decimal import Decimal
 from typing import Any
 
-from django.db.models import Exists, OuterRef, Prefetch, Q, QuerySet, Subquery
+from django.db.models import (
+    CharField,
+    Exists,
+    F,
+    Func,
+    OuterRef,
+    Prefetch,
+    Q,
+    QuerySet,
+    Subquery,
+    Value,
+)
 from django.http import Http404
 from drf_spectacular.utils import extend_schema, extend_schema_field
 from rest_framework import serializers
@@ -105,11 +118,17 @@ class PublicProductSummarySerializer(serializers.Serializer[Any]):
     image = serializers.SerializerMethodField()
     in_stock = serializers.BooleanField()
     translations = serializers.JSONField()
+    # Phase 06: book cards show their authors (empty for every other product).
+    authors = serializers.SerializerMethodField()
 
     @extend_schema_field(PublicImageSerializer(allow_null=True))
     def get_image(self, product: Product) -> Any:
         row = getattr(product, "primary_media", None)
         return PublicImageSerializer(row).data if row is not None else None
+
+    def get_authors(self, product: Product) -> list[str]:
+        book = getattr(product, "book", None)
+        return list(book.authors) if book is not None else []
 
 
 class PublicVariantOptionSerializer(serializers.Serializer[Any]):
@@ -128,6 +147,7 @@ class PublicVariantSerializer(serializers.Serializer[Any]):
     net_quantity = serializers.DecimalField(max_digits=12, decimal_places=3, allow_null=True)
     net_unit = serializers.CharField()
     release_date = serializers.DateField(allow_null=True)
+    isbn = serializers.CharField(allow_null=True)
     price = serializers.SerializerMethodField()
     in_stock = serializers.SerializerMethodField()
 
@@ -259,6 +279,37 @@ class PublicProductQuerySerializer(serializers.Serializer[dict[str, Any]]):
     ordering = serializers.ChoiceField(
         choices=["newest", "name", "price_low", "price_high", "featured"], required=False
     )
+    # Phase 06: products with at least one active variant priced in this range (default list).
+    min_price = serializers.DecimalField(
+        max_digits=19, decimal_places=4, min_value=Decimal(0), required=False
+    )
+    max_price = serializers.DecimalField(
+        max_digits=19, decimal_places=4, min_value=Decimal(0), required=False
+    )
+
+    def validate(self, attrs: dict[str, Any]) -> dict[str, Any]:
+        low, high = attrs.get("min_price"), attrs.get("max_price")
+        if low is not None and high is not None and low > high:
+            raise serializers.ValidationError({"max_price": ["Must not be below min_price."]})
+        return attrs
+
+
+def _search(text: str) -> Q:
+    """Name, tags, brand, book authors and (for 13 digits, hyphens allowed) a variant's ISBN."""
+    match = (
+        Q(name__icontains=text)
+        | Q(tags__contains=[text.lower()])
+        | Q(brand__name__icontains=text, brand__is_active=True)
+        | Q(author_text__icontains=text)
+    )
+    digits = re.sub(r"[\s-]", "", text)
+    if re.fullmatch(r"\d{13}", digits):
+        match |= Q(
+            Exists(
+                ProductVariant.objects.filter(product=OuterRef("pk"), is_active=True, isbn=digits)
+            )
+        )
+    return match
 
 
 # --- Data -----------------------------------------------------------------------------------------
@@ -364,10 +415,23 @@ class PublicProductListView(PublicView):
         params = PublicProductQuerySerializer(data=request.query_params)
         params.is_valid(raise_exception=True)
         filters: dict[str, Any] = dict(params.validated_data)
-        products = active_products().select_related("brand")
-        if filters.get("q"):
-            text = filters["q"].strip()
-            products = products.filter(Q(name__icontains=text) | Q(tags__contains=[text.lower()]))
+        products = active_products().select_related("brand", "book")
+        if filters.get("q", "").strip():
+            authors = Func(
+                F("book__authors"), Value(" "), function="array_to_string", output_field=CharField()
+            )
+            products = products.annotate(author_text=authors).filter(_search(filters["q"].strip()))
+        if "min_price" in filters or "max_price" in filters:
+            in_range = Price.objects.filter(
+                price_list=find_default_price_list(),
+                variant__product=OuterRef("pk"),
+                variant__is_active=True,
+            )
+            if "min_price" in filters:
+                in_range = in_range.filter(amount__gte=filters["min_price"])
+            if "max_price" in filters:
+                in_range = in_range.filter(amount__lte=filters["max_price"])
+            products = products.filter(Exists(in_range))
         if filters.get("product_type"):
             products = products.filter(product_type=filters["product_type"])
         if filters.get("brand"):

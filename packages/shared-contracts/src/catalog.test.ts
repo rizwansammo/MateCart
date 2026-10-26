@@ -4,6 +4,7 @@ import {
   decimal,
   inventoryOperation,
   page,
+  publicCollection,
   publicProductDetail,
   publicProductSummary,
   stockLevel,
@@ -26,6 +27,7 @@ const summary = {
   },
   in_stock: true,
   translations: { bn: { name: 'অক্সফোর্ড শার্ট' } },
+  authors: [],
 };
 
 describe('catalogue response boundaries', () => {
@@ -68,6 +70,7 @@ describe('catalogue response boundaries', () => {
           net_quantity: null,
           net_unit: '',
           release_date: null,
+          isbn: null,
           price: { currency: 'BDT', amount: '1250.0000', compare_at_amount: '1400.0000' },
           in_stock: true,
         },
@@ -83,10 +86,97 @@ describe('catalogue response boundaries', () => {
         },
       ],
       images: [summary.image],
+      apparel: {
+        audience: 'men',
+        material: 'Cotton',
+        fit: 'Regular',
+        care_instructions: '',
+        size_guide_url: null,
+        size_guide_notes: '',
+      },
+      grocery: null,
+      electronics: null,
       book: null,
     });
     expect(detail.variants[0]?.price?.compare_at_amount).toBe('1400.0000');
     expect(detail.specifications[0]?.display).toBe('Cotton');
+    expect(detail.apparel?.material).toBe('Cotton');
+  });
+  it('rejects incomplete details and size guides outside the API', () => {
+    const detail = (extra: object) => ({
+      ...summary,
+      description: '',
+      seo_title: '',
+      seo_description: '',
+      categories: [],
+      options: [],
+      variants: [],
+      specifications: [],
+      images: [],
+      apparel: null,
+      grocery: null,
+      electronics: null,
+      book: null,
+      ...extra,
+    });
+    const decoded = publicProductDetail(
+      detail({
+        authors: ['A. Author'],
+        electronics: {
+          model_number: 'NX-12',
+          warranty: { name: '1 year', duration_months: 12, provider: 'brand', terms: '' },
+        },
+        book: {
+          subtitle: '',
+          authors: ['A. Author'],
+          publisher: 'Shapla',
+          publication_date: '2026-01-01',
+          edition: '2nd',
+          language: 'bn',
+          genre: 'Poetry',
+          page_count: 120,
+          series_name: '',
+          series_number: null,
+        },
+      }),
+    );
+    expect(decoded.electronics?.warranty?.duration_months).toBe(12);
+    expect(decoded.book?.publisher).toBe('Shapla');
+    expect(decoded.authors).toEqual(['A. Author']);
+    const grocery = publicProductDetail(
+      detail({
+        grocery: {
+          is_perishable: true,
+          storage_instructions: 'Keep cool',
+          shelf_life_days: 7,
+          country_of_origin: 'BD',
+          ingredients: '',
+          allergens: '',
+        },
+      }),
+    );
+    expect(grocery.grocery?.shelf_life_days).toBe(7);
+    expect(() => publicProductDetail(detail({ book: { authors: [] } }))).toThrow();
+    const apparel = {
+      audience: '',
+      material: '',
+      fit: '',
+      care_instructions: '',
+      size_guide_url: 'https://evil.invalid/guide.pdf',
+      size_guide_notes: '',
+    };
+    expect(() => publicProductDetail(detail({ apparel }))).toThrow();
+  });
+  it('decodes public collections', () => {
+    const collection = publicCollection({
+      name: 'Editor picks',
+      slug: 'editor-picks',
+      description: '',
+      image_url: null,
+      translations: {},
+    });
+    expect(collection.slug).toBe('editor-picks');
+    expect(() => publicCollection({ ...collection, image_url: '//evil.invalid/x.png' })).toThrow();
   });
   it('decodes nested category trees', () => {
     const node = categoryNode({

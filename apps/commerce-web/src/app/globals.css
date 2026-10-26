@@ -6,3 +6,13 @@
     color-scheme: light;
   }
 }
+
+/*
+ * Storefront display type (Phase 06): the preset's display face at its approved weight
+ * (Instrument Serif 400 for Fashion, Newsreader 400 for Books, Geist 700/800 otherwise).
+ * The variables are set by StoreThemeScope; the fallbacks match the General preset.
+ */
+@utility store-display {
+  font-family: var(--store-font-display, var(--font-geist, system-ui)), system-ui, sans-serif;
+  font-weight: var(--store-display-weight, 700);
+}

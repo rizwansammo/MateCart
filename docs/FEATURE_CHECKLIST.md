@@ -105,7 +105,24 @@ Update the status in the same change that completes a feature.
 - [x] Homepage sections need a title to be shown; new sections start hidden (05.1)
 - [x] Translation fields follow the store's non-default language (English or Bangla) (05.1)
 - [x] Confirmation before permanently deleting pages and sections (05.1)
-- [ ] Owner commit, GitHub CI and independent acceptance of Phase 05.1 (closes Phase 05)
+- [x] Phase 05.1 commit `613cd49` and GitHub CI run 40301529264 (4/4, 827 tests); Phase 05 accepted and closed
+
+## Customer storefront (Phase 06)
+
+- [x] Store homepage replaces the developer page; Phase 05 sections in saved order; empty sections left out
+- [x] Store layout: announcement, preset headers, search, category navigation, account link, mobile drawer, footer
+- [x] Five preset experiences from one implementation (headers, cards, grids, type, heroes, sections)
+- [x] All products, search, category and collection listings with counts, sort, pagination and URL state
+- [x] Filters: category tree, price range, brand, product type (General); active-filter chips
+- [x] Search by name, tag, brand, book author and ISBN-13 (narrow public API extension)
+- [x] Product page: gallery, variant options, variant price, compare-at, stock, pre-order, digital format, ISBN, type details, related products
+- [x] Published information and policy pages; store 404 and error pages
+- [x] English and Bangla interface and content with fallback; language kept in a first-party cookie
+- [x] Page titles, descriptions, sharing basics; development stores not indexable
+- [x] Honest purchase state: "Add to cart" disabled until Phase 07
+- [x] Storefront tests (commerce-web Vitest), five-preset desktop and mobile smoke, review seed data
+- [ ] Owner commit, GitHub CI and independent acceptance of Phase 06
+- [ ] Deferred from Phase 06: "in stock only" filter and facet lists (brand, author, publisher, format); pack sizes on Grocery cards; responsive image sizes and shared HTML caching (12/17)
 
 ## Carried into Phases 07 and 08 (from Phase 04.1, not implemented yet)
 
@@ -118,13 +135,13 @@ Update the status in the same change that completes a feature.
 
 ## Commerce core
 
-- [x] Store modules, theme and branding; preset engine (05; acceptance pending)
+- [x] Store modules, theme and branding; preset engine (05)
 - [ ] Store domains and TLS (17)
 - [x] Customer, merchant-staff and central-admin sign-in foundations, tenant-scoped RBAC, MFA and sessions (03; provider limits above)
-- [x] Catalogue, categories, variants, SKUs, pricing, stock movements (04; acceptance pending)
-- [~] Preset-specific attributes (data foundations done in 04; storefront presentation, delivery slots, comparison and EMI remain): fashion variants and size guides; grocery weight, expiry, batch, delivery slots; electronics specs, warranty, serial numbers, comparison, EMI; bookstore ISBN, author, publisher, language, edition, genre, format, pages, series, pre-orders, digital editions (04, 05)
-- [x] Five presets with distinct visual identities; white-label branding; theming (05; storefront rendering in 06)
-- [ ] Storefront: discovery, search, filters, product detail, responsive, bilingual EN/BN (06)
+- [x] Catalogue, categories, variants, SKUs, pricing, stock movements (04)
+- [~] Preset-specific attributes (data in 04, storefront presentation in 06; delivery slots, comparison and EMI remain): fashion variants and size guides; grocery weight, expiry, batch, delivery slots; electronics specs, warranty, serial numbers, comparison, EMI; bookstore ISBN, author, publisher, language, edition, genre, format, pages, series, pre-orders, digital editions (04, 05)
+- [x] Five presets with distinct visual identities; white-label branding; theming (05; storefront rendering 06)
+- [x] Storefront: discovery, search, filters, product detail, responsive, bilingual EN/BN (06; acceptance pending)
 - [ ] Cart, guest checkout, addresses, coupons, shipping, taxes, delivery options, price calculation, batch-expiry check at reservation (07)
 - [ ] Order state machine, stock reservation, expiry-safe batch allocation, payments, COD, refunds, callbacks, invoices (08)
 - [ ] Courier integrations, tracking, COD reconciliation (09)
@@ -137,7 +154,7 @@ Update the status in the same change that completes a feature.
 - [ ] Redis caching and background workers used appropriately (ongoing; foundation done in 01)
 - [x] Authentication rate-limiting foundation (03)
 - [ ] General bot protection and edge limits (12, 17, 18)
-- [ ] CDN compatibility (06, 17)
+- [~] CDN compatibility (06: per-request HTML, cacheable public media; shared HTML caching 17)
 - [ ] Checkout and inventory protection against duplicate operations and overselling (07, 08)
 - [ ] Resource-based scaling decisions; client-owned VPS limits respected (17, 18)
 - [ ] Distinguish rolling 24-hour visitors from concurrent active users (12, 16)

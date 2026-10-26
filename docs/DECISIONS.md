@@ -640,6 +640,46 @@ idempotency_conflict`. The free-text reason, actor and a batch's supplier
   Branding images and enabled-section images are added to the public media gate only while
   assigned; reassigning or disabling removes public access.
 
+### D-065 · Customer storefront rendering and data (2026-10-26, Phase 06)
+
+- Storefront pages are React Server Components in commerce-web (`app/(store)/`), rendered per
+  request. They read only the anonymous public APIs over `COMMERCE_API_INTERNAL_URL`, never
+  forward browser cookies and never cache API responses across requests (`no-store`; prices,
+  stock, publication and branding change at any time). HTML is therefore private per
+  response; public media keep their short public cache. Shared HTML caching, if wanted, is a
+  Phase 17 decision with explicit cache keys.
+- The preset theme is resolved on the server (`StoreThemeScope`), so the first paint is already
+  correct. One component set covers all presets; presets choose layouts and classes, never
+  separate sites. Merchant content renders as escaped plain text; CTAs link to internal paths
+  only.
+- Listing state (filters, sort, page) lives in the URL and is applied by the API to the whole
+  catalogue. Features owned by later phases are absent or visibly disabled ("Add to cart"),
+  never simulated.
+- Indexing is opt-in per deployment (`STOREFRONT_INDEXING=allow`); search pages are always
+  `noindex`. `STOREFRONT_PUBLIC_URL` enables absolute sharing URLs. `STOREFRONT_PREVIEW_PRESET`
+  is honoured only by development servers, for smoke checks of other presets.
+
+### D-066 · Storefront language (2026-10-26, Phase 06)
+
+- The customer's language is the first-party cookie `mc_lang` (one year, `SameSite=Lax`, no
+  personal data), read on the server and accepted only if the store supports it; otherwise the
+  store default applies. The switcher appears only for stores with more than one language.
+- Merchant text uses the existing `translations` maps with per-field fallback to the default
+  language; interface text has English and Bangla dictionaries. Prices and dates keep Latin
+  digits; slugs, prices and stock never depend on language. No translation service is used.
+
+### D-067 · Public discovery extensions and storefront tests (2026-10-26, Phase 06)
+
+- `/api/catalog/products/` gains `min_price` and `max_price` (a product matches when any
+  active variant's default-list price is in range; `min > max` is a validation error), and its
+  search also matches active brand names, book authors and an exact ISBN-13 of an active
+  variant. Summaries expose book `authors`; public variants expose `isbn`; footer links in
+  `/api/storefront/config/` carry title-only translations. All additive and public by nature.
+- An "in stock only" filter is not added: exact sellable stock (D-060) is computed per variant
+  and would have to be duplicated in SQL. Facet lists wait for a facet API.
+- commerce-web has its own Vitest and Testing Library setup (same versions as shared-ui).
+  Storefront components stay in commerce-web because no other app uses them.
+
 ## Open questions for the owner
 
 | #   | Question                                                                                                                                   | Status                                                                                                    | Needed by |

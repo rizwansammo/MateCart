@@ -271,8 +271,20 @@ def test_pages_publish_and_only_published_pages_are_public(
     assert public["body"] == "Return unused items within 7 days."
     footer = visitor.get("/api/storefront/config/").json()["footer_pages"]
     assert footer == [
-        {"slug": "return-refund-policy", "title": "Return & refund policy", "page_type": "policy"}
+        {
+            "slug": "return-refund-policy",
+            "title": "Return & refund policy",
+            "page_type": "policy",
+            "translations": {},
+        }
     ]
+    # Footer links carry translated titles only (Phase 06), never page bodies.
+    editor.patch(
+        f"{PAGES}{page['id']}/",
+        {"translations": {"bn": {"title": "ফেরত নীতি", "body": "অব্যবহৃত পণ্য ফেরত দিন।"}}},
+    )
+    footer = visitor.get("/api/storefront/config/").json()["footer_pages"]
+    assert footer[0]["translations"] == {"bn": {"title": "ফেরত নীতি"}}
 
 
 @pytest.mark.parametrize(

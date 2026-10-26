@@ -201,6 +201,59 @@ export function homeSection(value: unknown): HomeSection {
   };
 }
 
+/** An enabled homepage section as the public storefront receives it (/api/storefront/home/). */
+export interface StorefrontSection {
+  section_type: SectionType;
+  title: string;
+  subtitle: string;
+  body: string;
+  image_url: string | null;
+  collection: { name: string; slug: string } | null;
+  cta_label: string;
+  cta_url: string;
+  translations: Translations;
+}
+export function storefrontSection(value: unknown): StorefrontSection {
+  const o = object(value);
+  return {
+    section_type: sectionType(o.section_type),
+    title: string(o.title),
+    subtitle: string(o.subtitle),
+    body: string(o.body),
+    image_url: nullable(mediaUrl)(o.image_url),
+    collection: nullable((entry) => {
+      const c = object(entry);
+      return { name: string(c.name), slug: string(c.slug) };
+    })(o.collection),
+    cta_label: string(o.cta_label),
+    cta_url: string(o.cta_url),
+    translations: translations(o.translations),
+  };
+}
+
+/** A published page (/api/storefront/pages/<slug>/). Drafts are never returned. */
+export interface StorefrontPage {
+  slug: string;
+  title: string;
+  body: string;
+  page_type: 'page' | 'policy';
+  published_at: string;
+  translations: Translations;
+}
+export function storefrontPage(value: unknown): StorefrontPage {
+  const o = object(value);
+  const pageType = string(o.page_type);
+  if (pageType !== 'page' && pageType !== 'policy') throw new Error('Invalid response');
+  return {
+    slug: string(o.slug),
+    title: string(o.title),
+    body: string(o.body),
+    page_type: pageType,
+    published_at: string(o.published_at),
+    translations: translations(o.translations),
+  };
+}
+
 export interface StorefrontConfig {
   store: {
     name: string;
@@ -224,7 +277,7 @@ export interface StorefrontConfig {
     show_name_with_logo: boolean;
   };
   modules: string[];
-  footer_pages: { slug: string; title: string; page_type: string }[];
+  footer_pages: { slug: string; title: string; page_type: string; translations: Translations }[];
   translations: Translations;
 }
 export function storefrontConfig(value: unknown): StorefrontConfig {
@@ -256,7 +309,12 @@ export function storefrontConfig(value: unknown): StorefrontConfig {
     modules: strings(o.modules),
     footer_pages: array(o.footer_pages, (entry) => {
       const p = object(entry);
-      return { slug: string(p.slug), title: string(p.title), page_type: string(p.page_type) };
+      return {
+        slug: string(p.slug),
+        title: string(p.title),
+        page_type: string(p.page_type),
+        translations: translations(p.translations),
+      };
     }),
     translations: translations(o.translations),
   };

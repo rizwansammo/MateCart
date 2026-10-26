@@ -10,8 +10,8 @@
 | 02  | Database & Tenant Architecture              | A — Foundation                | **Accepted and closed**, including 02.1/02.2 (`aceae6f`, CI 40213680998: 4/4, 260 tests). |
 | 03  | Authentication & Security                   | A — Foundation                | **Accepted and closed**, including 03.1 (`5d6152a`, CI 40237897132: 4/4, 463 tests).      |
 | 04  | Product & Inventory Engine                  | A — Foundation                | **Accepted and closed**, including 04.1 (`8290fe4`, CI 40249765179: 4/4, 735 tests).      |
-| 05  | Presets, Themes & Branding                  | B — Commerce Application      | **Complete locally** — owner commit, CI and independent acceptance pending.               |
-| 06  | Customer Storefront                         | B — Commerce Application      | Pending                                                                                   |
+| 05  | Presets, Themes & Branding                  | B — Commerce Application      | **Accepted and closed**, including 05.1 (`613cd49`, CI 40301529264: 4/4, 827 tests).      |
+| 06  | Customer Storefront                         | B — Commerce Application      | **Complete locally** — owner commit, CI and independent acceptance pending.               |
 | 07  | Cart & Checkout                             | B — Commerce Application      | Pending                                                                                   |
 | 08  | Orders, Payments & Invoices                 | B — Commerce Application      | Pending                                                                                   |
 | 09  | Fulfillment & Courier                       | B — Commerce Application      | Pending                                                                                   |
@@ -108,15 +108,22 @@ The 19 main phases are unchanged.
 
 All five presets with the prototype's distinct visual identities; white-label branding; theming and token system per preset; content management foundations.
 
-Implemented locally (D-061 to D-064): typed preset definitions and scoped theme tokens, store
-branding with validated colours and media-pipeline logos, a module registry with planned
-modules locked off, plain-text pages and homepage sections, merchant appearance and content
-screens, and a public storefront configuration API. Storefront pages that render them are
-Phase 06. Results: [PROGRESS.md](PROGRESS.md).
+Accepted and closed with corrective subphase 05.1 (D-061 to D-064): typed preset definitions
+and scoped theme tokens, store branding with validated colours and media-pipeline logos, a
+module registry with planned modules locked off, plain-text pages and homepage sections,
+merchant appearance and content screens, and a public storefront configuration API. 05.1
+kept live content complete, followed the store's non-default language for translations and
+confirmed permanent deletions. Commit `613cd49`, GitHub Actions run 40301529264 (4/4, 827 tests).
 
 ### Phase 06 — Customer Storefront
 
 Production storefronts matching the approved prototype: discovery, search, filters, product detail, responsive layouts, bilingual (English and Bangla) support.
+
+Implemented locally (D-065 to D-067): server-rendered storefront pages for all five presets
+from one implementation, homepage from the Phase 05 sections, URL-driven discovery over the
+public catalogue (with a narrow price-range and search extension), product pages with variant
+choice, English and Bangla with fallback, and honest non-functional purchase controls until
+Phase 07. Results: [PROGRESS.md](PROGRESS.md).
 
 ### Phase 07 — Cart & Checkout
 

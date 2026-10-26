@@ -132,6 +132,8 @@ export interface PublicProductSummary {
   image: PublicImage | null;
   in_stock: boolean;
   translations: Translations;
+  /** Book authors (Phase 06); empty for other products. */
+  authors: string[];
 }
 export function publicProductSummary(value: unknown): PublicProductSummary {
   const o = object(value);
@@ -149,6 +151,7 @@ export function publicProductSummary(value: unknown): PublicProductSummary {
     image: nullable(publicImage)(o.image),
     in_stock: boolean(o.in_stock),
     translations: translations(o.translations),
+    authors: strings(o.authors),
   };
 }
 export interface PublicVariant {
@@ -161,6 +164,7 @@ export interface PublicVariant {
   net_quantity: string | null;
   net_unit: string;
   release_date: string | null;
+  isbn: string | null;
   price: PublicPrice | null;
   in_stock: boolean;
 }
@@ -179,6 +183,7 @@ export function publicVariant(value: unknown): PublicVariant {
     net_quantity: nullable(decimal)(o.net_quantity),
     net_unit: string(o.net_unit),
     release_date: nullable(string)(o.release_date),
+    isbn: nullable(string)(o.isbn),
     price: nullable(publicPrice)(o.price),
     in_stock: boolean(o.in_stock),
   };
@@ -215,12 +220,94 @@ export interface PublicProductDetail extends PublicProductSummary {
   variants: PublicVariant[];
   specifications: Specification[];
   images: PublicImage[];
-  book: {
-    authors: string[];
-    publisher: string;
-    language: string;
-    page_count: number | null;
-  } | null;
+  apparel: ApparelDetails | null;
+  grocery: GroceryDetails | null;
+  electronics: ElectronicsDetails | null;
+  book: BookDetails | null;
+}
+export interface ApparelDetails {
+  audience: string;
+  material: string;
+  fit: string;
+  care_instructions: string;
+  size_guide_url: string | null;
+  size_guide_notes: string;
+}
+export interface GroceryDetails {
+  is_perishable: boolean;
+  storage_instructions: string;
+  shelf_life_days: number | null;
+  country_of_origin: string;
+  ingredients: string;
+  allergens: string;
+}
+export interface ElectronicsDetails {
+  model_number: string;
+  warranty: { name: string; duration_months: number; provider: string; terms: string } | null;
+}
+export interface BookDetails {
+  subtitle: string;
+  authors: string[];
+  publisher: string;
+  publication_date: string | null;
+  edition: string;
+  language: string;
+  genre: string;
+  page_count: number | null;
+  series_name: string;
+  series_number: number | null;
+}
+function apparelDetails(value: unknown): ApparelDetails {
+  const o = object(value);
+  return {
+    audience: string(o.audience),
+    material: string(o.material),
+    fit: string(o.fit),
+    care_instructions: string(o.care_instructions),
+    size_guide_url: nullable(mediaUrl)(o.size_guide_url),
+    size_guide_notes: string(o.size_guide_notes),
+  };
+}
+function groceryDetails(value: unknown): GroceryDetails {
+  const o = object(value);
+  return {
+    is_perishable: boolean(o.is_perishable),
+    storage_instructions: string(o.storage_instructions),
+    shelf_life_days: nullable(number)(o.shelf_life_days),
+    country_of_origin: string(o.country_of_origin),
+    ingredients: string(o.ingredients),
+    allergens: string(o.allergens),
+  };
+}
+function electronicsDetails(value: unknown): ElectronicsDetails {
+  const o = object(value);
+  return {
+    model_number: string(o.model_number),
+    warranty: nullable((entry) => {
+      const w = object(entry);
+      return {
+        name: string(w.name),
+        duration_months: number(w.duration_months),
+        provider: string(w.provider),
+        terms: string(w.terms),
+      };
+    })(o.warranty),
+  };
+}
+function bookDetails(value: unknown): BookDetails {
+  const o = object(value);
+  return {
+    subtitle: string(o.subtitle),
+    authors: strings(o.authors),
+    publisher: string(o.publisher),
+    publication_date: nullable(string)(o.publication_date),
+    edition: string(o.edition),
+    language: string(o.language),
+    genre: string(o.genre),
+    page_count: nullable(number)(o.page_count),
+    series_name: string(o.series_name),
+    series_number: nullable(number)(o.series_number),
+  };
 }
 export function publicProductDetail(value: unknown): PublicProductDetail {
   const o = object(value);
@@ -247,15 +334,10 @@ export function publicProductDetail(value: unknown): PublicProductDetail {
     variants: array(o.variants, publicVariant),
     specifications: array(o.specifications, specification),
     images: array(o.images, publicImage),
-    book: nullable((entry) => {
-      const b = object(entry);
-      return {
-        authors: strings(b.authors),
-        publisher: string(b.publisher),
-        language: string(b.language),
-        page_count: nullable(number)(b.page_count),
-      };
-    })(o.book),
+    apparel: nullable(apparelDetails)(o.apparel),
+    grocery: nullable(groceryDetails)(o.grocery),
+    electronics: nullable(electronicsDetails)(o.electronics),
+    book: nullable(bookDetails)(o.book),
   };
 }
 export interface CategoryNode {
@@ -275,6 +357,24 @@ export function categoryNode(value: unknown): CategoryNode {
     image_url: nullable(mediaUrl)(o.image_url),
     translations: translations(o.translations),
     children: array(o.children, categoryNode),
+  };
+}
+
+export interface PublicCollection {
+  name: string;
+  slug: string;
+  description: string;
+  image_url: string | null;
+  translations: Translations;
+}
+export function publicCollection(value: unknown): PublicCollection {
+  const o = object(value);
+  return {
+    name: string(o.name),
+    slug: string(o.slug),
+    description: string(o.description),
+    image_url: nullable(mediaUrl)(o.image_url),
+    translations: translations(o.translations),
   };
 }
 

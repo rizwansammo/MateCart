@@ -1,11 +1,9 @@
 # Progress and handoff
 
-Updated: 2026-10-26 (Asia/Dhaka). **Phase 05.1 — Focused Content Integrity and UX
-Corrections is implemented and locally verified, ready for the owner's commit, push,
-GitHub CI and independent review; it is not yet accepted.** Phase 05 — Presets, Themes &
-Branding is committed and GitHub-verified (`e3810cb`). Phases 01–04 (with 02.1, 02.2,
-03.1 and 04.1) are accepted and closed. Phase 06 has not started and needs explicit
-authorization.
+Updated: 2026-10-26 (Asia/Dhaka). **Phase 06 — Customer Storefront is implemented and
+locally verified, ready for the owner's commit, push, GitHub CI and independent
+acceptance.** Phases 01–05 (with 02.1, 02.2, 03.1, 04.1 and 05.1) are accepted and closed.
+Phase 07 has not started and needs explicit authorization.
 
 ## Accepted baseline and boundaries
 
@@ -20,7 +18,8 @@ authorization.
 | Phase 04        | Implemented and pushed (GitHub-verified): `1bd61be0a49278e25cb8d201a809e171d32eaf38`, run 40246230098, SUCCESS 4/4 jobs, 701 tests (596 commerce, 57 control, 29 contracts, 16 UI, 3 Node). Post-push review requested the 04.1 corrections.              |
 | Correction 04.1 | Accepted and Phase 04 closed: `8290fe424ea7729d46c392e2ab974fa646f2fcf6`, run 40249765179, 4/4 jobs, 735 tests (630 commerce, 57 control, 29 contracts, 16 UI, 3 Node).                                                                                   |
 | Phase 05        | Implemented and pushed (GitHub-verified): `e3810cb465a771cc9b18437290f67aba1bbd7f02`, run 40297666311, SUCCESS 4/4 jobs, 807 tests (667 commerce, 57 control, 34 contracts, 46 UI, 3 Node). Review requested the 05.1 corrections.                        |
-| Correction 05.1 | **Implemented and verified locally, not committed.** Baseline `e3810cb` on `main`; no commit, push or PR was created by the assistant. CI and independent review pending; not accepted.                                                                   |
+| Correction 05.1 | Accepted and Phase 05 closed: `613cd49edee5c16b31e3beb34d0b84b74f6dce72`, run 40301529264, 4/4 jobs, 827 tests (678 commerce, 57 control, 34 contracts, 55 UI, 3 Node).                                                                                   |
+| Phase 06        | **Implemented and verified locally, not committed.** Baseline `613cd49` on `main`; no commit, push or PR was created by the assistant. CI and independent acceptance pending.                                                                             |
 | Architecture    | Dedicated single-tenant deployment, tenant-aware modular monolith, future hybrid only if approved; commerce/control independent.                                                                                                                          |
 | Product         | Private beta, manual onboarding. Public commercial signup/subscriptions/billing deferred. Public customer registration is authorized.                                                                                                                     |
 | Prototype       | MateCart-UI strictly read-only; no edits/build/install (HEAD `9ff1361`, clean).                                                                                                                                                                           |
@@ -33,7 +32,87 @@ narrow Google provider failure handling (D-039 to D-049, AUTHENTICATION.md,
 SECURITY.md). External Google, SMS and SMTP acceptance remains outstanding until
 genuine providers are configured.
 
-## Phase 05.1 corrections (corrective subphase, not accepted)
+## Phase 06 implemented scope
+
+Decisions D-065 to D-067. Controls: SECURITY.md. Review data: `scripts/storefront-seed.mjs`.
+
+- **Pages** (commerce-web route group `app/(store)/`): `/` (homepage), `/shop`, `/search`,
+  `/categories/[slug]`, `/collections/[slug]`, `/products/[slug]`, `/pages/[slug]`; a store
+  404 page (`app/not-found.tsx`, real 404 status) and a neutral error page with retry
+  (`app/error.tsx`). The Phase 01 developer page, its readiness widget and
+  `lib/commerce-api.ts` were removed. `/account`, `/manage`, `/api` and `/healthz` are unchanged.
+- **Data** (`lib/storefront-api.ts`, server-only): anonymous public endpoints only, no browser
+  cookies forwarded, `no-store` reads at request time (`connection()`), per-render
+  de-duplication with `cache()`, every response decoded by `shared-contracts`, slugs checked
+  before use. API failures show the error page; missing or unpublished items are 404s.
+- **Frame**: `StoreShell` applies the preset theme on the server (`StoreThemeScope`, no flash),
+  marks the language, adds a skip link, the header and the footer. The header has five desktop
+  layouts after the prototype (Fashion and Books centre the brand; Grocery and General are
+  search-first with category rows; Electronics is a dark technical header) and one compact
+  mobile row with an accessible drawer (native modal dialog). The footer shows only configured
+  identity, categories, published footer pages and contact details. No cart, wishlist,
+  compare, notifications, social links or invented promises.
+- **Five presets**, one implementation: header, product card (Fashion 3:4 editorial, Grocery
+  dense bordered tiles with the other-language name, Electronics spec cards with brand and
+  stock state, General marketplace tiles, Books cover-first cards with authors), grid density,
+  display type (`store-display` utility), heroes (editorial, promo panel, dark spotlight,
+  marketplace banner, featured title), category showcases, brand stories and trust strips all
+  vary by preset.
+- **Homepage**: the Phase 05 sections in their saved order; collection highlights fetched in
+  parallel from the public catalogue (merchant order); sections with nothing real to show are
+  left out; CTAs only to internal paths; a fallback (store name and newest products) when no
+  sections exist.
+- **Discovery**: listing with result count, category tree (current branch opened), price range,
+  brand (from product links), product type (General only), sort (newest, price both ways,
+  name; "Featured" on collections), pagination, active-filter chips, empty states and image
+  placeholders. All state is in the URL; filtering, sorting and paging run in the API over
+  the whole catalogue. Search covers names, tags, brands, book authors and ISBN-13.
+- **Product page**: gallery with variant images first, option chips (swatches when the merchant
+  set them; values marked unavailable only when no purchasable variant has them), price,
+  compare-at and saving for the selected variant, stock/pre-order/not-available states, pack
+  size, digital format, ISBN, SKU (Electronics), type highlights (spec grid, book facts, fit and
+  size guide), a details table, accessible tabs, related products and `?variant=` in the URL.
+  "Add to cart" is visibly disabled with "Online ordering is not available yet."
+- **Bilingual**: `mc_lang` cookie read on the server; switcher only when the store has two or
+  more languages; interface text in English and Bangla; merchant translations for products,
+  categories, collections, sections, pages, footer links and brand texts with per-field
+  fallback; prices and dates use Latin digits; slugs, prices and stock never change by language.
+- **Metadata**: title template from the store name, descriptions, favicon, Open Graph basics;
+  `noindex` unless `STOREFRONT_INDEXING=allow`; search pages are always `noindex`.
+- **Backend (narrow, additive, public)**: `min_price`/`max_price` on `/api/catalog/products/`
+  (any active variant priced in range on the default list; `min > max` is a 400); search also
+  matches brand names, book authors and an exact ISBN-13; `authors` on product summaries;
+  `isbn` on public variants; title-only translations on footer links. OpenAPI regenerated;
+  contracts gained the full apparel, grocery, electronics and book details, public
+  collections, storefront sections and pages.
+- **Tooling**: Vitest and Testing Library in commerce-web (same versions as shared-ui);
+  `node scripts/storefront-seed.mjs --local` (additive review data); development-only
+  `STOREFRONT_PREVIEW_PRESET` for preset smoke checks without touching the store.
+- **Deliberately not built (later phases)**: cart, checkout, reservations by customers,
+  delivery slots and working quantity steppers (07); orders, payments, COD (08); shipping and
+  courier (09); reviews, ratings, wishlists, buyer libraries (10); comparison and EMI (later,
+  with payments); merchant catalogue dashboard (11); SEO platform and analytics (12); console
+  changes (16).
+
+## Verification record (Phase 06, observed locally)
+
+**894 automated tests passed, 0 failed** (679 commerce + 57 control + 39 contracts + 55
+shared UI + 61 commerce-web + 3 Node): 1 new commerce test (discovery: search, price range,
+authors, ISBN) and an extended footer test, 5 new contract tests and 61 new commerce-web tests
+(24 library, 5 data-layer, 32 component).
+
+| Check        | Actual observation                                                                                                                                                                                                                                                   |
+| ------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Backend      | `pnpm api:test`: 679 + 57 passed (includes the OpenAPI drift test). `pnpm api:lint`: Ruff, format, strict mypy (175 + 52 files). `makemigrations --check`: no changes. `pnpm api:schema` regenerated (additions only).                                               |
+| Frontend     | `pnpm check` passed (Prettier, ESLint, typecheck, 39 + 55 + 61 + 3 tests). `pnpm build` passed (Webpack, both apps; every storefront route dynamic; no build-time API reads).                                                                                        |
+| Live         | All storefront routes 200; unknown product, category, collection, page and URL 404; invalid query values ignored; `mc_lang=bn` renders Bangla on the server with fallback; unsupported values use the default. `pnpm health` passed; `docker compose config` passed. |
+| Visual smoke | Headless Chrome with device emulation (scratchpad helper, nothing installed): homepage, listing and product pages for all five presets at 1440 px and 390 px (21 captures), reviewed; no horizontal overflow. Store data unchanged by the preview.                   |
+| Review data  | `storefront-seed.mjs --local` run once (7 categories, 10 products of all five types, 1 collection, homepage sections, 2 pages, appearance texts, Bangla translations); option order then corrected once through the merchant API.                                    |
+| Not verified | Screen-reader run, real phones and Safari, Lighthouse/performance budgets. The auth smoke was not re-run (no authentication change).                                                                                                                                 |
+| Preservation | Only `matecart-dev` used; other projects untouched; prototype `9ff1361` clean; no env, key or font files in the change set.                                                                                                                                          |
+| GitHub CI    | Phase 06 not run (uncommitted). Last CI: run 40301529264 (Phase 05.1), 4/4, 827 tests.                                                                                                                                                                               |
+
+## Phase 05.1 corrections (accepted)
 
 No migration, model, API shape or OpenAPI change; the existing `translations` JSON is
 reused. Phase 04, authentication and preset defaults are untouched.
@@ -78,7 +157,7 @@ give its sections titles and assert specific error keys.
 | Frontend     | `pnpm check` passed (Prettier, ESLint, typecheck, 34 + 55 + 3 tests). `pnpm build` passed (Webpack, both apps).                                            |
 | Live         | `/manage/appearance`, `/manage/content`, `/api/storefront/config/` and `/home/` return 200; `pnpm health` passed; `docker compose config` passed.          |
 | Not verified | No manual browser walk-through of the dialogs or bilingual fields; auth smoke not re-run (no auth change, per instruction).                                |
-| GitHub CI    | Phase 05.1 not run (uncommitted). Last CI: run 40297666311 (Phase 05), 4/4, 807 tests.                                                                     |
+| GitHub CI    | After push: `613cd49`, run 40301529264, SUCCESS 4/4 jobs, 827 tests.                                                                                       |
 
 ## Phase 05 implemented scope
 
@@ -277,24 +356,37 @@ contract tests. Plus 7 live catalogue and 12 live authentication smoke checks.
 
 - Merchant review accounts: `review-owner@example.test` (Owner; use Forgot
   password and the newest Mailpit link) and `review-catalog-editor@example.test`
-  (Content editor, re-keyed by each catalogue smoke run; reset by the same flow).
+  (Content editor, re-keyed by each catalogue smoke run and by the storefront seed;
+  reset by the same flow).
+- Storefront review data (Phase 06, `node scripts/storefront-seed.mjs --local`, additive and
+  idempotent): categories Home & Kitchen (Cookware, Lighting), Fashion, Groceries,
+  Electronics, Books; brands Nova and Shapla Home; collection "New this week"; 10 published
+  products with `SF-` SKUs, generated images, stock and Bangla names (one out of stock, one
+  without an image, one pre-order book, one eBook); homepage sections; pages "Shipping
+  information" and "About us"; a review announcement and tagline. The store stays General.
 - Catalogue smoke runs leave archived "Review Smoke Shirt <run id>" products,
-  review attributes, a review image and their ledger history. The public catalogue
-  is empty until a product is published:
-  http://127.0.0.1:3400/api/catalog/products/ (JSON). Merchant endpoints are
+  review attributes, a review image and their ledger history. Merchant endpoints are
   documented in `services/commerce-api/openapi.yaml`; there is no catalogue UI yet
   (Phase 11).
+- Storefront: http://127.0.0.1:3400 · merchant: http://127.0.0.1:3400/manage · console:
+  http://127.0.0.1:3410.
 - Mailpit http://127.0.0.1:18025 holds local messages only. No real provider is
   configured.
 
 ## Remaining scope, limits and next step
 
-- **Next step:** owner reviews the uncommitted Phase 05.1 diff, commits and pushes it,
-  verifies GitHub CI, and requests independent review; Phase 05 is accepted only after
-  that. Phase 06 starts only after explicit authorization.
-- Phase 05 limits: themes are previewed in the dashboard; customer pages that render them
-  arrive in Phase 06. Module states are configuration only in Phase 05. Contact address
-  and social links are not modelled yet.
+- **Next step:** owner reviews the uncommitted Phase 06 diff, commits and pushes it,
+  verifies GitHub CI and requests independent acceptance. Phase 07 starts only after
+  explicit authorization.
+- Phase 06 limits (documented, not defects): no "in stock only" filter or brand, author,
+  publisher and format facet lists (the API has no facet counts; an exact stock filter would
+  duplicate D-060 in SQL); Grocery cards do not show pack sizes (product pages do); pre-order
+  labels compare with the UTC date (the API decides purchasability in the store's time zone);
+  images are served as uploaded (no resizing or `srcset`); HTML is not cached by shared
+  caches, only media; the `<html>` element stays `lang="en"` while the store frame carries
+  the customer's language.
+- Phase 05 limits: module states are configuration only. Contact address and social links
+  are not modelled yet.
 - Phase 04.1 limits (documented, not defects): reservations are not batch-assigned, so
   sellable batch stock subtracts the location's whole reservation; batches expiring
   after a reservation can leave it uncovered until Phase 08 allocation; pre-04.1 keys
@@ -303,7 +395,7 @@ contract tests. Plus 7 live catalogue and 12 live authentication smoke checks.
 - Known limits: no public catalogue rate limits/CDN, no image resizing or malware
   scanning (only images and PDFs accepted; PDFs download), public media may stay in
   shared caches for five minutes after unpublishing, reservations not yet exposed
-  (07/08), FEFO is listing only (allocation 08), no catalogue UI (06/11).
+  (07/08), FEFO is listing only (allocation 08), no merchant catalogue UI (11).
 - Carried forward: live Google/SMS/SMTP acceptance; production DB roles and proxy
   hardening (17); final security, load and recovery audit (18); font (Q1) and Redis
   licence (Q2) questions.

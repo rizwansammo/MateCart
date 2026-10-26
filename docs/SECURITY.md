@@ -152,6 +152,22 @@ and keys, sharing only this local testing inbox.
 - Two-tenant tests cover the four new models, cross-tenant media references (API and
   PostgreSQL composite keys) and isolation of module overrides.
 
+## Customer storefront (Phase 06)
+
+- Storefront pages call only anonymous public endpoints from the server, without browser
+  cookies, so no customer or staff session can reach or be embedded in a rendered page.
+  Responses are decoded by the shared contracts (media URLs must stay on `/api/`); slugs are
+  validated before they enter an API path.
+- Pages never show cost prices, stock quantities, drafts, unpublished products or private
+  media: the public API does not return them. Stock appears only as in stock / out of stock /
+  pre-order.
+- Merchant text is rendered escaped as plain text; call-to-action links must be internal paths;
+  colour swatches are used only when they are `#RRGGBB`.
+- Rendered HTML is per request and not shared-cacheable; development stores send `noindex`
+  unless `STOREFRONT_INDEXING=allow`. The language cookie holds only a language code.
+- The development preset preview is ignored by production builds. Errors shown to customers
+  never include API details.
+
 ## Limits and scheduled follow-up
 
 - Phase 04 public catalogue and media routes have no dedicated rate limits or CDN

@@ -121,6 +121,14 @@ before running it. `node scripts/catalog-smoke.mjs --local` (Phase 04) signs in 
 local review owner through a Mailpit password reset, then creates a labelled
 "Review Smoke Shirt" with attributes, an image, prices and stock, checks the public
 catalogue and archives it again. Run it only against the local stack.
+`node scripts/storefront-seed.mjs --local` (Phase 06) signs in the same review editor and
+adds labelled storefront review data (categories, about ten products of every type with
+generated images and stock, a collection, homepage sections, pages and Bangla texts). It
+does nothing if its categories already exist and never deletes data.
+
+To preview another preset locally without changing the store, run only commerce-web with
+`STOREFRONT_PREVIEW_PRESET=<fashion|grocery|electronics|general|books> pnpm dev:web`
+(development servers only; production builds ignore it).
 
 Uploaded catalogue media live in the named volume `matecart-dev-commerce-media`
 (`MATECART_MEDIA_ROOT=/var/lib/matecart/media` in the API and worker containers),

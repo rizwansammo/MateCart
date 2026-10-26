@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { homeSection, storeAppearance, storeModuleState, storefrontConfig } from './appearance';
+import {
+  homeSection,
+  storeAppearance,
+  storeModuleState,
+  storefrontConfig,
+  storefrontPage,
+  storefrontSection,
+} from './appearance';
 
 const config = {
   store: {
@@ -24,7 +31,14 @@ const config = {
     show_name_with_logo: true,
   },
   modules: ['catalog', 'size_guides'],
-  footer_pages: [{ slug: 'returns', title: 'Returns', page_type: 'policy' }],
+  footer_pages: [
+    {
+      slug: 'returns',
+      title: 'Returns',
+      page_type: 'policy',
+      translations: { bn: { title: 'ফেরত' } },
+    },
+  ],
   translations: { bn: { tagline: 'ধীরে বোনা' } },
 };
 
@@ -99,5 +113,42 @@ describe('appearance response boundaries', () => {
         translations: {},
       }),
     ).toThrow();
+  });
+});
+
+describe('public storefront content (Phase 06)', () => {
+  const section = {
+    section_type: 'collection_highlight',
+    title: 'Just landed',
+    subtitle: '',
+    body: '',
+    image_url: null,
+    collection: { name: 'New in', slug: 'new-in' },
+    cta_label: '',
+    cta_url: '',
+    translations: { bn: { title: 'নতুন এসেছে' } },
+  };
+  it('decodes enabled homepage sections', () => {
+    const decoded = storefrontSection(section);
+    expect(decoded.collection?.slug).toBe('new-in');
+    expect(decoded.translations.bn?.title).toBe('নতুন এসেছে');
+  });
+  it('rejects unknown section types and foreign images', () => {
+    expect(() => storefrontSection({ ...section, section_type: 'popup' })).toThrow();
+    expect(() =>
+      storefrontSection({ ...section, image_url: 'https://evil.invalid/a.png' }),
+    ).toThrow();
+  });
+  it('decodes published pages only with a known type', () => {
+    const page = {
+      slug: 'shipping',
+      title: 'Shipping',
+      body: 'We ship nationwide.',
+      page_type: 'policy',
+      published_at: '2026-10-26T10:00:00Z',
+      translations: {},
+    };
+    expect(storefrontPage(page).page_type).toBe('policy');
+    expect(() => storefrontPage({ ...page, page_type: 'script' })).toThrow();
   });
 });

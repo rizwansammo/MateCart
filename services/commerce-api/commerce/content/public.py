@@ -59,6 +59,15 @@ class FooterPageSerializer(serializers.Serializer[Any]):
     slug = serializers.CharField()
     title = serializers.CharField()
     page_type = serializers.ChoiceField(choices=PageType.choices)
+    # Phase 06: footer links follow the customer's language (title only; never the body).
+    translations = serializers.SerializerMethodField()
+
+    def get_translations(self, page: ContentPage) -> dict[str, dict[str, str]]:
+        return {
+            language: {"title": texts["title"]}
+            for language, texts in page.translations.items()
+            if texts.get("title")
+        }
 
 
 class StorefrontConfigSerializer(serializers.Serializer[Any]):
