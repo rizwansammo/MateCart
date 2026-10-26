@@ -9,7 +9,7 @@ from typing import Any
 
 from django.conf import settings
 from django.db import transaction
-from django.db.models import F, Q
+from django.db.models import Count, F, Q
 from django.utils import timezone
 from rest_framework.exceptions import NotAuthenticated, PermissionDenied, ValidationError
 
@@ -68,6 +68,11 @@ class CartChanged(ConflictError):
 class CheckoutExpired(ConflictError):
     default_code = "checkout_expired"
     default_detail = "This checkout session has expired. Start checkout again."
+
+
+class ActiveCheckout(ConflictError):
+    default_code = "active_checkout_exists"
+    default_detail = "This cart already has an active reviewed checkout."
 
 
 @dataclass(frozen=True)
@@ -390,10 +395,14 @@ def _sync_lines(session: CheckoutSession, quote: CartQuote) -> None:
     CheckoutLine.objects.bulk_create(rows)
 
 
-def _default_shipping(currency: str) -> ShippingMethod:
+def _default_shipping(currency: str) -> ShippingMethod | None:
     method = ShippingMethod.objects.filter(code="standard").first()
     if method is not None:
         return method
+    # Bootstrap only a store with no shipping configuration. An explicitly configured method,
+    # even when it does not serve this checkout, must never be bypassed by a free global fallback.
+    if ShippingMethod.objects.exists():
+        return None
     return ShippingMethod.objects.create(
         code="standard",
         name="Standard delivery",
@@ -422,20 +431,32 @@ def available_delivery_slots(session: CheckoutSession) -> list[DeliverySlot]:
     if "delivery_slots" not in enabled_modules() or not session.requires_shipping:
         return []
     now = timezone.now()
-    return list(
+    slots = list(
         DeliverySlot.objects.filter(is_active=True, starts_at__gt=now)
         .filter(Q(capacity__isnull=True) | Q(bookings__lt=F("capacity")))
         .order_by("starts_at")
     )
+    slot_ids = [slot.pk for slot in slots]
+    active_holds = dict(
+        CheckoutSession.objects.filter(
+            delivery_slot_id__in=slot_ids,
+            status=CheckoutStatus.REVIEWED,
+            expires_at__gt=now,
+        )
+        .exclude(pk=session.pk)
+        .values_list("delivery_slot_id")
+        .annotate(total=Count("id"))
+    )
+    return [
+        slot
+        for slot in slots
+        if slot.capacity is None or slot.bookings + active_holds.get(slot.pk, 0) < slot.capacity
+    ]
 
 
-def _coupon(session: CheckoutSession, code: str) -> Coupon | None:
-    normalized = code.strip().upper()
-    if not normalized:
-        return None
-    coupon = Coupon.objects.filter(code=normalized, is_active=True).first()
+def _validate_coupon(session: CheckoutSession, coupon: Coupon) -> Coupon:
     now = timezone.now()
-    if coupon is None:
+    if not coupon.is_active:
         raise ValidationError({"coupon_code": ["This coupon is not valid."]})
     if coupon.starts_at and coupon.starts_at > now:
         raise ValidationError({"coupon_code": ["This coupon is not active yet."]})
@@ -445,9 +466,38 @@ def _coupon(session: CheckoutSession, code: str) -> Coupon | None:
         raise ValidationError({"coupon_code": ["This coupon has reached its usage limit."]})
     if session.item_subtotal < coupon.minimum_subtotal:
         raise ValidationError({"coupon_code": ["The cart subtotal is too low for this coupon."]})
-    if coupon.discount_type == CouponDiscountType.FIXED and coupon.currency != session.currency:
-        raise ValidationError({"coupon_code": ["This coupon uses a different currency."]})
+    if coupon.discount_type == CouponDiscountType.FIXED:
+        if coupon.currency != session.currency:
+            raise ValidationError({"coupon_code": ["This coupon uses a different currency."]})
+    elif coupon.discount_type == CouponDiscountType.PERCENT:
+        if coupon.currency or coupon.value > 100:
+            raise ValidationError({"coupon_code": ["This coupon has an invalid discount."]})
+    else:
+        raise ValidationError({"coupon_code": ["This coupon has an invalid discount."]})
+    if coupon.value <= 0:
+        raise ValidationError({"coupon_code": ["This coupon has an invalid discount."]})
     return coupon
+
+
+def _coupon(session: CheckoutSession, code: str) -> Coupon | None:
+    normalized = code.strip().upper()
+    if not normalized:
+        return None
+    coupon = Coupon.objects.filter(code=normalized).first()
+    if coupon is None:
+        raise ValidationError({"coupon_code": ["This coupon is not valid."]})
+    return _validate_coupon(session, coupon)
+
+
+def _revalidate_selected_coupon(session: CheckoutSession) -> None:
+    if session.coupon_id is None:
+        if session.coupon_code:
+            raise ValidationError({"coupon_code": ["This coupon is not valid."]})
+        return
+    coupon = Coupon.objects.select_for_update().filter(pk=session.coupon_id).first()
+    if coupon is None or coupon.code != session.coupon_code:
+        raise ValidationError({"coupon_code": ["This coupon is not valid."]})
+    session.coupon = _validate_coupon(session, coupon)
 
 
 def _calculate(session: CheckoutSession) -> None:
@@ -487,17 +537,33 @@ def _calculate(session: CheckoutSession) -> None:
 
 
 def create_checkout(*, cart: Cart) -> CheckoutSession:
-    quote = quote_cart(cart)
-    if not quote.valid:
-        raise ConflictError("Resolve unavailable cart items before checkout.", "cart_invalid")
     with transaction.atomic():
+        cart = Cart.objects.select_for_update().get(pk=cart.pk)
+        now = timezone.now()
+        expired = list(
+            CheckoutSession.objects.filter(
+                cart=cart, status=CheckoutStatus.REVIEWED, expires_at__lte=now
+            ).order_by("pk")
+        )
+        for previous in expired:
+            release_checkout(session=previous, expired=True)
+        reviewed = (
+            CheckoutSession.objects.select_for_update()
+            .filter(cart=cart, status=CheckoutStatus.REVIEWED, expires_at__gt=now)
+            .first()
+        )
+        if reviewed is not None:
+            return reviewed
         current = (
             CheckoutSession.objects.select_for_update()
-            .filter(cart=cart, status=CheckoutStatus.DRAFT, expires_at__gt=timezone.now())
+            .filter(cart=cart, status=CheckoutStatus.DRAFT, expires_at__gt=now)
             .first()
         )
         if current is not None:
             return current
+        quote = quote_cart(cart)
+        if not quote.valid:
+            raise ConflictError("Resolve unavailable cart items before checkout.", "cart_invalid")
         owner = {"customer": cart.customer, "guest_token_hash": cart.guest_token_hash}
         session = CheckoutSession.objects.create(
             cart=cart,
@@ -617,7 +683,13 @@ def _validate_review_details(session: CheckoutSession) -> None:
         if session.shipping_method is None or session.shipping_method not in methods:
             errors["shipping_method"] = ["Choose an available delivery method."]
         slots = available_delivery_slots(session)
-        if slots and session.delivery_slot not in slots:
+        configured_slots = (
+            "delivery_slots" in enabled_modules()
+            and DeliverySlot.objects.filter(is_active=True, starts_at__gt=timezone.now()).exists()
+        )
+        if (session.delivery_slot is not None and session.delivery_slot not in slots) or (
+            configured_slots and session.delivery_slot is None
+        ):
             errors["delivery_slot"] = ["Choose an available delivery time."]
     if errors:
         raise ValidationError(errors)
@@ -687,6 +759,29 @@ def _reserve_line(session: CheckoutSession, line: CheckoutLine) -> None:
         raise inventory.InsufficientStock("There isn't enough current stock for this checkout.")
 
 
+def _lock_delivery_slot_hold(session: CheckoutSession) -> None:
+    if session.delivery_slot_id is None:
+        return
+    if not session.requires_shipping or "delivery_slots" not in enabled_modules():
+        raise ValidationError({"delivery_slot": ["Choose an available delivery time."]})
+    now = timezone.now()
+    slot = DeliverySlot.objects.select_for_update().filter(pk=session.delivery_slot_id).first()
+    if slot is None or not slot.is_active or slot.starts_at <= now:
+        raise ValidationError({"delivery_slot": ["Choose an available delivery time."]})
+    active_holds = (
+        CheckoutSession.objects.filter(
+            delivery_slot=slot,
+            status=CheckoutStatus.REVIEWED,
+            expires_at__gt=now,
+        )
+        .exclude(pk=session.pk)
+        .count()
+    )
+    if slot.capacity is not None and slot.bookings + active_holds >= slot.capacity:
+        raise ValidationError({"delivery_slot": ["This delivery time is no longer available."]})
+    session.delivery_slot = slot
+
+
 def review_checkout(
     *, session: CheckoutSession, idempotency_key: str, actor: User | None
 ) -> CheckoutSession:
@@ -696,14 +791,36 @@ def review_checkout(
     key_hash = credential_hash(key)
     change_error: type[ConflictError] | None = None
     with transaction.atomic():
+        Cart.objects.select_for_update().get(pk=session.cart_id)
+        now = timezone.now()
+        expired = list(
+            CheckoutSession.objects.filter(
+                cart_id=session.cart_id,
+                status=CheckoutStatus.REVIEWED,
+                expires_at__lte=now,
+            ).order_by("pk")
+        )
+        for previous in expired:
+            release_checkout(session=previous, expired=True)
         target = CheckoutSession.objects.select_for_update().get(pk=session.pk)
         if target.status == CheckoutStatus.REVIEWED:
             if target.idempotency_key_hash == key_hash:
                 return target
             raise ConflictError("This checkout was already submitted.", "duplicate_submission")
-        if target.status != CheckoutStatus.DRAFT or target.expires_at <= timezone.now():
+        if target.status != CheckoutStatus.DRAFT or target.expires_at <= now:
             raise CheckoutExpired()
-        _validate_review_details(target)
+        existing = (
+            CheckoutSession.objects.select_for_update()
+            .filter(
+                cart_id=target.cart_id,
+                status=CheckoutStatus.REVIEWED,
+                expires_at__gt=now,
+            )
+            .exclude(pk=target.pk)
+            .first()
+        )
+        if existing is not None:
+            raise ActiveCheckout()
         # Pricing writes and inventory operations use the same variant lock. Taking every cart
         # variant in a stable order makes the quote-and-reserve transition one atomic snapshot.
         variant_ids = CheckoutLine.objects.filter(session=target).values_list(
@@ -731,6 +848,10 @@ def review_checkout(
             target.save()
             change_error = PriceChanged if price_changed else CartChanged
         else:
+            _revalidate_selected_coupon(target)
+            _calculate(target)
+            _validate_review_details(target)
+            _lock_delivery_slot_hold(target)
             target.expires_at = timezone.now() + RESERVATION_LIFETIME
             for line in CheckoutLine.objects.filter(session=target).order_by("variant_id"):
                 _reserve_line(target, line)

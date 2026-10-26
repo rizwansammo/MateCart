@@ -156,6 +156,21 @@ Update the status in the same change that completes a feature.
 - [x] Explicit Phase 08 boundary: reviewed checkout creates no order, payment, invoice or redemption
 - [x] Additive migration and validated OpenAPI/shared contracts; all local gates passed (990 tests)
 
+## Checkout integrity corrections (Phase 07.1; acceptance pending)
+
+- [x] Revalidate and lock the current coupon at review; recalculate totals before reserving stock
+- [x] Reject disabled, expired, not-yet-active, exhausted, under-minimum, currency-incompatible or malformed discounts
+- [x] Serialize checkout creation/review by cart; reuse one active reviewed checkout and reject a second direct review
+- [x] Release expired same-cart holds before allowing a later checkout; preserve explicit release and idempotent replay
+- [x] Count active reviewed checkouts as temporary Grocery slot holds alongside committed bookings
+- [x] Lock the delivery slot during review so concurrent checkouts cannot exceed capacity
+- [x] Free temporary slot capacity by release or expiry without changing confirmed `bookings`
+- [x] Keep delivery slots Grocery-only and physical-only; require a configured slot even when all are full
+- [x] Create free Standard delivery only for a store with zero shipping methods; never bypass explicit restrictions
+- [x] No model, migration, API contract, dependency, order, payment, courier or UI feature change
+- [x] Focused checks and 39 checkout tests passed; all final gates passed (1,007 tests total)
+- [ ] Owner commit/push, GitHub CI and independent acceptance; Phase 07 remains open until then
+
 ## Carried into Phases 07 and 08 (from Phase 04.1)
 
 - [x] Phase 07: validate batch expiry when cart eligibility and checkout reservation are checked

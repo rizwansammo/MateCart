@@ -2,8 +2,10 @@
 
 Updated: 2026-10-26 (Asia/Dhaka). **Phase 06.2 — Multi Theme Architecture Readiness is
 accepted and closed at `cd4ca9112b7c8b525869d14ef97c7406f0ba5365` (GitHub Actions
-40322387368: 4/4 jobs, 960 tests). Phase 07 — Cart & Checkout is implemented and locally
-verified; owner commit, CI and independent acceptance are pending.**
+40322387368: 4/4 jobs, 960 tests). Phase 07 — Cart & Checkout was pushed at
+`9e5a7343d9dbe1e647286b7a2ddcadb14f32d11e` (GitHub Actions 40359693463: 4/4 jobs,
+990 tests). Independent review requested three Phase 07.1 integrity corrections; they are
+implemented and locally verified, with owner commit, CI and independent acceptance pending.**
 Phases 01–06 (with 02.1, 02.2, 03.1, 04.1, 05.1, 06.1 and 06.2) are accepted and closed.
 The managed theme marketplace remains deferred.
 
@@ -29,7 +31,7 @@ The managed theme marketplace remains deferred.
 | Prototype       | MateCart-UI strictly read-only; no edits/build/install (HEAD `9ff1361`, clean).                                                                                                                                                                           |
 | Roadmap         | All 19 main phases preserved; 02.1/02.2/03.1 are corrective subphases, not additional main phases.                                                                                                                                                        |
 
-## Phase 07 cart and checkout (implemented locally; acceptance pending)
+## Phase 07 cart and checkout (pushed; Phase 07.1 acceptance pending)
 
 - **Cart and ownership.** New `commerce.checkout` app with persistent guest/customer carts,
   opaque hashed guest credentials, 30-day expiry, sign-in association/merge, unique lines,
@@ -62,6 +64,39 @@ The managed theme marketplace remains deferred.
   permission; stale pre-existing Next dev processes were restarted after an initial port conflict.
   No manual browser visual pass was performed; responsive/theme behavior is covered by component
   tests and the live pages are running for owner review.
+
+## Phase 07.1 checkout integrity corrections (implemented locally; acceptance pending)
+
+- **Coupon review revalidation.** The selected coupon was validated while editing a checkout but
+  not at its final review transition. Review now locks and reloads the coupon, checks its current
+  active window, usage limit, minimum subtotal, currency, discount type and amount, and recalculates
+  all totals from the current row before any stock reservation. A rejected coupon leaves the
+  checkout in draft and reserves nothing; redemption remains Phase 08.
+- **One active hold per cart.** Checkout creation could create a new draft after a reviewed session,
+  and a direct review of another historical draft could reserve the same cart again. Creation and
+  review now serialize on the cart row, release expired reviewed sessions, reuse an unexpired
+  reviewed session at creation, and return `active_checkout_exists` for a second direct review.
+  Existing same-key replay remains idempotent; explicit release or expiry permits a later checkout.
+- **Atomic Grocery delivery-slot holds.** Availability previously considered only committed
+  `bookings`; review did not protect capacity. A reviewed, unexpired checkout is now the temporary
+  slot hold. Review locks the slot row and counts committed bookings plus other active holds before
+  reserving inventory. Availability uses the same count; release and expiry free capacity through
+  checkout status/expiry without changing `bookings`. Slots remain Grocery-only and physical-only,
+  and a configured-but-full slot pool cannot be bypassed.
+- **Shipping safety check.** The free `standard` bootstrap could bypass an explicitly configured
+  method that was ineligible for the checkout country. It is now created only when the store has no
+  shipping methods at all. Any explicit configuration remains authoritative; no shipping pricing or
+  provider feature was added.
+- **Files and schema.** Changed `commerce/checkout/services.py`, `tests/test_checkout.py`, new
+  `tests/test_checkout_integrity_concurrency.py`, and this phase's three handoff documents. There is
+  no model, migration, dependency, OpenAPI or shared-contract change, and no new decision was needed.
+- **Verification.** Focused Ruff/format/mypy passed and 39 checkout tests passed, including real
+  PostgreSQL concurrency for same-cart reviews and capacity-one slots. Final gates passed:
+  `pnpm check`, `pnpm build`, `pnpm api:lint`, `pnpm api:test`, `pnpm api:schema`, `pnpm health` and
+  `docker compose config --quiet`. The suites now contain **1,007 passing tests, 0 failures**:
+  commerce API 737, control API 57, shared contracts 46, shared UI 76, commerce-web 86 and Node 5.
+  A live guest checkout smoke reviewed, replayed the same key, reused the same reviewed session on a
+  second checkout creation, created no order and released successfully. All six health checks pass.
 
 Phase 03/03.1 history (accepted): realm-separated customer, merchant and console
 authentication; optional merchant and mandatory console MFA; owner provisioning
@@ -515,9 +550,9 @@ contract tests. Plus 7 live catalogue and 12 live authentication smoke checks.
 
 ## Remaining scope, limits and next step
 
-- **Next step:** owner review at the local URLs, then commit/push, CI and independent acceptance.
-  Do not enter Phase 08 before that acceptance. The managed theme marketplace (showcase, licensing,
-  console assignment UI) remains deferred.
+- **Next step:** owner review of the Phase 07.1 diff and the local URLs, then commit/push, GitHub CI
+  and independent acceptance. Do not enter Phase 08 or mark Phase 07 closed before that acceptance.
+  The managed theme marketplace (showcase, licensing, console assignment UI) remains deferred.
 - Phase 06.2 limits (documented, not defects): the theme catalogue is kept in three places by
   design (API validation, shared identities, visual definitions), guarded by tests; assignment
   is a NetaMate command in the store's container until the console and deployment agent exist
