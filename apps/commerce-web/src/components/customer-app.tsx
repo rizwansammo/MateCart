@@ -20,6 +20,7 @@ import {
   errorMessage,
 } from '@matecart/shared-ui';
 import { authApi as api } from '@/lib/auth-client';
+import { CustomerCommerceAccount } from './account-commerce';
 
 function useMethods() {
   const [value, setValue] = useState<Methods | null>(null);
@@ -516,6 +517,7 @@ function Account() {
             </Button>
           </form>
         </section>
+        <CustomerCommerceAccount />
         <section className="rounded-base border border-line bg-surface p-6">
           <h2 className="text-lg font-bold">Ways to sign in</h2>
           <p className="mt-2 text-sm leading-6 text-muted">
