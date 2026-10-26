@@ -61,7 +61,9 @@ describe('checkout contracts', () => {
         delivery_slots: [],
         selected_shipping_method: null,
         selected_delivery_slot: null,
+        payment_methods: [],
         order_creation_available: false,
+        order: null,
       }),
     ).toThrow('Invalid response');
   });

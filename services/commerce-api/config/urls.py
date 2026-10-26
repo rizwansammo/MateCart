@@ -26,6 +26,9 @@ urlpatterns: list[URLPattern | URLResolver] = [
     path("api/storefront/", include("commerce.content.public_urls")),
     # Phase 07 customer/guest cart, checkout sessions and customer addresses.
     path("api/", include("commerce.checkout.urls")),
+    # Phase 08 orders, payments, invoices and provider callbacks; merchant order actions.
+    path("api/", include("commerce.orders.urls")),
+    path("api/manage/orders/", include("commerce.orders.manage_urls")),
 ]
 
 if settings.API_SCHEMA_ENABLED:

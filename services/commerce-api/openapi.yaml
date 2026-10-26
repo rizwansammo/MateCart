@@ -910,6 +910,41 @@ paths:
               schema:
                 $ref: '#/components/schemas/Checkout'
           description: ''
+  /api/checkout/{session_id}/order/:
+    post:
+      operationId: checkout_place_order
+      description: Base for every cookie-authenticated or sign-in endpoint.
+      parameters:
+      - in: path
+        name: session_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - orders
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PlaceOrderRequest'
+        required: true
+      security:
+      - customerSession: []
+      - {}
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Order'
+          description: ''
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Order'
+          description: ''
   /api/checkout/{session_id}/release/:
     post:
       operationId: checkout_release
@@ -3377,6 +3412,122 @@ paths:
               schema:
                 $ref: '#/components/schemas/MediaAsset'
           description: ''
+  /api/manage/orders/:
+    get:
+      operationId: manage_order_list
+      description: 'Order actions: ``orders.manage`` (Owner, Manager, Order handler).'
+      tags:
+      - manage-orders
+      security:
+      - staffSession: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderSummaryPage'
+          description: ''
+  /api/manage/orders/{order_id}/:
+    get:
+      operationId: manage_order_get
+      description: 'Order actions: ``orders.manage`` (Owner, Manager, Order handler).'
+      parameters:
+      - in: path
+        name: order_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - manage-orders
+      security:
+      - staffSession: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MerchantOrder'
+          description: ''
+  /api/manage/orders/{order_id}/cod-collection/:
+    post:
+      operationId: manage_order_cod_collected
+      description: 'Order actions: ``orders.manage`` (Owner, Manager, Order handler).'
+      parameters:
+      - in: path
+        name: order_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - manage-orders
+      security:
+      - staffSession: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MerchantOrder'
+          description: ''
+  /api/manage/orders/{order_id}/refunds/:
+    post:
+      operationId: manage_order_refund
+      description: 'Money leaves the store: also needs a recent sign-in or password
+        confirmation.'
+      parameters:
+      - in: path
+        name: order_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - manage-orders
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RefundInputRequest'
+        required: true
+      security:
+      - staffSession: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Refund'
+          description: ''
+  /api/manage/orders/{order_id}/transition/:
+    post:
+      operationId: manage_order_transition
+      description: 'Order actions: ``orders.manage`` (Owner, Manager, Order handler).'
+      parameters:
+      - in: path
+        name: order_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - manage-orders
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TransitionRequest'
+        required: true
+      security:
+      - staffSession: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MerchantOrder'
+          description: ''
   /api/manage/pricing/price-lists/:
     get:
       operationId: manage_price_lists
@@ -3783,6 +3934,121 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Member'
+          description: ''
+  /api/orders/{order_id}/:
+    get:
+      operationId: order_get
+      description: Base for every cookie-authenticated or sign-in endpoint.
+      parameters:
+      - in: path
+        name: order_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - orders
+      security:
+      - customerSession: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Order'
+          description: ''
+  /api/orders/{order_id}/cancel/:
+    post:
+      operationId: order_cancel
+      description: Base for every cookie-authenticated or sign-in endpoint.
+      parameters:
+      - in: path
+        name: order_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - orders
+      security:
+      - customerSession: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Order'
+          description: ''
+  /api/orders/{order_id}/invoice/:
+    get:
+      operationId: order_invoice
+      description: Base for every cookie-authenticated or sign-in endpoint.
+      parameters:
+      - in: path
+        name: order_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - orders
+      security:
+      - customerSession: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Invoice'
+          description: ''
+  /api/orders/{order_id}/payment/:
+    post:
+      operationId: order_payment_start
+      description: Base for every cookie-authenticated or sign-in endpoint.
+      parameters:
+      - in: path
+        name: order_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - orders
+      security:
+      - customerSession: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaymentStart'
+          description: ''
+  /api/payments/callbacks/{provider}/:
+    post:
+      operationId: payment_callback
+      description: |-
+        Server-to-server provider callbacks. Anonymous by design (reviewed opt-in): the provider
+        adapter authenticates every request by signature before anything is read or changed.
+      parameters:
+      - in: path
+        name: provider
+        schema:
+          type: string
+        required: true
+      tags:
+      - orders
+      security:
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CallbackResult'
           description: ''
   /api/storefront/config/:
     get:
@@ -4548,6 +4814,13 @@ components:
           type: boolean
       required:
       - name
+    CallbackResult:
+      type: object
+      properties:
+        outcome:
+          type: string
+      required:
+      - outcome
     Cart:
       type: object
       properties:
@@ -4923,8 +5196,18 @@ components:
           type: string
           format: uuid
           nullable: true
+        payment_methods:
+          type: array
+          items:
+            type: string
+          readOnly: true
         order_creation_available:
           type: boolean
+          readOnly: true
+        order:
+          type: string
+          format: uuid
+          nullable: true
           readOnly: true
       required:
       - address_line_1
@@ -4943,7 +5226,9 @@ components:
       - id
       - item_subtotal
       - lines
+      - order
       - order_creation_available
+      - payment_methods
       - postal_code
       - recipient_name
       - region
@@ -5440,6 +5725,97 @@ components:
           maxLength: 128
       required:
       - token
+    Invoice:
+      type: object
+      properties:
+        number:
+          type: string
+          readOnly: true
+        issued_at:
+          type: string
+          format: date-time
+          readOnly: true
+        order_number:
+          type: string
+        order_placed_at:
+          type: string
+          format: date-time
+        currency:
+          type: string
+          readOnly: true
+        item_subtotal:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,15}(?:\.\d{0,4})?$
+          readOnly: true
+        discount_total:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,15}(?:\.\d{0,4})?$
+          readOnly: true
+        shipping_total:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,15}(?:\.\d{0,4})?$
+          readOnly: true
+        tax_total:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,15}(?:\.\d{0,4})?$
+          readOnly: true
+        grand_total:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,15}(?:\.\d{0,4})?$
+          readOnly: true
+        payment_method:
+          type: string
+        payment_status:
+          type: string
+        amount_paid:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,15}(?:\.\d{0,4})?$
+        amount_refunded:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,15}(?:\.\d{0,4})?$
+        order_cancelled:
+          type: boolean
+          readOnly: true
+        seller:
+          type: object
+          additionalProperties:
+            type: string
+        buyer:
+          type: object
+          additionalProperties:
+            type: string
+        items:
+          type: array
+          items:
+            type: object
+            additionalProperties: {}
+          readOnly: true
+      required:
+      - amount_paid
+      - amount_refunded
+      - buyer
+      - currency
+      - discount_total
+      - grand_total
+      - issued_at
+      - item_subtotal
+      - items
+      - number
+      - order_cancelled
+      - order_number
+      - order_placed_at
+      - payment_method
+      - payment_status
+      - seller
+      - shipping_total
+      - tax_total
     Liveness:
       type: object
       properties:
@@ -5706,6 +6082,214 @@ components:
       description: |-
         * `active` - Active
         * `suspended` - Suspended
+    MerchantOrder:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        number:
+          type: string
+          readOnly: true
+        status:
+          allOf:
+          - $ref: '#/components/schemas/OrderStatusEnum'
+          readOnly: true
+        payment_method:
+          allOf:
+          - $ref: '#/components/schemas/PaymentMethodEnum'
+          readOnly: true
+        payment_status:
+          allOf:
+          - $ref: '#/components/schemas/OrderPaymentStatusEnum'
+          readOnly: true
+        payment_due_at:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+        currency:
+          type: string
+          readOnly: true
+        item_subtotal:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,15}(?:\.\d{0,4})?$
+          readOnly: true
+        discount_total:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,15}(?:\.\d{0,4})?$
+          readOnly: true
+        shipping_total:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,15}(?:\.\d{0,4})?$
+          readOnly: true
+        tax_total:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,15}(?:\.\d{0,4})?$
+          readOnly: true
+        grand_total:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,15}(?:\.\d{0,4})?$
+          readOnly: true
+        amount_paid:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,15}(?:\.\d{0,4})?$
+          readOnly: true
+        amount_refunded:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,15}(?:\.\d{0,4})?$
+          readOnly: true
+        contact_email:
+          type: string
+          format: email
+          readOnly: true
+        contact_phone:
+          type: string
+          readOnly: true
+        requires_shipping:
+          type: boolean
+          readOnly: true
+        recipient_name:
+          type: string
+          readOnly: true
+        address_line_1:
+          type: string
+          readOnly: true
+        address_line_2:
+          type: string
+          readOnly: true
+        city:
+          type: string
+          readOnly: true
+        region:
+          type: string
+          readOnly: true
+        postal_code:
+          type: string
+          readOnly: true
+        country:
+          type: string
+          readOnly: true
+        delivery_notes:
+          type: string
+          readOnly: true
+        shipping_method_name:
+          type: string
+          readOnly: true
+        delivery_slot_label:
+          type: string
+          readOnly: true
+        delivery_slot_starts_at:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+        delivery_slot_ends_at:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+        coupon_code:
+          type: string
+          readOnly: true
+        placed_at:
+          type: string
+          format: date-time
+          readOnly: true
+        cancelled_at:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+        cancel_reason:
+          type: string
+          readOnly: true
+        items:
+          type: array
+          items:
+            type: object
+            additionalProperties: {}
+          readOnly: true
+        invoice_number:
+          type: string
+          nullable: true
+          readOnly: true
+        can_cancel:
+          type: boolean
+          readOnly: true
+        can_pay:
+          type: boolean
+          readOnly: true
+        events:
+          type: array
+          items:
+            type: object
+            additionalProperties: {}
+          readOnly: true
+        refunds:
+          type: array
+          items:
+            type: object
+            additionalProperties: {}
+          readOnly: true
+      required:
+      - address_line_1
+      - address_line_2
+      - amount_paid
+      - amount_refunded
+      - can_cancel
+      - can_pay
+      - cancel_reason
+      - cancelled_at
+      - city
+      - contact_email
+      - contact_phone
+      - country
+      - coupon_code
+      - currency
+      - delivery_notes
+      - delivery_slot_ends_at
+      - delivery_slot_label
+      - delivery_slot_starts_at
+      - discount_total
+      - events
+      - grand_total
+      - id
+      - invoice_number
+      - item_subtotal
+      - items
+      - number
+      - payment_due_at
+      - payment_method
+      - payment_status
+      - placed_at
+      - postal_code
+      - recipient_name
+      - refunds
+      - region
+      - requires_shipping
+      - shipping_method_name
+      - shipping_total
+      - status
+      - tax_total
+    MerchantOrderTargetEnum:
+      enum:
+      - confirmed
+      - processing
+      - cancelled
+      type: string
+      description: |-
+        * `confirmed` - Confirmed
+        * `processing` - Processing
+        * `cancelled` - Cancelled
     MfaEmailSendRequest:
       type: object
       properties:
@@ -5998,6 +6582,279 @@ components:
           minimum: 0
       required:
       - value
+    Order:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        number:
+          type: string
+          readOnly: true
+        status:
+          allOf:
+          - $ref: '#/components/schemas/OrderStatusEnum'
+          readOnly: true
+        payment_method:
+          allOf:
+          - $ref: '#/components/schemas/PaymentMethodEnum'
+          readOnly: true
+        payment_status:
+          allOf:
+          - $ref: '#/components/schemas/OrderPaymentStatusEnum'
+          readOnly: true
+        payment_due_at:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+        currency:
+          type: string
+          readOnly: true
+        item_subtotal:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,15}(?:\.\d{0,4})?$
+          readOnly: true
+        discount_total:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,15}(?:\.\d{0,4})?$
+          readOnly: true
+        shipping_total:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,15}(?:\.\d{0,4})?$
+          readOnly: true
+        tax_total:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,15}(?:\.\d{0,4})?$
+          readOnly: true
+        grand_total:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,15}(?:\.\d{0,4})?$
+          readOnly: true
+        amount_paid:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,15}(?:\.\d{0,4})?$
+          readOnly: true
+        amount_refunded:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,15}(?:\.\d{0,4})?$
+          readOnly: true
+        contact_email:
+          type: string
+          format: email
+          readOnly: true
+        contact_phone:
+          type: string
+          readOnly: true
+        requires_shipping:
+          type: boolean
+          readOnly: true
+        recipient_name:
+          type: string
+          readOnly: true
+        address_line_1:
+          type: string
+          readOnly: true
+        address_line_2:
+          type: string
+          readOnly: true
+        city:
+          type: string
+          readOnly: true
+        region:
+          type: string
+          readOnly: true
+        postal_code:
+          type: string
+          readOnly: true
+        country:
+          type: string
+          readOnly: true
+        delivery_notes:
+          type: string
+          readOnly: true
+        shipping_method_name:
+          type: string
+          readOnly: true
+        delivery_slot_label:
+          type: string
+          readOnly: true
+        delivery_slot_starts_at:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+        delivery_slot_ends_at:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+        coupon_code:
+          type: string
+          readOnly: true
+        placed_at:
+          type: string
+          format: date-time
+          readOnly: true
+        cancelled_at:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+        cancel_reason:
+          type: string
+          readOnly: true
+        items:
+          type: array
+          items:
+            type: object
+            additionalProperties: {}
+          readOnly: true
+        invoice_number:
+          type: string
+          nullable: true
+          readOnly: true
+        can_cancel:
+          type: boolean
+          readOnly: true
+        can_pay:
+          type: boolean
+          readOnly: true
+      required:
+      - address_line_1
+      - address_line_2
+      - amount_paid
+      - amount_refunded
+      - can_cancel
+      - can_pay
+      - cancel_reason
+      - cancelled_at
+      - city
+      - contact_email
+      - contact_phone
+      - country
+      - coupon_code
+      - currency
+      - delivery_notes
+      - delivery_slot_ends_at
+      - delivery_slot_label
+      - delivery_slot_starts_at
+      - discount_total
+      - grand_total
+      - id
+      - invoice_number
+      - item_subtotal
+      - items
+      - number
+      - payment_due_at
+      - payment_method
+      - payment_status
+      - placed_at
+      - postal_code
+      - recipient_name
+      - region
+      - requires_shipping
+      - shipping_method_name
+      - shipping_total
+      - status
+      - tax_total
+    OrderPaymentStatusEnum:
+      enum:
+      - unpaid
+      - paid
+      - partially_refunded
+      - refunded
+      - failed
+      type: string
+      description: |-
+        * `unpaid` - Unpaid
+        * `paid` - Paid
+        * `partially_refunded` - Partially refunded
+        * `refunded` - Refunded
+        * `failed` - Payment not completed
+    OrderStatusEnum:
+      enum:
+      - pending_payment
+      - placed
+      - confirmed
+      - processing
+      - cancelled
+      type: string
+      description: |-
+        * `pending_payment` - Awaiting online payment
+        * `placed` - Placed
+        * `confirmed` - Confirmed
+        * `processing` - Processing
+        * `cancelled` - Cancelled
+    OrderSummary:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        number:
+          type: string
+          readOnly: true
+        status:
+          allOf:
+          - $ref: '#/components/schemas/OrderStatusEnum'
+          readOnly: true
+        payment_method:
+          allOf:
+          - $ref: '#/components/schemas/PaymentMethodEnum'
+          readOnly: true
+        payment_status:
+          allOf:
+          - $ref: '#/components/schemas/OrderPaymentStatusEnum'
+          readOnly: true
+        currency:
+          type: string
+          readOnly: true
+        grand_total:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,15}(?:\.\d{0,4})?$
+          readOnly: true
+        placed_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - currency
+      - grand_total
+      - id
+      - number
+      - payment_method
+      - payment_status
+      - placed_at
+      - status
+    OrderSummaryPage:
+      type: object
+      properties:
+        count:
+          type: integer
+        page:
+          type: integer
+        page_size:
+          type: integer
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/OrderSummary'
+      required:
+      - count
+      - page
+      - page_size
+      - results
     Page:
       type: object
       properties:
@@ -6663,6 +7520,22 @@ components:
           maxLength: 4000
         is_active:
           type: boolean
+    PaymentMethodEnum:
+      enum:
+      - cod
+      - online
+      type: string
+      description: |-
+        * `cod` - Cash on delivery
+        * `online` - Online payment
+    PaymentStart:
+      type: object
+      properties:
+        redirect_url:
+          type: string
+          format: uri
+      required:
+      - redirect_url
     PermissionsEnum:
       enum:
       - staff.manage
@@ -6737,6 +7610,18 @@ components:
       description: |-
         * `signed_in` - signed_in
         * `needs_name` - needs_name
+    PlaceOrderRequest:
+      type: object
+      properties:
+        payment_method:
+          $ref: '#/components/schemas/PaymentMethodEnum'
+        idempotency_key:
+          type: string
+          minLength: 8
+          maxLength: 100
+      required:
+      - idempotency_key
+      - payment_method
     Price:
       type: object
       properties:
@@ -7963,6 +8848,83 @@ components:
           nullable: true
       required:
       - recovery_codes
+    Refund:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        method:
+          $ref: '#/components/schemas/RefundMethodEnum'
+        amount:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,15}(?:\.\d{0,4})?$
+        currency:
+          type: string
+          maxLength: 3
+        status:
+          $ref: '#/components/schemas/RefundStatusEnum'
+        reason:
+          type: string
+          maxLength: 300
+        failure_code:
+          type: string
+          maxLength: 40
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        completed_at:
+          type: string
+          format: date-time
+          nullable: true
+      required:
+      - amount
+      - created_at
+      - currency
+      - id
+      - method
+      - reason
+      - status
+    RefundInputRequest:
+      type: object
+      properties:
+        amount:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,15}(?:\.\d{0,4})?$
+        reason:
+          type: string
+          minLength: 1
+          maxLength: 300
+        idempotency_key:
+          type: string
+          minLength: 8
+          maxLength: 100
+      required:
+      - amount
+      - idempotency_key
+      - reason
+    RefundMethodEnum:
+      enum:
+      - provider
+      - manual
+      type: string
+      description: |-
+        * `provider` - Through the payment provider
+        * `manual` - Recorded manual refund
+    RefundStatusEnum:
+      enum:
+      - pending
+      - succeeded
+      - failed
+      type: string
+      description: |-
+        * `pending` - Pending at the provider
+        * `succeeded` - Refunded
+        * `failed` - Failed
     RegisterRequest:
       type: object
       properties:
@@ -8609,6 +9571,19 @@ components:
       - quantity
       - to_location
       - variant
+    TransitionRequest:
+      type: object
+      properties:
+        status:
+          $ref: '#/components/schemas/MerchantOrderTargetEnum'
+        reason:
+          oneOf:
+          - type: string
+            pattern: ^[a-z_]{0,40}$
+          - type: string
+            maxLength: 0
+      required:
+      - status
     Variant:
       type: object
       properties:

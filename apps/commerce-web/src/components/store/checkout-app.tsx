@@ -1,12 +1,19 @@
 'use client';
 
-import type { Checkout } from '@matecart/shared-contracts';
-import { errorMessage } from '@matecart/shared-ui';
+import type { Checkout, PaymentMethod } from '@matecart/shared-contracts';
+import { ApiError, errorMessage } from '@matecart/shared-ui';
 import type { Route } from 'next';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useEffect, useMemo, useState } from 'react';
 
-import { getCheckout, reviewCheckout, updateCheckout } from '@/lib/checkout-client';
+import {
+  getCheckout,
+  placeOrder,
+  releaseCheckout,
+  reviewCheckout,
+  updateCheckout,
+} from '@/lib/checkout-client';
 import { formatMoney } from '@/lib/money';
 
 import { FOCUS } from './ui';
@@ -40,8 +47,21 @@ const COPY = {
     loading: 'Loading checkout…',
     back: 'Back to cart',
     reviewed: 'Checkout reviewed. Stock is reserved temporarily.',
-    boundary:
-      'Order creation and payment begin in the next phase. No order or payment has been created.',
+    payment: 'Payment method',
+    cod: 'Cash on delivery',
+    codHint: 'Pay in cash when your order arrives.',
+    online: 'Pay online',
+    onlineHint: 'Pay securely on the payment provider’s page.',
+    noPayment:
+      'No payment method is available for this order. Contact the store or change your cart.',
+    place: 'Place order',
+    placing: 'Placing order…',
+    released: 'This checkout was cancelled and its reservation released.',
+    expired: 'This checkout expired and its reservation was released.',
+    startAgain: 'Return to your cart to check out again.',
+    completed: 'This checkout is now an order.',
+    viewOrder: 'View your order',
+    cancelReview: 'Change details',
     reservedUntil: 'Reserved until',
     required: 'Required for delivery',
     optional: 'Optional',
@@ -74,7 +94,21 @@ const COPY = {
     loading: 'চেকআউট লোড হচ্ছে…',
     back: 'কার্টে ফিরুন',
     reviewed: 'চেকআউট যাচাই হয়েছে। স্টক সাময়িকভাবে সংরক্ষিত।',
-    boundary: 'পরবর্তী ধাপে অর্ডার ও পেমেন্ট তৈরি হবে। এখনো কোনো অর্ডার বা পেমেন্ট তৈরি হয়নি।',
+    payment: 'পেমেন্ট পদ্ধতি',
+    cod: 'ক্যাশ অন ডেলিভারি',
+    codHint: 'অর্ডার হাতে পেয়ে নগদে পরিশোধ করুন।',
+    online: 'অনলাইনে পরিশোধ',
+    onlineHint: 'পেমেন্ট প্রদানকারীর নিরাপদ পেজে পরিশোধ করুন।',
+    noPayment:
+      'এই অর্ডারের জন্য কোনো পেমেন্ট পদ্ধতি নেই। স্টোরে যোগাযোগ করুন বা কার্ট পরিবর্তন করুন।',
+    place: 'অর্ডার করুন',
+    placing: 'অর্ডার হচ্ছে…',
+    released: 'এই চেকআউট বাতিল হয়েছে এবং সংরক্ষণ ছেড়ে দেওয়া হয়েছে।',
+    expired: 'এই চেকআউটের মেয়াদ শেষ, সংরক্ষণ ছেড়ে দেওয়া হয়েছে।',
+    startAgain: 'আবার চেকআউট করতে কার্টে ফিরুন।',
+    completed: 'এই চেকআউট থেকে অর্ডার তৈরি হয়েছে।',
+    viewOrder: 'আপনার অর্ডার দেখুন',
+    cancelReview: 'তথ্য পরিবর্তন করুন',
     reservedUntil: 'সংরক্ষিত থাকবে',
     required: 'ডেলিভারির জন্য আবশ্যক',
     optional: 'ঐচ্ছিক',
@@ -107,7 +141,11 @@ export function CheckoutApp({ id, lang }: { id: string; lang: string }) {
   const [fields, setFields] = useState<Fields>({});
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
+  const [method, setMethod] = useState<PaymentMethod | ''>('');
   const key = useMemo(() => crypto.randomUUID(), []);
+  // One key per page visit: a retried submission replays the same order instead of a new one.
+  const orderKey = useMemo(() => crypto.randomUUID(), []);
+  const router = useRouter();
 
   useEffect(() => {
     let live = true;
@@ -116,6 +154,7 @@ export function CheckoutApp({ id, lang }: { id: string; lang: string }) {
         if (live) {
           setSession(value);
           setFields(initial(value));
+          if (value.order) router.push(`/orders/${value.order}` as Route);
         }
       })
       .catch((reason: unknown) => {
@@ -124,7 +163,7 @@ export function CheckoutApp({ id, lang }: { id: string; lang: string }) {
     return () => {
       live = false;
     };
-  }, [id]);
+  }, [id, router]);
 
   function field(name: string, label: string, options: { required?: boolean; type?: string } = {}) {
     return (
@@ -173,9 +212,39 @@ export function CheckoutApp({ id, lang }: { id: string; lang: string }) {
       value = await reviewCheckout(id, key);
       setSession(value);
       setFields(initial(value));
+      if (value.payment_methods.length === 1) setMethod(value.payment_methods[0] ?? '');
     } catch (reason) {
       setError(errorMessage(reason));
     } finally {
+      setBusy(false);
+    }
+  }
+
+  async function place() {
+    if (!method) return;
+    setBusy(true);
+    setError('');
+    try {
+      const order = await placeOrder(id, method, orderKey);
+      router.push(`/orders/${order.id}` as Route);
+    } catch (reason) {
+      setError(errorMessage(reason));
+      // A refused placement may have released the hold; show the checkout as it now is.
+      if (reason instanceof ApiError && reason.status === 409) {
+        setSession(await getCheckout(id).catch(() => session));
+      }
+      setBusy(false);
+    }
+  }
+
+  async function changeDetails() {
+    setBusy(true);
+    setError('');
+    try {
+      await releaseCheckout(id);
+      router.push('/cart' as Route);
+    } catch (reason) {
+      setError(errorMessage(reason));
       setBusy(false);
     }
   }
@@ -188,6 +257,12 @@ export function CheckoutApp({ id, lang }: { id: string; lang: string }) {
       </p>
     );
   const locked = session.status !== 'draft';
+  const reviewed = session.status === 'reviewed';
+  const ended = session.status === 'released' || session.status === 'expired';
+  const methodCopy: Record<PaymentMethod, [string, string]> = {
+    cod: [copy.cod, copy.codHint],
+    online: [copy.online, copy.onlineHint],
+  };
   const totals: Array<[string, string]> = [
     [copy.subtotal, session.item_subtotal],
     [copy.discount, `-${session.discount_total}`],
@@ -209,19 +284,74 @@ export function CheckoutApp({ id, lang }: { id: string; lang: string }) {
             {error}
           </p>
         )}
-        {locked ? (
-          <div
-            role="status"
-            className="rounded-base border border-store-line bg-success-bg p-5 text-success-fg"
-          >
-            <p className="mt-0 font-bold">{copy.reviewed}</p>
-            <p>
-              {copy.reservedUntil}:{' '}
-              {new Intl.DateTimeFormat(lang, { dateStyle: 'medium', timeStyle: 'short' }).format(
-                new Date(session.expires_at),
-              )}
+        {ended ? (
+          <div role="status" className="rounded-base border border-store-line bg-store-surface p-5">
+            <p className="mt-0 font-bold">
+              {session.status === 'expired' ? copy.expired : copy.released}
             </p>
-            <p className="mb-0">{copy.boundary}</p>
+            <Link href={'/cart' as Route} className={`font-semibold underline ${FOCUS}`}>
+              {copy.startAgain}
+            </Link>
+          </div>
+        ) : session.status === 'completed' ? (
+          <div role="status" className="rounded-base border border-store-line bg-store-surface p-5">
+            <p className="mt-0 font-bold">{copy.completed}</p>
+            {session.order && (
+              <Link
+                href={`/orders/${session.order}` as Route}
+                className={`font-semibold underline ${FOCUS}`}
+              >
+                {copy.viewOrder}
+              </Link>
+            )}
+          </div>
+        ) : reviewed ? (
+          <div className="flex flex-col gap-6">
+            <div
+              role="status"
+              className="rounded-base border border-store-line bg-success-bg p-5 text-success-fg"
+            >
+              <p className="mt-0 font-bold">{copy.reviewed}</p>
+              <p className="mb-0">
+                {copy.reservedUntil}:{' '}
+                {new Intl.DateTimeFormat(lang, { dateStyle: 'medium', timeStyle: 'short' }).format(
+                  new Date(session.expires_at),
+                )}
+              </p>
+            </div>
+            <fieldset className="flex flex-col gap-3 rounded-base border border-store-line bg-store-surface p-5">
+              <legend className="px-2 text-lg font-bold">{copy.payment}</legend>
+              {session.payment_methods.length === 0 && (
+                <p className="m-0 text-sm text-store-muted">{copy.noPayment}</p>
+              )}
+              {session.payment_methods.map((code) => (
+                <label
+                  key={code}
+                  className="flex cursor-pointer items-start gap-3 rounded-base border border-store-line p-4 has-[:checked]:border-store-ink"
+                >
+                  <input
+                    type="radio"
+                    name="payment_method"
+                    value={code}
+                    checked={method === code}
+                    onChange={() => setMethod(code)}
+                    className={`mt-1 ${FOCUS}`}
+                  />
+                  <span>
+                    <span className="block font-semibold">{methodCopy[code][0]}</span>
+                    <span className="block text-sm text-store-muted">{methodCopy[code][1]}</span>
+                  </span>
+                </label>
+              ))}
+            </fieldset>
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => void changeDetails()}
+              className={`self-start text-sm font-semibold underline disabled:opacity-50 ${FOCUS}`}
+            >
+              {copy.cancelReview}
+            </button>
           </div>
         ) : (
           <form onSubmit={(event) => void save(event)} className="flex flex-col gap-6">
@@ -330,6 +460,16 @@ export function CheckoutApp({ id, lang }: { id: string; lang: string }) {
             className={`mt-5 h-12 w-full rounded-base bg-store-action px-4 font-semibold text-store-on-action disabled:opacity-50 ${FOCUS}`}
           >
             {copy.review}
+          </button>
+        )}
+        {reviewed && session.order_creation_available && (
+          <button
+            type="button"
+            disabled={busy || !method}
+            onClick={() => void place()}
+            className={`mt-5 h-12 w-full rounded-base bg-store-action px-4 font-semibold text-store-on-action disabled:opacity-50 ${FOCUS}`}
+          >
+            {busy ? copy.placing : copy.place}
           </button>
         )}
       </aside>

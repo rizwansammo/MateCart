@@ -43,6 +43,7 @@ INSTALLED_APPS = [
     "commerce.inventory",
     # Phase 07: customer/guest carts and server-owned checkout sessions.
     "commerce.checkout",
+    "commerce.orders",
     # Phase 05: store content (pages, homepage sections). Theme and modules live in stores.
     "commerce.content",
 ]
@@ -151,6 +152,9 @@ EMAIL_TIMEOUT = 10
 # Dotted path to an SMS provider class (commerce.core.delivery.SmsProvider). Empty disables phone
 # sign-in. The managed gateway and per-store usage billing arrive in Phase 13.
 MATECART_SMS_PROVIDER = env("MATECART_SMS_PROVIDER", default="")
+# Dotted path to one online payment provider (commerce.orders.providers.PaymentProvider). Empty
+# keeps online payment unavailable; no gateway is selected yet (D-072).
+MATECART_PAYMENT_PROVIDER = env("MATECART_PAYMENT_PROVIDER", default="")
 # "Continue with Google" (OpenID Connect). Both empty keeps the option hidden.
 GOOGLE_OIDC_CLIENT_ID = env("GOOGLE_OIDC_CLIENT_ID", default="")
 GOOGLE_OIDC_CLIENT_SECRET = env("GOOGLE_OIDC_CLIENT_SECRET", default="")
@@ -243,6 +247,12 @@ SPECTACULAR_SETTINGS = {
         "CartStatusEnum": "commerce.checkout.models.CartStatus",
         "CheckoutStatusEnum": "commerce.checkout.models.CheckoutStatus",
         "CouponDiscountTypeEnum": "commerce.checkout.models.CouponDiscountType",
+        "OrderStatusEnum": "commerce.orders.models.OrderStatus",
+        "OrderPaymentStatusEnum": "commerce.orders.models.OrderPaymentStatus",
+        "PaymentMethodEnum": "commerce.orders.models.PaymentMethod",
+        "RefundStatusEnum": "commerce.orders.models.RefundStatus",
+        "RefundMethodEnum": "commerce.orders.models.RefundMethod",
+        "MerchantOrderTargetEnum": "commerce.orders.serializers.MERCHANT_TARGETS",
     },
 }
 API_SCHEMA_ENABLED = env.bool("DJANGO_API_SCHEMA_ENABLED", default=False)

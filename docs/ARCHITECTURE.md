@@ -180,6 +180,12 @@ Outside the database: cache keys use `tenant_cache_key(...)` (`tenant:<id>:...`)
   snapshot and stock hold for Phase 08. No order, payment, invoice, fulfilment or coupon redemption
   is created in Phase 07. Storefront components and APIs resolve everything locally without the
   Central Console, and enabled modules follow the preset rather than the visual theme (D-070).
+- **Orders and payments (Phase 08).** `commerce.orders` converts a reviewed checkout into one order
+  and owns the order state machine, order-owned stock reservations, slot bookings, coupon
+  redemption, payment intents, verified provider callbacks, refunds and invoices (D-071 to D-073,
+  [ORDERS.md](ORDERS.md)). Payment providers sit behind one adapter boundary; callbacks are the
+  only anonymous order endpoint and are authenticated by the adapter. Provider calls never run
+  inside database locks. No gateway is configured yet, so only cash on delivery is offered.
 
 ### Independence from the Central Console
 

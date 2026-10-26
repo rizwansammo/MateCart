@@ -2,7 +2,7 @@
 
 Phase 07 provides one server-authoritative cart and checkout flow for every preset and compatible
 theme. Phase 07.1 closes the final-review coupon, duplicate cart hold and delivery-slot capacity
-gaps. Phase 08 will create orders and payments; a reviewed checkout is deliberately not an order.
+gaps. Phase 08 turns a reviewed checkout into an order ([ORDERS.md](ORDERS.md)); review alone is never an order.
 
 ## Customer journey and APIs
 
@@ -50,13 +50,18 @@ not expired. A review therefore holds one place without mutating the confirmed-b
 Release or expiry removes that session from the active count. Other presets and digital-only
 checkouts do not participate, and an entirely unconfigured slot pool preserves non-slot checkout.
 
-## Expiry and Phase 08 handoff
+## Expiry and the order boundary (Phase 08)
 
 Active carts expire after 30 days and draft checkout sessions after 30 minutes. Successful review
 revalidates price, publication and sellable inventory, then holds tracked stock for 15 minutes via
 the inventory ledger. The tenant-aware `checkout.expire` task releases an abandoned hold and is
-safe to retry. Phase 08 must accept only a still-valid reviewed session, revalidate it, create the
-order, perform final allocation and decide when a coupon is redeemed. When an order uses a delivery
-slot, Phase 08 must lock that slot and the reviewed checkout, increment `bookings` exactly once and
-mark the checkout completed in the same transaction so the temporary hold becomes a confirmed
-booking without being double-counted.
+safe to retry.
+
+A reviewed checkout now exposes `payment_methods`, `order_creation_available` and, once converted,
+`order`. `POST /api/checkout/<id>/order/` (payment method and idempotency key) is the only way a
+checkout becomes an order. In one transaction it locks the cart, checkout, variants, coupon and
+slot, takes over the checkout's reservations as order allocations, redeems the coupon, turns the
+slot hold into `bookings + 1`, and marks the checkout `completed` and the cart `converted`. A
+completed checkout is ignored by release and expiry, so converted stock cannot be returned by
+checkout code. If placement is refused by a current rule, the hold is released and the customer
+returns to the cart. Released and expired checkouts are shown as such in the UI, never as reviewed.

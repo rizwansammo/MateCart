@@ -15,6 +15,7 @@ from django.db import transaction
 from commerce.audit.services import record_audit_event
 from commerce.core.domain import ConflictError, DomainError
 from commerce.identity.models import User
+from commerce.orders.providers import payment_provider
 
 from .models import StoreModule, StorePreset, StoreSettings
 
@@ -159,7 +160,8 @@ REGISTRY: tuple[ModuleSpec, ...] = (
         "Cash on delivery",
         "Pay when the order arrives.",
         "08",
-        False,
+        True,
+        default_on=ALL,
         requires=("cart_checkout",),
     ),
     ModuleSpec(
@@ -167,7 +169,7 @@ REGISTRY: tuple[ModuleSpec, ...] = (
         "Online payments",
         "Card and mobile wallet payments.",
         "08",
-        False,
+        True,
         requires=("cart_checkout",),
     ),
     ModuleSpec(
@@ -275,6 +277,12 @@ def set_module(*, key: str, enabled: bool | None, actor: User | None) -> ModuleS
     if preset not in spec.presets:
         raise ModuleError(
             "This module does not apply to the store's preset.", "module_not_applicable"
+        )
+    if enabled and key == "online_payments" and payment_provider() is None:
+        # An online payment option without a configured, verified provider would be a fake.
+        raise ConflictError(
+            "Online payments need a configured payment provider first.",
+            "payment_provider_unavailable",
         )
     with transaction.atomic():
         current = StoreModule.objects.select_for_update().filter(key=key).first()

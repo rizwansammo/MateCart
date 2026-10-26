@@ -3,8 +3,15 @@
 import {
   cart as decodeCart,
   checkout as decodeCheckout,
+  invoice as decodeInvoice,
+  order as decodeOrder,
+  paymentStart as decodePaymentStart,
   type Cart,
   type Checkout,
+  type Invoice,
+  type Order,
+  type PaymentMethod,
+  type PaymentStart,
 } from '@matecart/shared-contracts';
 
 import { authApi } from './auth-client';
@@ -57,4 +64,37 @@ export async function reviewCheckout(id: string, idempotencyKey: string): Promis
       idempotency_key: idempotencyKey,
     }),
   );
+}
+
+export async function releaseCheckout(id: string): Promise<Checkout> {
+  return decodeCheckout(await authApi.post<unknown>(`/api/checkout/${id}/release/`, {}));
+}
+
+export async function placeOrder(
+  checkoutId: string,
+  paymentMethod: PaymentMethod,
+  idempotencyKey: string,
+): Promise<Order> {
+  return decodeOrder(
+    await authApi.post<unknown>(`/api/checkout/${checkoutId}/order/`, {
+      payment_method: paymentMethod,
+      idempotency_key: idempotencyKey,
+    }),
+  );
+}
+
+export async function getOrder(id: string): Promise<Order> {
+  return decodeOrder(await authApi.get<unknown>(`/api/orders/${id}/`));
+}
+
+export async function cancelOrder(id: string): Promise<Order> {
+  return decodeOrder(await authApi.post<unknown>(`/api/orders/${id}/cancel/`, {}));
+}
+
+export async function startPayment(id: string): Promise<PaymentStart> {
+  return decodePaymentStart(await authApi.post<unknown>(`/api/orders/${id}/payment/`, {}));
+}
+
+export async function getInvoice(id: string): Promise<Invoice> {
+  return decodeInvoice(await authApi.get<unknown>(`/api/orders/${id}/invoice/`));
 }

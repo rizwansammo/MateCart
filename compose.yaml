@@ -35,6 +35,7 @@ x-commerce-api-environment: &commerce-api-environment
   DEFAULT_FROM_EMAIL: MateCart Dev Store <no-reply@matecart.test>
   # No SMS provider locally: phone sign-in stays disabled until a real gateway is configured.
   MATECART_SMS_PROVIDER: ''
+  MATECART_PAYMENT_PROVIDER: ''
   # Optional: Google OAuth client for local testing (docs/AUTHENTICATION.md). Empty hides the button.
   GOOGLE_OIDC_CLIENT_ID: ${MATECART_GOOGLE_OIDC_CLIENT_ID:-}
   GOOGLE_OIDC_CLIENT_SECRET: ${MATECART_GOOGLE_OIDC_CLIENT_SECRET:-}

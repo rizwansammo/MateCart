@@ -970,14 +970,6 @@ def reverse(*, movement: StockMovement, request: StockRequest) -> Operation:
         raise
 
 
-def _plain_tracking_only(product: Product) -> None:
-    if product.tracking_mode != TrackingMode.NONE:
-        raise DomainError(
-            "Batch and serial allocation for orders arrives with order fulfilment.",
-            "allocation_required",
-        )
-
-
 def reserve(
     *, variant: ProductVariant, location: StockLocation, quantity: Any, request: StockRequest
 ) -> Operation:
@@ -1060,14 +1052,61 @@ def release(
 
 
 def fulfil(
-    *, variant: ProductVariant, location: StockLocation, quantity: Any, request: StockRequest
+    *,
+    variant: ProductVariant,
+    location: StockLocation,
+    quantity: Any,
+    request: StockRequest,
+    serials: Sequence[str] = (),
 ) -> Operation:
-    """Dispatch reserved stock (Phase 08): on-hand and reserved fall together."""
+    """Dispatch reserved stock (order fulfilment, D-071): on-hand and reserved fall together.
+
+    Batch-tracked stock leaves from unexpired batches first-expired-first-out, chosen under the
+    variant lock at dispatch time, so an expired lot is never shipped. Serial-tracked stock names
+    the units shipped; each must be available here and becomes sold.
+    """
     amount = clean_quantity(variant, quantity)
+    serial_list = _clean_serials(serials)
 
     def body(operation: Operation, locked: ProductVariant, product: Product) -> None:
-        _plain_tracking_only(product)
         level = _lock_levels(locked, [location])[location.pk]
+        if product.tracking_mode == TrackingMode.SERIAL:
+            if len(serial_list) != amount:
+                raise ValidationError({"serials": ["Give one serial number per unit."]})
+            for index, row in enumerate(_serials_in_stock(locked, location, serial_list)):
+                row.status, row.location = SerialStatus.SOLD, None
+                row.save(update_fields=["status", "location", "updated_at"])
+                _record(
+                    level,
+                    operation=operation,
+                    movement_type=MovementType.FULFILLED,
+                    on_hand_delta=Decimal(-1),
+                    reserved_delta=Decimal(-1),
+                    request=request,
+                    first=index == 0,
+                    serial=row,
+                )
+            return
+        if serial_list:
+            raise ValidationError({"serials": ["This product is not tracked by serial number."]})
+        if product.tracking_mode == TrackingMode.BATCH:
+            remaining = amount
+            for batch_level in batches_by_expiry(locked, location):
+                take = min(remaining, batch_level.on_hand)
+                _record(
+                    level,
+                    operation=operation,
+                    movement_type=MovementType.FULFILLED,
+                    on_hand_delta=-take,
+                    reserved_delta=-take,
+                    request=request,
+                    first=not operation.movements,
+                    batch=batch_level.batch,
+                )
+                remaining -= take
+                if remaining == 0:
+                    return
+            raise InsufficientStock("There isn't enough unexpired stock to fulfil this.")
         _record(
             level,
             operation=operation,
@@ -1083,6 +1122,7 @@ def fulfil(
         variant=variant.pk,
         location=location.pk,
         quantity=amount,
+        serials=tuple(serial_list),
         reference=_reference(request),
     )
     return _execute(
@@ -1154,7 +1194,7 @@ def sellable_quantity(variant: ProductVariant) -> Decimal:
 
 def batches_by_expiry(variant: ProductVariant, location: StockLocation) -> list[BatchLevel]:
     """Unexpired batch stock at ``location``, first-expiring first (FEFO order, with undated
-    batches last). Allocation of orders to batches is Phase 08; this is its foundation."""
+    batches last). ``fulfil`` takes batch stock in this order at dispatch."""
     today = store_today()
     return list(
         BatchLevel.objects.filter(batch__variant=variant, location=location, on_hand__gt=0)

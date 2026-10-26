@@ -156,7 +156,7 @@ Update the status in the same change that completes a feature.
 - [x] Explicit Phase 08 boundary: reviewed checkout creates no order, payment, invoice or redemption
 - [x] Additive migration and validated OpenAPI/shared contracts; all local gates passed (990 tests)
 
-## Checkout integrity corrections (Phase 07.1; acceptance pending)
+## Checkout integrity corrections (Phase 07.1; accepted and closed)
 
 - [x] Revalidate and lock the current coupon at review; recalculate totals before reserving stock
 - [x] Reject disabled, expired, not-yet-active, exhausted, under-minimum, currency-incompatible or malformed discounts
@@ -169,16 +169,38 @@ Update the status in the same change that completes a feature.
 - [x] Create free Standard delivery only for a store with zero shipping methods; never bypass explicit restrictions
 - [x] No model, migration, API contract, dependency, order, payment, courier or UI feature change
 - [x] Focused checks and 39 checkout tests passed; all final gates passed (1,007 tests total)
-- [ ] Owner commit/push, GitHub CI and independent acceptance; Phase 07 remains open until then
+- [x] Accepted: `12f2d5b`, GitHub Actions 40366676323, 4/4 jobs, 1,007 tests; Phase 07 closed
+
+## Orders, payments and invoices (Phase 08; implemented locally, acceptance pending)
+
+- [x] Order, OrderItem, OrderStatusEvent (append-only, trigger), OrderAllocation, DocumentSequence; migrations `orders.0001`/`0002`
+- [x] One order per reviewed checkout (DB unique), idempotent placement key, concurrent submissions create one order
+- [x] Price, item, contact, delivery, slot and coupon snapshots immune to later catalogue changes
+- [x] Explicit state machine (pending_payment, placed, confirmed, processing, cancelled); merchant, customer and system edges; audited
+- [x] Checkout hold converted to an order-owned reservation without a second ledger movement; expiry cannot release it
+- [x] Cancellation releases stock, voids the coupon redemption and returns a future slot booking exactly once
+- [x] Fulfilment handoff for Phase 09: FEFO unexpired batches, named serials, single deduction per allocation
+- [x] Grocery slot hold becomes one confirmed booking at placement; capacity rechecked under lock
+- [x] Coupon redeemed once at placement (COD and online), usage limit enforced under lock, voided on cancellation
+- [x] Cash on delivery: physical-only, unpaid until the merchant records collection; no fake transaction
+- [x] Provider-neutral payment boundary (initiate, authenticated callback, refund); test fake only; production refuses `tests.*`
+- [x] Callbacks: signature-authenticated, deduplicated by event id and transaction ref, amount/currency/reference checked, out-of-order safe
+- [x] Unpaid online orders expire after 30 minutes (Celery + on read); late verified payment kept for refund, never revives the order
+- [x] Refunds: provider or manual (COD), capped by verified money, idempotent, pending/failed never shown as refunded, `orders.manage` + recent sign-in
+- [x] Invoice issued once at placement (`INV-…`), frozen seller/buyer/totals, owner-scoped, printable, honest payment status
+- [x] Checkout payment-method choice, Place order, order confirmation, pay/retry/cancel, invoice page; English and Bangla
+- [x] Released/expired checkouts no longer display as reviewed (Phase 07 review note)
+- [ ] Real online gateway: no provider selected or configured; online payment stays unavailable (owner decision)
+- [ ] Owner commit/push, GitHub CI and independent acceptance
 
 ## Carried into Phases 07 and 08 (from Phase 04.1)
 
 - [x] Phase 07: validate batch expiry when cart eligibility and checkout reservation are checked
-- [ ] Phase 08: revalidate batch expiry before order allocation and fulfilment
-- [ ] Phase 08: prefer an eligible unexpired batch when reserved stock becomes unusable
-- [ ] Phase 08: handle insufficient replacement stock through an explicit order resolution state
-- [ ] Phase 08: never fulfil expired goods
-- [ ] Phase 08: keep reservations, stock and orders consistent; prevent duplicate allocation and deduction
+- [x] Phase 08: revalidate batch expiry before order allocation and fulfilment
+- [x] Phase 08: prefer an eligible unexpired batch when reserved stock becomes unusable (location-level reservation; FEFO at dispatch)
+- [x] Phase 08: handle insufficient replacement stock explicitly (`409 stock_expired`, hold released, no order)
+- [x] Phase 08: never fulfil expired goods (`fulfil` takes unexpired lots FEFO)
+- [x] Phase 08: keep reservations, stock and orders consistent; prevent duplicate allocation and deduction
 
 ## Commerce core
 
@@ -190,7 +212,7 @@ Update the status in the same change that completes a feature.
 - [x] Five presets with distinct visual identities; white-label branding; theming (05; storefront rendering 06)
 - [x] Storefront: discovery, search, filters, product detail, responsive, bilingual EN/BN (06; acceptance pending)
 - [x] Cart, guest checkout, addresses, basic coupons, shipping, taxes, delivery options, price calculation, batch-expiry check and temporary checkout reservation (07; acceptance pending)
-- [ ] Order state machine, final stock allocation, expiry-safe batch allocation, payments, COD, refunds, callbacks, invoices (08)
+- [~] Order state machine, final stock allocation, expiry-safe batch allocation, payments, COD, refunds, callbacks, invoices (08: implemented; real online gateway not configured)
 - [ ] Courier integrations, tracking, COD reconciliation (09)
 - [ ] Accounts, order history, reviews, returns, exchanges, warranties, support (10)
 - [ ] Merchant dashboard: operations, products, orders, inventory, customers, reports, staff, settings (11)
@@ -202,7 +224,7 @@ Update the status in the same change that completes a feature.
 - [x] Authentication rate-limiting foundation (03)
 - [ ] General bot protection and edge limits (12, 17, 18)
 - [~] CDN compatibility (06: per-request HTML, cacheable public media; shared HTML caching 17)
-- [x] Checkout duplicate-submission and temporary-reservation overselling protection (07); final order/allocation protection remains 08
+- [x] Checkout duplicate-submission and temporary-reservation overselling protection (07) and one-order-per-checkout, single conversion and single deduction (08)
 - [ ] Resource-based scaling decisions; client-owned VPS limits respected (17, 18)
 - [ ] Distinguish rolling 24-hour visitors from concurrent active users (12, 16)
 
@@ -255,7 +277,7 @@ Delivery requirements:
 
 ## Other pending features (must not be dropped)
 
-- [ ] Delivery address selection and order recipient snapshots (07/08)
+- [x] Delivery address selection and order recipient snapshots (07/08)
 - [ ] Multiple customer addresses and a default address, separate recipient phone/name (10)
 
 - [ ] Consistent customer and merchant order synchronisation (08, 10, 11)
@@ -264,7 +286,7 @@ Delivery requirements:
 - [ ] Fake COD order prevention and courier return risk analysis (09)
 - [ ] WooCommerce and Shopify migration; bulk product import (15)
 - [ ] Secure digital download delivery and buyer libraries (10)
-- [ ] Advanced invoice customisation and QR support (08)
+- [ ] Advanced invoice customisation and QR support (basic printable invoice in 08; customisation and QR deferred)
 - [ ] Privacy consent and advanced marketing tracking (12)
 - [ ] Reliable cross-module reporting (11)
 - [ ] Full production-quality type safety and tests (ongoing; enforced from 01; verified in 18)

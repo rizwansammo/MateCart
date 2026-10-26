@@ -1,12 +1,11 @@
 # Progress and handoff
 
-Updated: 2026-10-26 (Asia/Dhaka). **Phase 06.2 — Multi Theme Architecture Readiness is
-accepted and closed at `cd4ca9112b7c8b525869d14ef97c7406f0ba5365` (GitHub Actions
-40322387368: 4/4 jobs, 960 tests). Phase 07 — Cart & Checkout was pushed at
-`9e5a7343d9dbe1e647286b7a2ddcadb14f32d11e` (GitHub Actions 40359693463: 4/4 jobs,
-990 tests). Independent review requested three Phase 07.1 integrity corrections; they are
-implemented and locally verified, with owner commit, CI and independent acceptance pending.**
-Phases 01–06 (with 02.1, 02.2, 03.1, 04.1, 05.1, 06.1 and 06.2) are accepted and closed.
+Updated: 2026-10-27 (Asia/Dhaka). **Phase 07 — Cart & Checkout is accepted and closed with
+Correction 07.1 at `12f2d5b14c7a744126764c86e116d02d69f56abe` (GitHub Actions 40366676323: 4/4
+jobs, 1,007 tests, 0 failures). Phase 08 — Orders, Payments & Invoices is implemented locally by
+Claude Code; owner commit, CI and independent acceptance are pending. No real online payment
+gateway is configured.** Phases 01–07 (with 02.1, 02.2, 03.1, 04.1, 05.1, 06.1, 06.2 and 07.1) are
+accepted and closed.
 The managed theme marketplace remains deferred.
 
 ## Accepted baseline and boundaries
@@ -26,12 +25,79 @@ The managed theme marketplace remains deferred.
 | Phase 06        | Implemented and pushed (GitHub-verified): `46c2e1af3078a46e1531c6783304f3430dacfbf0`, run 40311886344, SUCCESS 4/4 jobs, 894 tests (679 commerce, 57 control, 39 contracts, 55 UI, 61 web, 3 Node). Review requested the 06.1 corrections.                |
 | Correction 06.1 | Accepted and Phase 06 closed: `df0490f65a80f7b0a883bdfb9278808302d21fa2`, run 40315255063, 4/4 jobs, 913 tests (682 commerce, 57 control, 40 contracts, 55 UI, 76 web, 3 Node).                                                                           |
 | Phase 06.2      | **Accepted and closed:** `cd4ca9112b7c8b525869d14ef97c7406f0ba5365`, run 40322387368, 4/4 jobs, 960 tests. Supplementary architecture subphase before Phase 07; no additional main phase.                                                                 |
+| Phase 07        | Implemented and pushed: `9e5a7343d9dbe1e647286b7a2ddcadb14f32d11e`, run 40359693463, 4/4 jobs, 990 tests. Review requested the 07.1 corrections.                                                                                                          |
+| Correction 07.1 | **Accepted and Phase 07 closed:** `12f2d5b14c7a744126764c86e116d02d69f56abe`, run 40366676323, 4/4 jobs, 1,007 tests, 0 failures.                                                                                                                         |
+| Phase 08        | Implemented locally (this session); owner commit, CI and independent acceptance pending.                                                                                                                                                                  |
 | Architecture    | Dedicated single-tenant deployment, tenant-aware modular monolith, future hybrid only if approved; commerce/control independent.                                                                                                                          |
 | Product         | Private beta, manual onboarding. Public commercial signup/subscriptions/billing deferred. Public customer registration is authorized.                                                                                                                     |
 | Prototype       | MateCart-UI strictly read-only; no edits/build/install (HEAD `9ff1361`, clean).                                                                                                                                                                           |
 | Roadmap         | All 19 main phases preserved; 02.1/02.2/03.1 are corrective subphases, not additional main phases.                                                                                                                                                        |
 
-## Phase 07 cart and checkout (pushed; Phase 07.1 acceptance pending)
+## Phase 08 orders, payments and invoices (implemented locally; acceptance pending)
+
+Decisions D-071 to D-073; full description in [ORDERS.md](ORDERS.md).
+
+- **Order placement.** New `commerce.orders` app. `POST /api/checkout/<id>/order/` converts only a
+  live reviewed checkout, atomically and idempotently (placement key; DB unique per checkout; a
+  different key gets `409 checkout_completed`; drafts get `checkout_not_reviewed`, expired/released
+  get `checkout_expired`). Per-store numbers `ORD-000001`/`INV-000001`. Items, prices, contact,
+  delivery, slot and coupon are snapshotted; items and invoices refuse updates.
+- **State machine.** `pending_payment`/`placed` → `confirmed` → `processing`, any → `cancelled`.
+  Online orders are confirmed only by verified payment; merchants confirm COD. Append-only
+  `OrderStatusEvent` (ORM guard plus PostgreSQL trigger) and audit events on every edge.
+- **Stock.** The checkout hold becomes an order-owned `OrderAllocation` with no second ledger
+  movement; checkout release/expiry ignores completed checkouts. Batch holds are rechecked against
+  unexpired lots (other unexpired lots replace one that expired; otherwise `409 stock_expired`, hold
+  released, no order). Cancellation releases once. `fulfil_order_stock()` is the Phase 09 dispatch
+  handoff; `inventory.fulfil` now deducts batch stock FEFO from unexpired lots and requires named
+  serials. Digital/untracked/pre-order lines write no movements.
+- **Slots and coupons.** Slot hold → `bookings + 1` under the slot lock; coupon redeemed once at
+  placement (usage limit under lock); cancellation voids the redemption and returns a future booking.
+- **Payments.** COD implemented and on by default for all presets (all-physical orders only), unpaid
+  until the merchant records collection. Provider-neutral adapter boundary with
+  `MATECART_PAYMENT_PROVIDER` (empty); authenticated, deduplicated, amount/currency/reference-checked
+  callbacks; 30-minute payment window with Celery and on-read expiry; late payments kept for refund.
+  **No real gateway is selected or configured**: online payment is not offered, the
+  `online_payments` module refuses to switch on, EMI stays unavailable. All online behaviour was
+  tested only with the isolated `tests.fakes.FakePaymentProvider`.
+- **Refunds and invoices.** Merchant refunds (`orders.manage` + recent sign-in), capped by verified
+  money, idempotent, pending/failed never counted; COD refunds are recorded as manual. One invoice
+  per order issued at placement, frozen seller/buyer/totals, printable page, honest payment status.
+- **UI.** Checkout shows payment methods and Place order after review; released/expired checkouts
+  now show their real state (the Phase 07 review note); completed checkouts redirect to the order.
+  New `/orders/<id>` (confirmation, pay/retry, refresh, cancel, invoice link) and
+  `/orders/<id>/invoice` (printable). English and Bangla; shared components for all five presets.
+- **APIs/contracts.** Customer: order get/cancel/payment/invoice; anonymous provider callback; merchant
+  list/detail/transition/cod-collection/refunds under `/api/manage/orders/`. OpenAPI regenerated;
+  `packages/shared-contracts` adds `orders.ts` and checkout `payment_methods`/`order`.
+- **Files.** New: `commerce/orders/` (models, services, payments, providers, serializers, views,
+  urls, manage_urls, tasks, migrations 0001/0002), `tests/test_orders.py`,
+  `tests/test_orders_concurrency.py`, `packages/shared-contracts/src/orders.ts` (+ test),
+  `components/store/order-app.tsx`, `invoice-app.tsx`, `order.test.tsx`, routes
+  `(store)/orders/[id]` and `[id]/invoice`, `docs/ORDERS.md`. Changed: inventory `fulfil`, checkout
+  serializer, module registry, settings/urls/compose (`MATECART_PAYMENT_PROVIDER`), test fakes,
+  checkout UI/tests/client, migration verification script, OpenAPI and docs.
+- **Verification.** Final gates: `pnpm check`, `pnpm build`, `pnpm api:lint`, `pnpm api:test`,
+  `pnpm api:schema` (validated, no warnings), `pnpm health` (all six checks) and
+  `docker compose config --quiet` passed. Suites: **1,045 tests, 0 failures**: commerce API 762
+  (25 new: 22 order/payment/refund/invoice tests and 3 real-PostgreSQL concurrency tests), control
+  API 57, shared contracts 50, shared UI 76, commerce-web 95, Node 5. Migration workflow
+  (`scripts/verify_auth_migrations.py`, now including `orders`): fresh forward, reversal to zero,
+  reapply and drift check passed for both APIs on temporary databases; `orders.0001`/`0002` applied
+  additively to the development database; `makemigrations --check` clean; SQL reviewed for the
+  one-order-per-checkout, single-conversion and one-open-intent constraints. The worker was restarted
+  to register `orders.expire_payment`. Live smoke (Django HTTP stack inside the API container against
+  the development database; the test client skips CSRF, which is covered by the existing suites):
+  add, review, `payment_methods` = `[cod]`, online refused (400), COD placed (201,
+  `ORD-000002`/`INV-000002`, unpaid), same-key replay returned the same order, stock reserved 1 and
+  not deducted, owner 200 and stranger 403, invoice unpaid with 0 received, unconfigured callback
+  404, cancel released the reservation. An aborted first smoke run left `ORD-000001`; it was
+  cancelled through the service, so no reservation remains, and both "Phase 08 Smoke Tea" products
+  are archived. `/orders/<id>` and `/orders/<id>/invoice` answer 200 on the dev server. **Not
+  verified:** any real payment gateway or sandbox (none is configured), a manual browser visual pass
+  of the new pages (covered by component tests only), and live CSRF on the new endpoints.
+
+## Phase 07 cart and checkout (accepted and closed with 07.1)
 
 - **Cart and ownership.** New `commerce.checkout` app with persistent guest/customer carts,
   opaque hashed guest credentials, 30-day expiry, sign-in association/merge, unique lines,
@@ -65,7 +131,7 @@ The managed theme marketplace remains deferred.
   No manual browser visual pass was performed; responsive/theme behavior is covered by component
   tests and the live pages are running for owner review.
 
-## Phase 07.1 checkout integrity corrections (implemented locally; acceptance pending)
+## Phase 07.1 checkout integrity corrections (accepted and closed)
 
 - **Coupon review revalidation.** The selected coupon was validated while editing a checkout but
   not at its final review transition. Review now locks and reloads the coupon, checks its current
@@ -550,8 +616,18 @@ contract tests. Plus 7 live catalogue and 12 live authentication smoke checks.
 
 ## Remaining scope, limits and next step
 
-- **Next step:** owner review of the Phase 07.1 diff and the local URLs, then commit/push, GitHub CI
-  and independent acceptance. Do not enter Phase 08 or mark Phase 07 closed before that acceptance.
+- **Next step:** owner review of the Phase 08 diff and the local URLs (place a COD order from
+  `/checkout/<id>`, then open `/orders/<id>` and its invoice), then commit/push, GitHub CI and
+  independent acceptance. Do not start Phase 09 or mark Phase 08 accepted before that.
+- **Owner decision needed for online payment:** choose a gateway (none is selected). Its adapter,
+  secrets and real sandbox testing are the remaining provider-dependent Phase 08 acceptance items;
+  until then online payment, provider refunds and EMI stay unavailable.
+- Phase 08 limits (documented, not defects): guest order access covers the browser's latest guest
+  order (`mc_order`); reservations stay location-level, so placement does not relocate stock
+  between locations; orders with a zero total cannot be placed (no payment method applies);
+  provider refund completion arrives only via the refund call (no refund callbacks yet); invoices
+  have no QR, tax-ID or layout customisation; there is no merchant order UI (Phase 11) and no
+  order emails (Phase 13).
   The managed theme marketplace (showcase, licensing, console assignment UI) remains deferred.
 - Phase 06.2 limits (documented, not defects): the theme catalogue is kept in three places by
   design (API validation, shared identities, visual definitions), guarded by tests; assignment
@@ -574,8 +650,8 @@ contract tests. Plus 7 live catalogue and 12 live authentication smoke checks.
   `available` (on-hand minus reserved), the public catalogue shows sellable stock.
 - Known limits: no public catalogue rate limits/CDN, no image resizing or malware
   scanning (only images and PDFs accepted; PDFs download), public media may stay in
-  shared caches for five minutes after unpublishing, checkout reservations are temporary and
-  location-level while final FEFO batch allocation remains Phase 08, no merchant catalogue UI (11).
+  shared caches for five minutes after unpublishing, order reservations are
+  location-level with FEFO batch selection at dispatch (Phase 09 calls the handoff), no merchant catalogue UI (11).
 - Carried forward: live Google/SMS/SMTP acceptance; production DB roles and proxy
   hardening (17); final security, load and recovery audit (18); font (Q1) and Redis
   licence (Q2) questions.

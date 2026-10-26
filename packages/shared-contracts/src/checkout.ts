@@ -1,6 +1,7 @@
 /** Runtime-validated cart and checkout responses. Decimal values remain strings. */
 import { array, boolean, number, object, string, type Decoder } from './auth';
 import { decimal, nullable } from './catalog';
+import { paymentMethod, type PaymentMethod } from './orders';
 
 function oneOf<T extends string>(values: readonly T[]): Decoder<T> {
   return (value) => {
@@ -132,7 +133,9 @@ export interface Checkout {
   delivery_slots: DeliverySlot[];
   selected_shipping_method: string | null;
   selected_delivery_slot: string | null;
+  payment_methods: PaymentMethod[];
   order_creation_available: boolean;
+  order: string | null;
 }
 
 function checkoutLine(value: unknown): CheckoutLine {
@@ -201,6 +204,8 @@ export function checkout(value: unknown): Checkout {
     delivery_slots: array(o.delivery_slots, deliverySlot),
     selected_shipping_method: nullable(string)(o.selected_shipping_method),
     selected_delivery_slot: nullable(string)(o.selected_delivery_slot),
+    payment_methods: array(o.payment_methods, paymentMethod),
     order_creation_available: boolean(o.order_creation_available),
+    order: nullable(string)(o.order),
   };
 }

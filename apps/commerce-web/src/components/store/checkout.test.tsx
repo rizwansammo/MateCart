@@ -16,10 +16,13 @@ const api = vi.hoisted(() => ({
   getCheckout: vi.fn(),
   updateCheckout: vi.fn(),
   reviewCheckout: vi.fn(),
+  releaseCheckout: vi.fn(),
+  placeOrder: vi.fn(),
   CART_UPDATED_EVENT: 'matecart:cart-updated',
 }));
 
-vi.mock('next/navigation', () => ({ useRouter: () => ({ push }) }));
+const router = { push };
+vi.mock('next/navigation', () => ({ useRouter: () => router }));
 vi.mock('@/lib/checkout-client', () => api);
 
 const cart: Cart = {
@@ -85,7 +88,9 @@ const checkout: Checkout = {
   delivery_slots: [],
   selected_shipping_method: null,
   selected_delivery_slot: null,
+  payment_methods: ['cod'],
   order_creation_available: false,
+  order: null,
 };
 
 describe('cart and checkout', () => {
@@ -134,15 +139,48 @@ describe('cart and checkout', () => {
     expect(screen.getAllByText('৳300').length).toBeGreaterThan(0);
   });
 
-  it('states the Phase 08 boundary after review without claiming an order', async () => {
+  it('places a cash-on-delivery order after review and opens it', async () => {
     const user = userEvent.setup();
-    const reviewed = { ...checkout, status: 'reviewed' as const };
-    api.updateCheckout.mockResolvedValue(checkout);
+    const reviewed = { ...checkout, status: 'reviewed' as const, order_creation_available: true };
     api.reviewCheckout.mockResolvedValue(reviewed);
+    api.placeOrder.mockResolvedValue({ id: 'order-1' });
     render(<CheckoutApp id="checkout-1" lang="en" />);
-    await screen.findByRole('heading', { name: 'Checkout' });
-    await user.click(screen.getByRole('button', { name: 'Review and reserve stock' }));
-    expect(await screen.findByText(/No order or payment has been created/)).toBeInTheDocument();
-    expect(api.reviewCheckout).toHaveBeenCalledWith('checkout-1', expect.any(String));
+    await user.click(await screen.findByRole('button', { name: 'Review and reserve stock' }));
+    expect(await screen.findByRole('radio', { name: /Cash on delivery/ })).toBeChecked();
+    await user.click(screen.getByRole('button', { name: 'Place order' }));
+    await waitFor(() =>
+      expect(api.placeOrder).toHaveBeenCalledWith('checkout-1', 'cod', expect.any(String)),
+    );
+    expect(push).toHaveBeenCalledWith('/orders/order-1');
+  });
+
+  it('never shows an expired or released checkout as reviewed', async () => {
+    api.getCheckout.mockResolvedValue({ ...checkout, status: 'expired' });
+    const { unmount } = render(<CheckoutApp id="checkout-1" lang="en" />);
+    expect(await screen.findByText(/checkout expired/)).toBeInTheDocument();
+    expect(screen.queryByText(/Stock is reserved/)).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Place order' })).not.toBeInTheDocument();
+    unmount();
+    api.getCheckout.mockResolvedValue({ ...checkout, status: 'released' });
+    render(<CheckoutApp id="checkout-1" lang="bn" />);
+    expect(await screen.findByText(/বাতিল হয়েছে/)).toBeInTheDocument();
+  });
+
+  it('offers no order button when no payment method can complete the checkout', async () => {
+    api.getCheckout.mockResolvedValue({
+      ...checkout,
+      status: 'reviewed',
+      payment_methods: [],
+      order_creation_available: false,
+    });
+    render(<CheckoutApp id="checkout-1" lang="en" />);
+    expect(await screen.findByText(/No payment method is available/)).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Place order' })).not.toBeInTheDocument();
+  });
+
+  it('redirects a completed checkout to its order', async () => {
+    api.getCheckout.mockResolvedValue({ ...checkout, status: 'completed', order: 'order-9' });
+    render(<CheckoutApp id="checkout-1" lang="en" />);
+    await waitFor(() => expect(push).toHaveBeenCalledWith('/orders/order-9'));
   });
 });

@@ -752,6 +752,79 @@ idempotency_conflict`. The free-text reason, actor and a batch's supplier
   bootstrap default a merchant can replace with store-owned configuration; it makes no carrier or
   country-specific claim.
 
+### D-071 · Order placement, state machine and stock ownership (2026-10-27, Phase 08)
+
+- **Placement.** `POST /api/checkout/<id>/order/` turns a reviewed, unexpired checkout into one
+  order in one transaction (locks: cart, checkout, variants, coupon, slot, number sequence; the
+  checkout-review order). A database unique `(tenant, checkout)` and the placement key make it
+  idempotent: the same key replays the order; another key gets `409 checkout_completed`. Items,
+  prices, contact, delivery, slot and coupon are snapshotted; `OrderItem` and `Invoice` refuse
+  updates. Numbers come from a locked per-store `DocumentSequence` (`ORD-000001`, `INV-000001`).
+- **Stock lifecycle.** Three stages: checkout hold (Phase 07 `reserved` movement), order-owned
+  reservation (`OrderAllocation`, created from each `CheckoutReservation` with no new ledger
+  movement; unique per source reservation), and deduction at dispatch. Checkout release/expiry
+  ignores a completed checkout, so a converted hold can never be released by it. Cancellation
+  releases each allocation once (state guard + idempotency key). `fulfil_order_stock()` is the
+  Phase 09 handoff: it deducts each allocation once; `inventory.fulfil` now takes batch stock from
+  unexpired lots first-expired-first-out at dispatch and requires named serials (sold once).
+  Placement does not deduct stock and is not dispatch.
+- **Batch expiry at placement.** Reservations remain location-level (D-060), so any unexpired lot
+  at the location is the replacement for one that expired since review. Placement requires
+  unexpired lot stock to cover already-placed allocations plus this one; otherwise
+  `409 stock_expired`. A rule that fails at placement (`stock_expired`, `coupon_unavailable`,
+  `delivery_slot_unavailable`, `item_unavailable`) rolls back and then releases the checkout hold,
+  so no order exists and nothing stays reserved. Cross-location relocation is not attempted.
+- **States.** `pending_payment` (online) and `placed` (COD) → `confirmed` → `processing`; any of
+  those → `cancelled` (terminal). Online orders are confirmed only by a verified payment; merchants
+  confirm COD orders. Customers may cancel unpaid `placed`/`pending_payment` orders. Every edge
+  writes an append-only `OrderStatusEvent` (ORM guard and PostgreSQL trigger, `orders.0002`) and an
+  audit event. Shipping and delivery states belong to Phase 09. Fulfilled orders cannot be cancelled.
+- **Slots and coupons.** The reviewed checkout's slot hold becomes `bookings + 1` under the slot
+  lock (capacity rechecked); completing the checkout stops it counting as a hold. The coupon is
+  redeemed at placement for every payment method (`CouponRedemption`, unique per order, usage
+  limit rechecked under the coupon lock), so unpaid online orders cannot oversubscribe it.
+  Cancellation (including payment expiry) voids the redemption and returns a booking whose slot
+  has not started. Refunds do not restore coupon use.
+- **Guest access.** A guest order gets its own 256-bit credential in the HttpOnly `mc_order`
+  cookie (digest stored); a replay by the checkout owner re-issues it. It covers the latest guest
+  order in that browser; guest order lookup by email belongs to Phases 10/13. Customers see only
+  their own orders. An order number alone never grants access.
+
+### D-072 · Payment boundary, cash on delivery and callbacks (2026-10-27, Phase 08)
+
+- **Provider-neutral.** No gateway has been selected by the owner. `MATECART_PAYMENT_PROVIDER`
+  (empty by default) names one adapter implementing `initiate`, `authenticate_callback` and
+  `refund`; adapters own credentials, signatures and gateway validation calls. Production refuses
+  `tests.*`. Without a provider, checkout never offers online payment and the `online_payments`
+  module refuses to switch on (`409 payment_provider_unavailable`). EMI stays unavailable.
+- **COD.** `cash_on_delivery` is implemented and on by default for every preset. It is offered
+  only for all-physical orders with a total above zero. A COD order has an `awaiting_collection`
+  intent and stays `unpaid`; the merchant records collection (`orders.manage`, confirmed orders,
+  once), which creates the only COD transaction. Courier COD reconciliation is Phase 09.
+- **Online flow.** An online order waits `pending_payment` for 30 minutes (Celery task and on read).
+  Starting payment creates or reuses one open intent and calls the provider outside database locks;
+  a timeout returns `503` and is retried safely. Only an authenticated callback changes money: it is
+  deduplicated by event id (`ProviderCallback`, body digest and allowlisted summary only) and by
+  transaction reference (unique per provider), checked against the intent's reference, amount and
+  currency, and applied under the order lock. Failures after success are ignored; a success after a
+  failure or after expiry is recorded. A late payment never revives a cancelled order; it is kept as
+  paid for a refund. Browser return URLs change nothing.
+
+### D-073 · Refunds and invoices (2026-10-27, Phase 08)
+
+- **Refunds.** Merchant only (`orders.manage` plus a recent sign-in, like D-048). Each refund is tied
+  to one verified payment or COD collection and capped by its unrefunded amount, counting pending
+  refunds; the order's `amount_refunded <= amount_paid` is a database constraint. The idempotency
+  key returns the same refund; a different amount with that key conflicts. Provider refunds stay
+  `pending` until the provider confirms; failures are `failed` and never counted. COD refunds are
+  `manual`: the merchant attests the cash was returned. Returns and exchanges are Phase 10.
+- **Invoices.** One invoice per order, issued at placement in the same transaction, with frozen
+  seller (store name, legal name, contact) and buyer details and totals; lines are the immutable
+  order items. Payment status and received/refunded amounts come from verified records, so an unpaid
+  invoice never claims payment. Presentation is a printable page (browser print/PDF) without new
+  dependencies, independent of the storefront theme. No tax IDs, registration numbers, signatures
+  or QR codes are invented; customisation and QR remain deferred.
+
 ## Open questions for the owner
 
 | #   | Question                                                                                                                                   | Status                                                                                                    | Needed by |

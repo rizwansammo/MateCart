@@ -12,8 +12,8 @@
 | 04  | Product & Inventory Engine                  | A — Foundation                | **Accepted and closed**, including 04.1 (`8290fe4`, CI 40249765179: 4/4, 735 tests).      |
 | 05  | Presets, Themes & Branding                  | B — Commerce Application      | **Accepted and closed**, including 05.1 (`613cd49`, CI 40301529264: 4/4, 827 tests).      |
 | 06  | Customer Storefront                         | B — Commerce Application      | **Accepted and closed**, including 06.2 (`cd4ca91`, CI 40322387368: 4/4, 960 tests).      |
-| 07  | Cart & Checkout                             | B — Commerce Application      | **Implemented locally — acceptance pending**                                              |
-| 08  | Orders, Payments & Invoices                 | B — Commerce Application      | Pending                                                                                   |
+| 07  | Cart & Checkout                             | B — Commerce Application      | **Accepted and closed**, including 07.1 (`12f2d5b`, CI 40366676323: 4/4, 1,007 tests).    |
+| 08  | Orders, Payments & Invoices                 | B — Commerce Application      | **Implemented locally — acceptance pending** (no live payment gateway configured)         |
 | 09  | Fulfillment & Courier                       | B — Commerce Application      | Pending                                                                                   |
 | 10  | Customer Accounts & After-sales             | B — Commerce Application      | Pending                                                                                   |
 | 11  | Merchant Management Dashboard               | B — Commerce Application      | Pending                                                                                   |
@@ -140,14 +140,20 @@ Results: [PROGRESS.md](PROGRESS.md).
 
 Cart, guest checkout, addresses, coupons, shipping, taxes, delivery options and slots, price calculation. Duplicate-submission and overselling protection.
 
-Implemented in the working tree: server-owned guest/customer carts, checkout snapshots and
-review, basic coupons, store-configured shipping/tax/slots, short-lived inventory reservations,
-shared responsive storefront UI and the explicit Phase 08 order/payment boundary. Acceptance
-still requires the owner commit, push, CI and independent review.
+Accepted and closed with Correction 07.1 (`12f2d5b`, GitHub Actions 40366676323, 4/4 jobs,
+1,007 tests): server-owned carts, checkout snapshots and review, basic coupons, store-configured
+shipping/tax/slots, short-lived inventory reservations and the shared storefront checkout UI.
 
 ### Phase 08 — Orders, Payments & Invoices
 
 Order state machine, stock reservation, payments (gateway integrations), COD, refunds, payment callbacks and idempotency, invoice generation.
+
+Implemented in the working tree (see `docs/ORDERS.md`, D-071 to D-073): order placement from a
+reviewed checkout, state machine and append-only history, order-owned stock reservations with a
+FEFO fulfilment handoff, slot booking and coupon redemption, cash on delivery, a provider-neutral
+payment boundary with verified idempotent callbacks, refunds and printable invoices. No real
+payment gateway is selected or configured, so online payment remains unavailable. Acceptance
+requires the owner commit, push, CI and independent review.
 
 ### Phase 09 — Fulfillment & Courier
 

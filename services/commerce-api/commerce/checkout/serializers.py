@@ -2,12 +2,15 @@
 
 from typing import Any
 
+from django.utils import timezone
+from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
 
 from commerce.identity.models import User
+from commerce.orders import services as orders
 
 from . import services
-from .models import Address, CheckoutSession, DeliverySlot, ShippingMethod
+from .models import Address, CheckoutSession, CheckoutStatus, DeliverySlot, ShippingMethod
 
 
 class AddCartItemSerializer(serializers.Serializer[Any]):
@@ -154,7 +157,9 @@ class CheckoutSerializer(serializers.Serializer[CheckoutSession]):
     delivery_slots = serializers.SerializerMethodField()
     selected_shipping_method = serializers.UUIDField(source="shipping_method_id", allow_null=True)
     selected_delivery_slot = serializers.UUIDField(source="delivery_slot_id", allow_null=True)
+    payment_methods = serializers.SerializerMethodField()
     order_creation_available = serializers.SerializerMethodField()
+    order = serializers.SerializerMethodField()
 
     def get_shipping_methods(self, session: CheckoutSession) -> list[dict[str, Any]]:
         return list(
@@ -166,9 +171,22 @@ class CheckoutSerializer(serializers.Serializer[CheckoutSession]):
             DeliverySlotSerializer(services.available_delivery_slots(session), many=True).data
         )
 
+    @extend_schema_field(serializers.ListField(child=serializers.CharField()))
+    def get_payment_methods(self, session: CheckoutSession) -> list[str]:
+        return orders.available_payment_methods(session)
+
     def get_order_creation_available(self, session: CheckoutSession) -> bool:
-        # Phase 08 consumes a reviewed session. Phase 07 never pretends an order exists.
-        return False
+        # Only a still-held reviewed checkout with a method that can really complete it.
+        return (
+            session.status == CheckoutStatus.REVIEWED
+            and session.expires_at > timezone.now()
+            and bool(orders.available_payment_methods(session))
+        )
+
+    @extend_schema_field(serializers.UUIDField(allow_null=True))
+    def get_order(self, session: CheckoutSession) -> str | None:
+        order = orders.order_for_checkout(session)
+        return str(order.pk) if order is not None else None
 
 
 def serialize_cart(cart: Any) -> dict[str, Any]:

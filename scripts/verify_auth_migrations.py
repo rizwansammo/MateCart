@@ -54,6 +54,7 @@ if __name__ == "__main__":
         "commerce-api",
         "matecart_commerce",
         [
+            ("orders", "zero"),
             ("checkout", "zero"),
             ("content", "zero"),
             ("stores", "0002"),
