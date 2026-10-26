@@ -31,6 +31,20 @@ export type OrderPaymentStatus = (typeof PAYMENT_STATUSES)[number];
 export const PAYMENT_METHODS = ['cod', 'online'] as const;
 export type PaymentMethod = (typeof PAYMENT_METHODS)[number];
 
+export const SHIPMENT_STATUSES = [
+  'ready',
+  'picking',
+  'packed',
+  'ready_for_dispatch',
+  'dispatched',
+  'in_transit',
+  'delivered',
+  'delivery_failed',
+  'return_to_sender',
+  'cancelled',
+] as const;
+export type ShipmentStatus = (typeof SHIPMENT_STATUSES)[number];
+
 export const paymentMethod: Decoder<PaymentMethod> = oneOf(PAYMENT_METHODS);
 
 export interface OrderItem {
@@ -42,6 +56,24 @@ export interface OrderItem {
   quantity: string;
   unit_price: string;
   line_total: string;
+}
+
+export interface ShipmentTrackingEvent {
+  occurred_at: string;
+  status: ShipmentStatus;
+  attempt_number: number | null;
+}
+
+export interface OrderShipment {
+  reference: string;
+  status: ShipmentStatus;
+  courier_name: string;
+  tracking_number: string;
+  tracking_url: string;
+  dispatched_at: string | null;
+  delivered_at: string | null;
+  failed_at: string | null;
+  events: ShipmentTrackingEvent[];
 }
 
 export interface Order {
@@ -82,6 +114,7 @@ export interface Order {
   invoice_number: string | null;
   can_cancel: boolean;
   can_pay: boolean;
+  shipment: OrderShipment | null;
 }
 
 function orderItem(value: unknown): OrderItem {
@@ -95,6 +128,36 @@ function orderItem(value: unknown): OrderItem {
     quantity: decimal(o.quantity),
     unit_price: decimal(o.unit_price),
     line_total: decimal(o.line_total),
+  };
+}
+
+function shipmentEvent(value: unknown): ShipmentTrackingEvent {
+  const o = object(value);
+  const attempt = o.attempt_number;
+  if (attempt !== null && (typeof attempt !== 'number' || !Number.isInteger(attempt))) {
+    throw new Error('Invalid response');
+  }
+  return {
+    occurred_at: string(o.occurred_at),
+    status: oneOf(SHIPMENT_STATUSES)(o.status),
+    attempt_number: attempt,
+  };
+}
+
+function shipment(value: unknown): OrderShipment {
+  const o = object(value);
+  const trackingUrl = string(o.tracking_url);
+  if (trackingUrl && !trackingUrl.startsWith('https://')) throw new Error('Invalid response');
+  return {
+    reference: string(o.reference),
+    status: oneOf(SHIPMENT_STATUSES)(o.status),
+    courier_name: string(o.courier_name),
+    tracking_number: string(o.tracking_number),
+    tracking_url: trackingUrl,
+    dispatched_at: nullable(string)(o.dispatched_at),
+    delivered_at: nullable(string)(o.delivered_at),
+    failed_at: nullable(string)(o.failed_at),
+    events: array(o.events, shipmentEvent),
   };
 }
 
@@ -138,6 +201,7 @@ export function order(value: unknown): Order {
     invoice_number: nullable(string)(o.invoice_number),
     can_cancel: boolean(o.can_cancel),
     can_pay: boolean(o.can_pay),
+    shipment: nullable(shipment)(o.shipment),
   };
 }
 

@@ -141,7 +141,7 @@ Update the status in the same change that completes a feature.
 - [ ] Later (not scheduled here): theme showcase (themes.matecart.pro), premium licences, console assignment UI (16), deployment operations (17)
 - [ ] Deferred from Phase 06: "in stock only" filter and facet lists (brand, author, publisher, format); pack sizes on Grocery cards; responsive image sizes and shared HTML caching (12/17)
 
-## Cart and checkout (Phase 07; acceptance pending)
+## Cart and checkout (Phase 07; accepted and closed with 07.1)
 
 - [x] Server-authoritative guest and customer carts; opaque cookie ownership, expiry and sign-in association
 - [x] Selected-variant Add to Cart, quantity validation, removal, cart count and responsive cart page
@@ -171,7 +171,7 @@ Update the status in the same change that completes a feature.
 - [x] Focused checks and 39 checkout tests passed; all final gates passed (1,007 tests total)
 - [x] Accepted: `12f2d5b`, GitHub Actions 40366676323, 4/4 jobs, 1,007 tests; Phase 07 closed
 
-## Orders, payments and invoices (Phase 08; pushed `a806bac`, CI 40376575339: 4/4, 1,045 tests; acceptance pending)
+## Orders, payments and invoices (Phase 08; accepted and closed with 08.1)
 
 - [x] Order, OrderItem, OrderStatusEvent (append-only, trigger), OrderAllocation, DocumentSequence; migrations `orders.0001`/`0002`
 - [x] One order per reviewed checkout (DB unique), idempotent placement key, concurrent submissions create one order
@@ -191,14 +191,32 @@ Update the status in the same change that completes a feature.
 - [x] Checkout payment-method choice, Place order, order confirmation, pay/retry/cancel, invoice page; English and Bangla
 - [x] Released/expired checkouts no longer display as reviewed (Phase 07 review note)
 - [ ] Real online gateway: no provider selected or configured; online payment stays unavailable (owner decision)
-- [ ] Owner commit/push, GitHub CI and independent acceptance
+- [x] Accepted with 08.1: `b2eb55f`, GitHub Actions 40380408247, 4/4 jobs, 1,050 tests
 
-## Order placement integrity corrections (Phase 08.1; implemented locally, acceptance pending)
+## Order placement integrity corrections (Phase 08.1; accepted and closed)
 
 - [x] Recheck the reviewed delivery method at placement with the checkout eligibility rules (active, currency, country, minimum subtotal); `409 shipping_unavailable`, no records, hold released
 - [x] Digital-only placement unaffected; reviewed totals never changed and no method substituted
 - [x] Same-key replay succeeds only with the original payment method; otherwise `409 idempotency_conflict`
 - [x] Zero-total orders and gateway overpayment reconciliation documented as limits (no implementation change)
+
+## Fulfillment and courier (Phase 09; implemented locally, acceptance pending)
+
+- [x] One controlled physical shipment per order; digital-only orders never create shipments
+- [x] Ready, picking, packed, ready-to-dispatch, dispatched, transit, delivered, failed and return states
+- [x] Dispatch calls the existing idempotent Phase 08 stock handoff once; FEFO and serial rules preserved
+- [x] Manual courier details and tracking work without an external provider
+- [x] Provider-neutral, idempotent booking/cancellation and authenticated tracking callback boundary
+- [x] No configured provider means no external booking, fabricated tracking number or official label
+- [x] Append-only tracking history, callback deduplication, tenant scoping and stale/backward update safety
+- [x] Customer order details show genuine shipment progress and tracking details in English/Bangla
+- [x] Courier COD collection, fees/deductions, expected/actual remittance and discrepancy status
+- [x] Exact verified COD collection reuses the Phase 08 payment operation once; delivery alone stays unpaid
+- [x] Conservative explainable COD/contact, delivery-failure and same-item risk flags
+- [x] Authorized append-only fraud review; no automatic cancellation, blacklist or dispatch block
+- [x] Additive migrations, OpenAPI and shared contracts; restricted merchant APIs under `/manage`
+- [x] Final local gates pass: 1,067 tests, production builds, schema, migrations, Celery and six health checks
+- [ ] Real courier adapter and sandbox verification (no provider selected or configured)
 - [ ] Owner commit/push, GitHub CI and independent acceptance
 
 ## Carried into Phases 07 and 08 (from Phase 04.1)
@@ -218,10 +236,10 @@ Update the status in the same change that completes a feature.
 - [x] Catalogue, categories, variants, SKUs, pricing, stock movements (04)
 - [~] Preset-specific attributes (data in 04, storefront presentation in 06; delivery slots, comparison and EMI remain): fashion variants and size guides; grocery weight, expiry, batch, delivery slots; electronics specs, warranty, serial numbers, comparison, EMI; bookstore ISBN, author, publisher, language, edition, genre, format, pages, series, pre-orders, digital editions (04, 05)
 - [x] Five presets with distinct visual identities; white-label branding; theming (05; storefront rendering 06)
-- [x] Storefront: discovery, search, filters, product detail, responsive, bilingual EN/BN (06; acceptance pending)
-- [x] Cart, guest checkout, addresses, basic coupons, shipping, taxes, delivery options, price calculation, batch-expiry check and temporary checkout reservation (07; acceptance pending)
-- [~] Order state machine, final stock allocation, expiry-safe batch allocation, payments, COD, refunds, callbacks, invoices (08: implemented; real online gateway not configured)
-- [ ] Courier integrations, tracking, COD reconciliation (09)
+- [x] Storefront: discovery, search, filters, product detail, responsive, bilingual EN/BN (06 accepted)
+- [x] Cart, guest checkout, addresses, basic coupons, shipping, taxes, delivery options, price calculation, batch-expiry check and temporary checkout reservation (07 accepted)
+- [x] Order state machine, final stock allocation, expiry-safe batch allocation, payments, COD, refunds, callbacks, invoices (08 accepted; real online gateway not configured)
+- [~] Fulfillment, manual courier operations, tracking, COD reconciliation and fraud review (09 implemented; real courier not configured)
 - [ ] Accounts, order history, reviews, returns, exchanges, warranties, support (10)
 - [ ] Merchant dashboard: operations, products, orders, inventory, customers, reports, staff, settings (11)
 

@@ -825,6 +825,36 @@ idempotency_conflict`. The free-text reason, actor and a batch's supplier
   dependencies, independent of the storefront theme. No tax IDs, registration numbers, signatures
   or QR codes are invented; customisation and QR remain deferred.
 
+### D-074 · Physical shipment, courier COD and fraud-review boundary (2026-10-27, Phase 09)
+
+- **Shipment boundary.** An order has at most one physical shipment in Phase 09. It contains only
+  physical order items and has its own controlled state machine; order status remains the commercial
+  lifecycle. Partial packages, split fulfillment, labels, route planning, returns and a WMS are not
+  introduced. Digital-only orders have no shipment. Dispatch is the single irreversible edge that
+  calls Phase 08's `fulfil_order_stock()` in the same transaction; shipment/order locks are always
+  acquired before inventory locks, so cancellation and dispatch cannot both win.
+- **Manual first, provider ready.** Authenticated `couriers.manage` staff can operate shipments and
+  tracking without any integration. One optional `MATECART_COURIER_PROVIDER` adapter implements
+  idempotent booking/cancellation and authenticated tracking callbacks. It is empty by default;
+  production refuses `tests.*`, provider calls run outside database locks, and pending/unknown
+  outcomes never claim a booking. Provider callbacks are deduplicated, tenant/reference scoped and
+  can update only post-dispatch states; they cannot dispatch stock.
+- **Tracking history.** Applied tracking events are append-only in the ORM and PostgreSQL. Provider
+  callback logs retain only event/reference identifiers, a body digest and outcome, never raw
+  payloads. Stale/out-of-order or illegal backward events are recorded as callback outcomes without
+  altering the shipment. Customers see only real references/events and HTTPS tracking links.
+- **Courier COD.** One courier COD record snapshots amount due and separately records collection,
+  fees, permitted documented deductions, expected remittance, actual remittance and discrepancy.
+  Delivery never implies payment. Authorized evidence is sufficient for Phase 08's one COD payment
+  transaction only when collected cash exactly equals the order total; under/over-collection remains
+  unpaid for review. Remittance is a separate recent-authenticated assertion and is not accounting,
+  bank synchronization or a payout system.
+- **Fraud review.** Initial deterministic rules use only the store's own recent COD/order/shipment
+  history: three prior matching-contact COD orders in seven days, two recent failed/returned
+  shipments, or two same-item COD orders in 24 hours. Flags expose counts/windows but no other
+  customer's identifiers. Authorized reviews are append-only. Scores and flags never automatically
+  cancel, blacklist or block dispatch; a merchant must use the normal order decision path.
+
 ## Open questions for the owner
 
 | #   | Question                                                                                                                                   | Status                                                                                                    | Needed by |

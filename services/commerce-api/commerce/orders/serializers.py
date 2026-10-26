@@ -5,6 +5,9 @@ from typing import Any
 from django.utils import timezone
 from rest_framework import serializers
 
+from commerce.fulfillment.models import Shipment
+from commerce.fulfillment.serializers import PublicShipmentSerializer
+
 from .models import (
     Invoice,
     Order,
@@ -68,6 +71,7 @@ class OrderSerializer(serializers.ModelSerializer[Order]):
     invoice_number = serializers.SerializerMethodField()
     can_cancel = serializers.SerializerMethodField()
     can_pay = serializers.SerializerMethodField()
+    shipment = serializers.SerializerMethodField()
 
     class Meta:
         model = Order
@@ -109,6 +113,7 @@ class OrderSerializer(serializers.ModelSerializer[Order]):
             "invoice_number",
             "can_cancel",
             "can_pay",
+            "shipment",
         )
         read_only_fields: tuple[str, ...] = fields
 
@@ -132,6 +137,10 @@ class OrderSerializer(serializers.ModelSerializer[Order]):
             and order.payment_due_at > timezone.now()
             and payment_provider() is not None
         )
+
+    def get_shipment(self, order: Order) -> dict[str, Any] | None:
+        shipment = Shipment.objects.filter(order=order).first()
+        return None if shipment is None else dict(PublicShipmentSerializer(shipment).data)
 
 
 class OrderEventSerializer(serializers.ModelSerializer[OrderStatusEvent]):

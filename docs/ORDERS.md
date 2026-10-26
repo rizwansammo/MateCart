@@ -38,7 +38,9 @@ The order's payment status is separate: `unpaid`, `paid`, `partially_refunded`, 
 movement (`PaymentTransaction`) and refund has its own status. Every order transition appends an
 `OrderStatusEvent`; the table is append-only in PostgreSQL.
 
-Shipping, delivery and courier states are added in Phase 09.
+Shipping, delivery and courier states are separate `commerce.fulfillment` records (Phase 09,
+[SHIPPING.md](SHIPPING.md)); an order remains `processing` while its shipment advances through
+dispatch, transit and delivery.
 
 ## Stock
 
@@ -57,11 +59,21 @@ untracked and pre-order lines hold no stock and write no movements.
 Cancelling releases every open allocation once, voids the coupon redemption and returns the
 delivery booking if its slot has not started.
 
+Phase 09 cancellation and dispatch take locks in the same order (order, shipment, then the existing
+allocation/inventory order). Cancelling an undispatched manual shipment is atomic with order
+cancellation. An active courier booking must be cancelled first; dispatched/fulfilled goods cannot
+use the order cancellation path.
+
 ## Payments
 
 **Cash on delivery** is implemented and on by default for every preset. It is offered only when
 every item is physical. The order stays `unpaid` until the merchant records the collection
 (`POST /api/manage/orders/<id>/cod-collection/`, confirmed orders only, once).
+
+For courier COD, Phase 09 delivery status alone never records that collection. An authorized
+courier collection record calls the same operation only when evidence says the courier collected
+exactly the order total. Fees and merchant remittance are separate operational amounts and never
+create a second order payment transaction.
 
 **Online payment** works through one adapter configured with `MATECART_PAYMENT_PROVIDER` (dotted
 path to a `commerce.orders.providers.PaymentProvider`). **No gateway has been selected or

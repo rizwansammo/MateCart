@@ -7,9 +7,21 @@ import json
 import uuid
 from collections.abc import Mapping
 from dataclasses import dataclass
+from datetime import datetime
 from decimal import Decimal
 from typing import ClassVar, Literal, cast
 
+from commerce.fulfillment.providers import (
+    BookingRequest,
+    BookingResult,
+    TrackingUpdate,
+)
+from commerce.fulfillment.providers import (
+    InvalidCallback as InvalidCourierCallback,
+)
+from commerce.fulfillment.providers import (
+    ProviderUnavailable as CourierProviderUnavailable,
+)
 from commerce.orders.providers import (
     Initiation,
     InvalidCallback,
@@ -78,7 +90,7 @@ class FakePaymentProvider:
             reference=data["reference"],
             provider_ref=data["provider_ref"],
             transaction_ref=data["transaction_ref"],
-            status=data["status"],
+            status=cast(Literal["succeeded", "failed"], data["status"]),
             amount=Decimal(data["amount"]),
             currency=data["currency"],
         )
@@ -91,3 +103,57 @@ class FakePaymentProvider:
         self.refunds.append(idempotency_key)
         status = cast(Literal["succeeded", "pending", "failed"], self.refund_status)
         return RefundOutcome(provider_ref=f"rf_{idempotency_key}", status=status)
+
+
+class FakeCourierProvider:
+    """Signed, idempotent courier fake for isolated adapter and callback tests."""
+
+    code = "fakecourier"
+    display_name = "Fake Courier"
+    secret = b"fake-courier-callback-key"
+    booked: ClassVar[dict[str, BookingResult]] = {}
+    unavailable: ClassVar[bool] = False
+
+    @classmethod
+    def reset(cls) -> None:
+        cls.booked.clear()
+        cls.unavailable = False
+
+    @classmethod
+    def signed(cls, payload: dict[str, str]) -> tuple[bytes, str]:
+        body = json.dumps(payload).encode()
+        return body, hmac.new(cls.secret, body, hashlib.sha256).hexdigest()
+
+    def book(self, request: BookingRequest) -> BookingResult:
+        if self.unavailable:
+            raise CourierProviderUnavailable
+        result = self.booked.get(request.reference)
+        if result is None:
+            result = BookingResult(
+                provider_reference=f"fc_{request.reference}",
+                tracking_number=f"TRACK-{len(self.booked) + 1:06d}",
+                tracking_url=f"https://courier.example.test/track/{request.reference}",
+            )
+            self.booked[request.reference] = result
+        return result
+
+    def cancel(self, *, provider_reference: str, reference: str) -> None:
+        del provider_reference, reference
+        if self.unavailable:
+            raise CourierProviderUnavailable
+
+    def authenticate_tracking(self, body: bytes, headers: Mapping[str, str]) -> TrackingUpdate:
+        expected = hmac.new(self.secret, body, hashlib.sha256).hexdigest()
+        if not hmac.compare_digest(expected, headers.get("X-Fake-Courier-Signature", "")):
+            raise InvalidCourierCallback
+        data = json.loads(body)
+        return TrackingUpdate(
+            event_id=data["event_id"],
+            booking_reference=data["booking_reference"],
+            status=cast(
+                Literal["in_transit", "delivered", "delivery_failed", "return_to_sender"],
+                data["status"],
+            ),
+            occurred_at=datetime.fromisoformat(data["occurred_at"]),
+            note=data.get("note", ""),
+        )

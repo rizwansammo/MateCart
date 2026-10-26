@@ -44,6 +44,8 @@ INSTALLED_APPS = [
     # Phase 07: customer/guest carts and server-owned checkout sessions.
     "commerce.checkout",
     "commerce.orders",
+    # Phase 09: physical shipments, courier tracking, COD reconciliation and fraud review.
+    "commerce.fulfillment",
     # Phase 05: store content (pages, homepage sections). Theme and modules live in stores.
     "commerce.content",
 ]
@@ -155,6 +157,9 @@ MATECART_SMS_PROVIDER = env("MATECART_SMS_PROVIDER", default="")
 # Dotted path to one online payment provider (commerce.orders.providers.PaymentProvider). Empty
 # keeps online payment unavailable; no gateway is selected yet (D-072).
 MATECART_PAYMENT_PROVIDER = env("MATECART_PAYMENT_PROVIDER", default="")
+# Dotted path to one courier adapter. Empty keeps external booking/callbacks unavailable while the
+# authenticated manual shipment workflow remains fully operational.
+MATECART_COURIER_PROVIDER = env("MATECART_COURIER_PROVIDER", default="")
 # "Continue with Google" (OpenID Connect). Both empty keeps the option hidden.
 GOOGLE_OIDC_CLIENT_ID = env("GOOGLE_OIDC_CLIENT_ID", default="")
 GOOGLE_OIDC_CLIENT_SECRET = env("GOOGLE_OIDC_CLIENT_SECRET", default="")
@@ -253,6 +258,12 @@ SPECTACULAR_SETTINGS = {
         "RefundStatusEnum": "commerce.orders.models.RefundStatus",
         "RefundMethodEnum": "commerce.orders.models.RefundMethod",
         "MerchantOrderTargetEnum": "commerce.orders.serializers.MERCHANT_TARGETS",
+        "ShipmentStatusEnum": "commerce.fulfillment.models.ShipmentStatus",
+        "ShipmentTransitionTargetEnum": "commerce.fulfillment.serializers.TRANSITION_TARGETS",
+        "BookingStatusEnum": "commerce.fulfillment.models.BookingStatus",
+        "CodReconciliationStatusEnum": "commerce.fulfillment.models.CodReconciliationStatus",
+        "FraudReviewStatusEnum": "commerce.fulfillment.models.FraudReviewStatus",
+        "FraudDecisionEnum": "commerce.fulfillment.models.FraudDecision",
     },
 }
 API_SCHEMA_ENABLED = env.bool("DJANGO_API_SCHEMA_ENABLED", default=False)

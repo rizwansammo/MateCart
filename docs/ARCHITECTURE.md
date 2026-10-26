@@ -1,6 +1,9 @@
 # Architecture
 
-Status: Phase 04 (product and inventory engine) active. Phases 01–03 and their corrections (02.1, 02.2, 03.1) are accepted and closed. Sections marked **(planned)** describe later work. Schema: [DATA_MODEL.md](DATA_MODEL.md). Authentication: [AUTHENTICATION.md](AUTHENTICATION.md), security controls: [SECURITY.md](SECURITY.md).
+Status: Phase 09 (fulfillment and courier) implemented locally, pending acceptance. Phases 01–08
+and their corrective subphases are accepted and closed. Sections marked **(planned)** describe later
+work. Schema: [DATA_MODEL.md](DATA_MODEL.md). Authentication: [AUTHENTICATION.md](AUTHENTICATION.md),
+security controls: [SECURITY.md](SECURITY.md).
 
 ## 1. System overview
 
@@ -186,6 +189,15 @@ Outside the database: cache keys use `tenant_cache_key(...)` (`tenant:<id>:...`)
   [ORDERS.md](ORDERS.md)). Payment providers sit behind one adapter boundary; callbacks are the
   only anonymous order endpoint and are authenticated by the adapter. Provider calls never run
   inside database locks. No gateway is configured yet, so only cash on delivery is offered.
+- **Fulfillment and courier (Phase 09).** `commerce.fulfillment` owns the physical shipment state,
+  shipment items, append-only tracking, optional courier booking/callback records, courier COD
+  reconciliation and rule-based fraud review (D-074, [SHIPPING.md](SHIPPING.md)). It acquires the
+  order then shipment before invoking the existing inventory handoff at dispatch; it does not
+  duplicate allocation or ledger logic. Manual staff operations work locally without a provider.
+  One optional courier adapter is configured by environment, called outside locks and unavailable
+  by default; provider callbacks are authenticated by that adapter and can only advance a shipment
+  after staff dispatch. Customer order serialization exposes real shipment state without weakening
+  the existing guest/customer ownership check.
 
 ### Independence from the Central Console
 

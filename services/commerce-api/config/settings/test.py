@@ -28,6 +28,7 @@ MATECART_PUBLIC_BASE_URL = "http://testserver"
 # Phone sign-in and Google stay disabled unless a test enables them with its own fakes.
 MATECART_SMS_PROVIDER = ""
 MATECART_PAYMENT_PROVIDER = ""
+MATECART_COURIER_PROVIDER = ""
 GOOGLE_OIDC_CLIENT_ID = ""
 GOOGLE_OIDC_CLIENT_SECRET = ""
 

@@ -577,6 +577,11 @@ def apply_transition(
     before = order.status
     now = timezone.now()
     if to_status == OrderStatus.CANCELLED:
+        # Phase 09 shipment state is locked after the order (the same order -> shipment ordering
+        # used by dispatch), so cancellation cannot race a physical dispatch.
+        from commerce.fulfillment.services import cancel_for_order_locked
+
+        cancel_for_order_locked(order=order, actor=actor)
         if OrderAllocation.objects.filter(order=order, status=AllocationStatus.FULFILLED).exists():
             raise InvalidTransition("Fulfilled goods cannot be cancelled here.")
         _release_commitments(order)

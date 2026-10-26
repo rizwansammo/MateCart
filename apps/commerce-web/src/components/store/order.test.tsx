@@ -64,6 +64,7 @@ const order: Order = {
   invoice_number: 'INV-000042',
   can_cancel: true,
   can_pay: false,
+  shipment: null,
 };
 
 const invoice: Invoice = {
@@ -146,6 +147,33 @@ describe('order confirmation and invoice', () => {
     render(<OrderApp id="order-1" lang="en" />);
     expect(await screen.findByText('Payment not completed')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Pay now' })).not.toBeInTheDocument();
+  });
+
+  it('shows real shipment progress and a genuine courier link', async () => {
+    api.getOrder.mockResolvedValue({
+      ...order,
+      shipment: {
+        reference: 'SHP-000042',
+        status: 'in_transit',
+        courier_name: 'Example Courier',
+        tracking_number: 'TRACK-42',
+        tracking_url: 'https://courier.example/track/42',
+        dispatched_at: '2026-10-26T11:00:00Z',
+        delivered_at: null,
+        failed_at: null,
+        events: [
+          { occurred_at: '2026-10-26T11:00:00Z', status: 'dispatched', attempt_number: null },
+          { occurred_at: '2026-10-26T12:00:00Z', status: 'in_transit', attempt_number: null },
+        ],
+      },
+    });
+    render(<OrderApp id="order-1" lang="en" />);
+    expect((await screen.findAllByText('In transit')).length).toBe(2);
+    expect(screen.getByText(/TRACK-42/)).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Track with courier' })).toHaveAttribute(
+      'href',
+      'https://courier.example/track/42',
+    );
   });
 
   it('renders an unpaid printable invoice with the amount due', async () => {

@@ -32,6 +32,8 @@ if MATECART_SMS_PROVIDER.startswith("tests."):
     raise ImproperlyConfigured("MATECART_SMS_PROVIDER cannot be a test fake in production.")
 if MATECART_PAYMENT_PROVIDER.startswith("tests."):
     raise ImproperlyConfigured("MATECART_PAYMENT_PROVIDER cannot be a test fake in production.")
+if MATECART_COURIER_PROVIDER.startswith("tests."):
+    raise ImproperlyConfigured("MATECART_COURIER_PROVIDER cannot be a test fake in production.")
 if bool(GOOGLE_OIDC_CLIENT_ID) != bool(GOOGLE_OIDC_CLIENT_SECRET):
     raise ImproperlyConfigured(
         "Set both GOOGLE_OIDC_CLIENT_ID and GOOGLE_OIDC_CLIENT_SECRET, or neither."

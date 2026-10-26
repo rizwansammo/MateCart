@@ -148,16 +148,24 @@ shipping/tax/slots, short-lived inventory reservations and the shared storefront
 
 Order state machine, stock reservation, payments (gateway integrations), COD, refunds, payment callbacks and idempotency, invoice generation.
 
-Implemented in the working tree (see `docs/ORDERS.md`, D-071 to D-073): order placement from a
+Accepted and closed with Correction 08.1 at `b2eb55f75a8e878599328c92b139eed6b7230d33`
+(GitHub Actions 40380408247, 4/4 jobs, 1,050 tests). See `docs/ORDERS.md`, D-071 to D-073:
+order placement from a
 reviewed checkout, state machine and append-only history, order-owned stock reservations with a
 FEFO fulfilment handoff, slot booking and coupon redemption, cash on delivery, a provider-neutral
 payment boundary with verified idempotent callbacks, refunds and printable invoices. No real
-payment gateway is selected or configured, so online payment remains unavailable. Acceptance
-requires the owner commit, push, CI and independent review.
+payment gateway is selected or configured, so online payment remains unavailable.
 
 ### Phase 09 — Fulfillment & Courier
 
 Courier integrations, shipping operations, tracking, COD reconciliation, fake-order prevention and fraud review.
+
+Implemented locally (D-074, `docs/SHIPPING.md`): controlled physical fulfillment with stock
+deduction at dispatch through the Phase 08 handoff; manual shipment/tracking operations; an
+idempotent provider-neutral booking/callback boundary; authenticated append-only tracking;
+courier COD collection/remittance reconciliation; and conservative explainable fraud review.
+Customer order details show truthful shipment progress. No real courier is selected or configured,
+and no Phase 11 merchant UI was added. Pending owner commit/push, CI and independent review.
 
 ### Phase 10 — Customer Accounts & After-sales
 

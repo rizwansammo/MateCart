@@ -29,6 +29,9 @@ urlpatterns: list[URLPattern | URLResolver] = [
     # Phase 08 orders, payments, invoices and provider callbacks; merchant order actions.
     path("api/", include("commerce.orders.urls")),
     path("api/manage/orders/", include("commerce.orders.manage_urls")),
+    # Phase 09 manual fulfillment, courier boundary, COD reconciliation and fraud review.
+    path("api/", include("commerce.fulfillment.urls")),
+    path("api/manage/fulfillment/", include("commerce.fulfillment.manage_urls")),
 ]
 
 if settings.API_SCHEMA_ENABLED:

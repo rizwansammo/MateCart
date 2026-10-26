@@ -51,6 +51,7 @@ const base = {
   invoice_number: 'INV-000001',
   can_cancel: true,
   can_pay: false,
+  shipment: null,
 };
 
 describe('order contracts', () => {
@@ -71,6 +72,33 @@ describe('order contracts', () => {
       'https://pay.example/1',
     );
     expect(() => paymentStart({ redirect_url: 'javascript:alert(1)' })).toThrow();
+  });
+
+  it('decodes truthful shipment tracking and rejects unsafe links', () => {
+    const shipped = order({
+      ...base,
+      shipment: {
+        reference: 'SHP-000001',
+        status: 'in_transit',
+        courier_name: 'Courier',
+        tracking_number: 'TRACK-1',
+        tracking_url: 'https://courier.example/track/1',
+        dispatched_at: base.placed_at,
+        delivered_at: null,
+        failed_at: null,
+        events: [{ occurred_at: base.placed_at, status: 'in_transit', attempt_number: null }],
+      },
+    });
+    expect(shipped.shipment?.status).toBe('in_transit');
+    expect(() =>
+      order({
+        ...base,
+        shipment: {
+          ...shipped.shipment,
+          tracking_url: 'javascript:alert(1)',
+        },
+      }),
+    ).toThrow();
   });
 
   it('decodes an invoice snapshot', () => {

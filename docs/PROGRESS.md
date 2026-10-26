@@ -1,11 +1,10 @@
 # Progress and handoff
 
-Updated: 2026-10-27 (Asia/Dhaka). **Phase 07 — Cart & Checkout is accepted and closed with
-Correction 07.1 at `12f2d5b14c7a744126764c86e116d02d69f56abe` (GitHub Actions 40366676323: 4/4
-jobs, 1,007 tests, 0 failures). Phase 08 — Orders, Payments & Invoices was pushed at `a806bac` (GitHub
-Actions 40376575339: 4/4 jobs, 1,045 tests); the Phase 08.1 placement integrity corrections are
-implemented locally, with owner commit, CI and independent acceptance pending. No real online payment
-gateway is configured.** Phases 01–07 (with 02.1, 02.2, 03.1, 04.1, 05.1, 06.1, 06.2 and 07.1) are
+Updated: 2026-10-27 (Asia/Dhaka). **Phase 08 — Orders, Payments & Invoices and Correction 08.1 are
+accepted and closed at `b2eb55f75a8e878599328c92b139eed6b7230d33` (GitHub Actions 40380408247:
+4/4 jobs, 1,050 tests, 0 failures). Phase 09 — Fulfillment & Courier is implemented locally, pending
+owner commit/push, GitHub CI and independent review. No real payment or courier provider is
+configured.** Phases 01–08 (with 02.1, 02.2, 03.1, 04.1, 05.1, 06.1, 06.2, 07.1 and 08.1) are
 accepted and closed.
 The managed theme marketplace remains deferred.
 
@@ -29,17 +28,66 @@ The managed theme marketplace remains deferred.
 | Phase 07        | Implemented and pushed: `9e5a7343d9dbe1e647286b7a2ddcadb14f32d11e`, run 40359693463, 4/4 jobs, 990 tests. Review requested the 07.1 corrections.                                                                                                          |
 | Correction 07.1 | **Accepted and Phase 07 closed:** `12f2d5b14c7a744126764c86e116d02d69f56abe`, run 40366676323, 4/4 jobs, 1,007 tests, 0 failures.                                                                                                                         |
 | Phase 08        | Implemented and pushed: `a806baced20b7f39547b4bed7c92a4f1afb1809a`, run 40376575339, 4/4 jobs, 1,045 tests. Review requested the 08.1 corrections.                                                                                                        |
-| Correction 08.1 | Implemented locally (1,050 tests passing); owner commit, CI and independent acceptance pending.                                                                                                                                                           |
+| Correction 08.1 | **Accepted and Phase 08 closed:** `b2eb55f75a8e878599328c92b139eed6b7230d33`, run 40380408247, 4/4 jobs, 1,050 tests, 0 failures.                                                                                                                         |
 | Architecture    | Dedicated single-tenant deployment, tenant-aware modular monolith, future hybrid only if approved; commerce/control independent.                                                                                                                          |
 | Product         | Private beta, manual onboarding. Public commercial signup/subscriptions/billing deferred. Public customer registration is authorized.                                                                                                                     |
 | Prototype       | MateCart-UI strictly read-only; no edits/build/install (HEAD `9ff1361`, clean).                                                                                                                                                                           |
 | Roadmap         | All 19 main phases preserved; 02.1/02.2/03.1 are corrective subphases, not additional main phases.                                                                                                                                                        |
 
-## Phase 08.1 order placement integrity corrections (implemented locally; acceptance pending)
+## Phase 09 fulfillment and courier (implemented locally; acceptance pending)
+
+Decision D-074; operational details in [SHIPPING.md](SHIPPING.md).
+
+- **Physical fulfillment.** New tenant-owned `commerce.fulfillment` domain with one practical
+  shipment per physical/mixed order, physical `ShipmentItem` rows, controlled picking → packing →
+  dispatch → delivery/failure/return transitions and an address snapshot. Digital-only orders are
+  refused. Dispatch calls the existing `orders.services.fulfil_order_stock()` inside the shipment
+  transaction, so reservations, FEFO batches, serials and the append-only stock ledger remain the
+  Phase 08 implementation and deduct once.
+- **Manual and provider shipping.** Staff with `couriers.manage` can prepare, list and inspect
+  shipment work, record genuine courier/tracking details, dispatch and append tracking updates.
+  A minimal adapter supports idempotent booking/cancellation and authenticated tracking callbacks;
+  callback event ids and body digests are stored without raw payloads. `MATECART_COURIER_PROVIDER`
+  is empty and `courier_booking` is off by default, so no real carrier, tracking number or label is
+  claimed. Isolated tests use `FakeCourierProvider` only.
+- **Tracking and customer view.** `TrackingEvent` is append-only in the ORM and PostgreSQL.
+  Duplicate callbacks replay safely, stale updates are ignored, illegal backward transitions are
+  refused, and provider callbacks can never perform the dispatch/stock transition. Secure guest or
+  customer order details now show only the real shipment reference, current state, recorded events
+  and genuine tracking details, in English/Bangla.
+- **Courier COD.** `CourierCodRecord` separates amount due, collected cash, fees/deductions,
+  expected remittance, actual remittance and discrepancy. Collection and remittance references are
+  tenant-unique and actions require a recent authorized staff session. Delivery alone never means
+  paid; only explicitly recorded evidence for exactly the order total calls the existing
+  `record_cod_collection()` operation, once. Under/over-collection remains unpaid and visible for
+  review; actual remittance is independently pending, reconciled or disputed.
+- **Fraud review.** Conservative, explainable flags cover at least three prior COD orders using the
+  same contact in seven days, at least two recent delivery failures, and at least two same-item COD
+  orders in 24 hours. Evidence contains counts/windows, not other buyers' data. Reviews are
+  authorized and append-only; flags never auto-cancel, blacklist or block dispatch.
+- **Schema/API/UI.** Additive migrations `fulfillment.0001`/`0002`; nine tenant-owned tables with
+  composite tenant FKs, database constraints and append-only triggers. Restricted APIs live under
+  `/api/manage/fulfillment/`; the only anonymous endpoint is the adapter-authenticated tracking
+  callback. No Phase 11 merchant UI was built; the existing customer order page received the
+  minimal truthful tracking view. OpenAPI and shared TypeScript contracts were updated.
+- **Verification.** Final gates pass: `pnpm check`, `pnpm build`, `pnpm api:lint`,
+  `pnpm api:test`, `pnpm api:schema`, `pnpm health`, `pnpm api:celery-check` and
+  `docker compose config --quiet`. **1,067 automated tests pass, 0 fail:** commerce API 782,
+  control API 57, shared contracts 51, shared UI 76, commerce-web 96 and Node 5. This includes 11
+  fulfillment/domain tests and 4 committed-transaction race tests. Migration verification on
+  temporary commerce/control databases passed fresh forward, fulfillment/order reversal,
+  reapplication, drift and system checks; both new migrations are applied in the dev database.
+  The first `pnpm check` reported three formatting differences, which were formatted before the
+  passing rerun. Two sandboxed build attempts could not replace desktop-owned `.next` output; the
+  same build passed with the required workspace permission. All eight Compose services are healthy,
+  and the storefront and console are running on ports 3400 and 3410 for review.
+
+## Phase 08.1 order placement integrity corrections (accepted and closed)
 
 Corrective subphase after the independent review of `a806bac` (GitHub Actions 40376575339, 4/4
-jobs, 1,045 tests). Not a new main phase; no model, migration, API schema, contract, dependency or
-UI change.
+jobs, 1,045 tests). Accepted at `b2eb55f75a8e878599328c92b139eed6b7230d33` (GitHub Actions
+40380408247, 4/4 jobs, 1,050 tests). Not a new main phase; no model, migration, API schema,
+contract, dependency or UI change.
 
 - **Shipping eligibility at placement.** `_place()` used the method chosen at review without
   checking it again, so a method disabled or restricted after review could still produce an order.
@@ -67,7 +115,7 @@ UI change.
   API 57, shared contracts 50, shared UI 76, commerce-web 95, Node 5. The migration workflow was not
   repeated because there is no schema change.
 
-## Phase 08 orders, payments and invoices (pushed; acceptance pending with 08.1)
+## Phase 08 orders, payments and invoices (accepted and closed with 08.1)
 
 Decisions D-071 to D-073; full description in [ORDERS.md](ORDERS.md).
 
@@ -650,10 +698,11 @@ contract tests. Plus 7 live catalogue and 12 live authentication smoke checks.
 
 ## Remaining scope, limits and next step
 
-- **Next step:** owner review of the Phase 08.1 diff, then commit/push, GitHub CI and independent
-  acceptance of Phase 08 with 08.1. The local URLs remain available for review (place a COD order
-  from `/checkout/<id>`, then open `/orders/<id>` and its invoice). Do not start Phase 09 or mark
-  Phase 08 accepted before that acceptance.
+- **Next step:** owner review of the Phase 09 working tree, then owner commit/push, GitHub CI and
+  independent Phase 09 review. Do not mark Phase 09 accepted or start Phase 10 before that review.
+- **Courier provider decision needed:** no real provider is selected. External booking and provider
+  callbacks remain unavailable until the owner approves an adapter, credentials and real sandbox
+  verification; manual shipment and tracking operations remain available without one.
 - **Owner decision needed for online payment:** choose a gateway (none is selected). Its adapter,
   secrets and real sandbox testing are the remaining provider-dependent Phase 08 acceptance items;
   until then online payment, provider refunds and EMI stay unavailable.

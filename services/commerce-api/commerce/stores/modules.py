@@ -181,7 +181,7 @@ REGISTRY: tuple[ModuleSpec, ...] = (
         frozenset({E, D}),
         requires=("online_payments",),
     ),
-    ModuleSpec("courier_booking", "Courier booking", "Book and track couriers.", "09", False),
+    ModuleSpec("courier_booking", "Courier booking", "Book and track couriers.", "09", True),
     ModuleSpec("product_reviews", "Product reviews", "Verified customer reviews.", "10", False),
     ModuleSpec(
         "returns_exchanges", "Returns and exchanges", "Customer return requests.", "10", False

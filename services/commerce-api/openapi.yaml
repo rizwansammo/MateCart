@@ -997,6 +997,26 @@ paths:
               schema:
                 $ref: '#/components/schemas/Checkout'
           description: ''
+  /api/couriers/callbacks/{provider}/tracking/:
+    post:
+      operationId: courier_tracking_callback
+      parameters:
+      - in: path
+        name: provider
+        schema:
+          type: string
+        required: true
+      tags:
+      - courier-callbacks
+      security:
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CallbackOutcome'
+          description: ''
   /api/csrf/:
     get:
       operationId: csrf
@@ -2722,6 +2742,300 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/Section'
+          description: ''
+  /api/manage/fulfillment/cod-records/{record_id}/remittance/:
+    post:
+      operationId: manage_shipment_cod_remittance
+      description: Base for every cookie-authenticated or sign-in endpoint.
+      parameters:
+      - in: path
+        name: record_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - manage-fulfillment
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CodRemittanceInputRequest'
+        required: true
+      security:
+      - staffSession: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CodRecord'
+          description: ''
+  /api/manage/fulfillment/fraud-assessments/{assessment_id}/review/:
+    post:
+      operationId: manage_order_fraud_review
+      description: Base for every cookie-authenticated or sign-in endpoint.
+      parameters:
+      - in: path
+        name: assessment_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - manage-fulfillment
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FraudReviewInputRequest'
+        required: true
+      security:
+      - staffSession: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FraudAssessment'
+          description: ''
+  /api/manage/fulfillment/orders/{order_id}/fraud-assessment/:
+    post:
+      operationId: manage_order_fraud_assessment
+      description: Base for every cookie-authenticated or sign-in endpoint.
+      parameters:
+      - in: path
+        name: order_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - manage-fulfillment
+      security:
+      - staffSession: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FraudAssessment'
+          description: ''
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FraudAssessment'
+          description: ''
+  /api/manage/fulfillment/orders/{order_id}/shipment/:
+    post:
+      operationId: manage_shipment_prepare
+      description: Base for every cookie-authenticated or sign-in endpoint.
+      parameters:
+      - in: path
+        name: order_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - manage-fulfillment
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PrepareShipmentRequest'
+      security:
+      - staffSession: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MerchantShipment'
+          description: ''
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MerchantShipment'
+          description: ''
+  /api/manage/fulfillment/shipments/:
+    get:
+      operationId: manage_shipment_list
+      description: Base for every cookie-authenticated or sign-in endpoint.
+      tags:
+      - manage-fulfillment
+      security:
+      - staffSession: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ShipmentSummaryPage'
+          description: ''
+  /api/manage/fulfillment/shipments/{shipment_id}/:
+    get:
+      operationId: manage_shipment_get
+      description: Base for every cookie-authenticated or sign-in endpoint.
+      parameters:
+      - in: path
+        name: shipment_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - manage-fulfillment
+      security:
+      - staffSession: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MerchantShipment'
+          description: ''
+  /api/manage/fulfillment/shipments/{shipment_id}/cod-collection/:
+    post:
+      operationId: manage_shipment_cod_collection
+      description: Base for every cookie-authenticated or sign-in endpoint.
+      parameters:
+      - in: path
+        name: shipment_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - manage-fulfillment
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CodCollectionInputRequest'
+        required: true
+      security:
+      - staffSession: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CodRecord'
+          description: ''
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CodRecord'
+          description: ''
+  /api/manage/fulfillment/shipments/{shipment_id}/courier-booking/:
+    post:
+      operationId: manage_shipment_courier_booking
+      description: Base for every cookie-authenticated or sign-in endpoint.
+      parameters:
+      - in: path
+        name: shipment_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - manage-fulfillment
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CourierBookingInputRequest'
+        required: true
+      security:
+      - staffSession: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CourierBooking'
+          description: ''
+  /api/manage/fulfillment/shipments/{shipment_id}/courier-booking/cancel/:
+    post:
+      operationId: manage_shipment_courier_booking_cancel
+      description: Base for every cookie-authenticated or sign-in endpoint.
+      parameters:
+      - in: path
+        name: shipment_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - manage-fulfillment
+      security:
+      - staffSession: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CourierBooking'
+          description: ''
+  /api/manage/fulfillment/shipments/{shipment_id}/courier-details/:
+    post:
+      operationId: manage_shipment_manual_courier
+      description: Base for every cookie-authenticated or sign-in endpoint.
+      parameters:
+      - in: path
+        name: shipment_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - manage-fulfillment
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ManualCourierRequest'
+        required: true
+      security:
+      - staffSession: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MerchantShipment'
+          description: ''
+  /api/manage/fulfillment/shipments/{shipment_id}/transition/:
+    post:
+      operationId: manage_shipment_transition
+      description: Base for every cookie-authenticated or sign-in endpoint.
+      parameters:
+      - in: path
+        name: shipment_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - manage-fulfillment
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ShipmentTransitionRequest'
+        required: true
+      security:
+      - staffSession: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MerchantShipment'
           description: ''
   /api/manage/inventory/adjustments/:
     post:
@@ -4747,6 +5061,20 @@ components:
           maximum: 10000
           minimum: 1
           nullable: true
+    BookingStatusEnum:
+      enum:
+      - pending
+      - booked
+      - cancelling
+      - failed
+      - cancelled
+      type: string
+      description: |-
+        * `pending` - Booking in progress
+        * `booked` - Booked
+        * `cancelling` - Cancellation in progress
+        * `failed` - Booking failed
+        * `cancelled` - Cancelled
     Brand:
       type: object
       properties:
@@ -4814,6 +5142,13 @@ components:
           type: boolean
       required:
       - name
+    CallbackOutcome:
+      type: object
+      properties:
+        outcome:
+          type: string
+      required:
+      - outcome
     CallbackResult:
       type: object
       properties:
@@ -5283,6 +5618,132 @@ components:
           maxLength: 100
       required:
       - idempotency_key
+    CodCollectionInputRequest:
+      type: object
+      properties:
+        collected_amount:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,15}(?:\.\d{0,4})?$
+        courier_fees:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,15}(?:\.\d{0,4})?$
+          default: '0.0000'
+        deductions:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,15}(?:\.\d{0,4})?$
+          default: '0.0000'
+        deduction_note:
+          type: string
+          default: ''
+          maxLength: 300
+        collection_reference:
+          type: string
+          minLength: 1
+          maxLength: 120
+      required:
+      - collected_amount
+      - collection_reference
+    CodReconciliationStatusEnum:
+      enum:
+      - pending
+      - reconciled
+      - disputed
+      type: string
+      description: |-
+        * `pending` - Awaiting remittance
+        * `reconciled` - Reconciled
+        * `disputed` - Discrepancy
+    CodRecord:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        courier_code:
+          type: string
+          pattern: ^[a-z][a-z0-9_-]{1,39}$
+          maxLength: 40
+        currency:
+          type: string
+          maxLength: 3
+        amount_due:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,15}(?:\.\d{0,4})?$
+        collected_amount:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,15}(?:\.\d{0,4})?$
+        courier_fees:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,15}(?:\.\d{0,4})?$
+        deductions:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,15}(?:\.\d{0,4})?$
+        deduction_note:
+          type: string
+          maxLength: 300
+        expected_remittance:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,15}(?:\.\d{0,4})?$
+        actual_remittance:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,15}(?:\.\d{0,4})?$
+          nullable: true
+        outstanding_amount:
+          type: number
+          format: double
+          readOnly: true
+        collection_reference:
+          type: string
+          maxLength: 120
+        collection_recorded_at:
+          type: string
+          format: date-time
+        remittance_reference:
+          type: string
+          maxLength: 120
+        remitted_at:
+          type: string
+          format: date-time
+          nullable: true
+        status:
+          $ref: '#/components/schemas/CodReconciliationStatusEnum'
+      required:
+      - amount_due
+      - collected_amount
+      - collection_reference
+      - courier_code
+      - currency
+      - expected_remittance
+      - id
+      - outstanding_amount
+    CodRemittanceInputRequest:
+      type: object
+      properties:
+        actual_remittance:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,15}(?:\.\d{0,4})?$
+        remittance_reference:
+          type: string
+          minLength: 1
+          maxLength: 120
+        remitted_at:
+          type: string
+          format: date-time
+      required:
+      - actual_remittance
+      - remittance_reference
+      - remitted_at
     Collection:
       type: object
       properties:
@@ -5414,6 +5875,47 @@ components:
             "..."}}.'
       required:
       - name
+    CourierBooking:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        provider:
+          type: string
+          pattern: ^[a-z][a-z0-9_-]{1,39}$
+          maxLength: 40
+        status:
+          $ref: '#/components/schemas/BookingStatusEnum'
+        provider_reference:
+          type: string
+          maxLength: 120
+        failure_code:
+          type: string
+          maxLength: 40
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        cancelled_at:
+          type: string
+          format: date-time
+          nullable: true
+      required:
+      - created_at
+      - id
+      - provider
+      - status
+    CourierBookingInputRequest:
+      type: object
+      properties:
+        idempotency_key:
+          type: string
+          minLength: 8
+          maxLength: 100
+      required:
+      - idempotency_key
     Csrf:
       type: object
       properties:
@@ -5557,6 +6059,85 @@ components:
       - slug
       - title
       - translations
+    FraudAssessment:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        score:
+          type: integer
+          maximum: 32767
+          minimum: 0
+        status:
+          $ref: '#/components/schemas/FraudReviewStatusEnum'
+        assessed_at:
+          type: string
+          format: date-time
+        reviewed_at:
+          type: string
+          format: date-time
+          nullable: true
+        reviewed_by_id:
+          type: string
+          format: uuid
+          nullable: true
+          readOnly: true
+        flags:
+          type: array
+          items:
+            type: object
+            additionalProperties: {}
+          readOnly: true
+        reviews:
+          type: array
+          items:
+            type: object
+            additionalProperties: {}
+          readOnly: true
+      required:
+      - flags
+      - id
+      - reviewed_by_id
+      - reviews
+      - status
+    FraudDecisionEnum:
+      enum:
+      - clear
+      - monitor
+      - confirm_risk
+      type: string
+      description: |-
+        * `clear` - Clear
+        * `monitor` - Monitor
+        * `confirm_risk` - Confirm risk
+    FraudReviewInputRequest:
+      type: object
+      properties:
+        decision:
+          $ref: '#/components/schemas/FraudDecisionEnum'
+        reason:
+          type: string
+          minLength: 1
+          maxLength: 500
+      required:
+      - decision
+      - reason
+    FraudReviewStatusEnum:
+      enum:
+      - clear
+      - pending
+      - cleared
+      - monitor
+      - confirmed_risk
+      type: string
+      description: |-
+        * `clear` - No flags
+        * `pending` - Review suggested
+        * `cleared` - Cleared by staff
+        * `monitor` - Monitor
+        * `confirmed_risk` - Risk confirmed by staff
     GoogleStart:
       type: object
       properties:
@@ -5961,6 +6542,25 @@ components:
       required:
       - email
       - password
+    ManualCourierRequest:
+      type: object
+      properties:
+        courier_name:
+          type: string
+          minLength: 1
+          maxLength: 100
+        tracking_number:
+          type: string
+          maxLength: 120
+        tracking_url:
+          oneOf:
+          - type: string
+            format: uri
+            maxLength: 1000
+          - type: string
+            maxLength: 0
+      required:
+      - courier_name
     MediaAsset:
       type: object
       properties:
@@ -6228,6 +6828,11 @@ components:
         can_pay:
           type: boolean
           readOnly: true
+        shipment:
+          type: object
+          additionalProperties: {}
+          nullable: true
+          readOnly: true
         events:
           type: array
           items:
@@ -6276,6 +6881,7 @@ components:
       - refunds
       - region
       - requires_shipping
+      - shipment
       - shipping_method_name
       - shipping_total
       - status
@@ -6290,6 +6896,89 @@ components:
         * `confirmed` - Confirmed
         * `processing` - Processing
         * `cancelled` - Cancelled
+    MerchantShipment:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        order_id:
+          type: string
+          format: uuid
+        order_number:
+          type: string
+        reference:
+          type: string
+          pattern: ^SHP-[0-9]{6,}$
+          maxLength: 20
+        status:
+          $ref: '#/components/schemas/ShipmentStatusEnum'
+        courier_name:
+          type: string
+          maxLength: 100
+        tracking_number:
+          type: string
+          maxLength: 120
+        tracking_url:
+          oneOf:
+          - type: string
+            format: uri
+            maxLength: 1000
+          - type: string
+            maxLength: 0
+        dispatched_at:
+          type: string
+          format: date-time
+          nullable: true
+        delivered_at:
+          type: string
+          format: date-time
+          nullable: true
+        failed_at:
+          type: string
+          format: date-time
+          nullable: true
+        events:
+          type: array
+          items:
+            type: object
+            additionalProperties: {}
+          readOnly: true
+        operational_notes:
+          type: string
+        items:
+          type: array
+          items:
+            type: object
+            additionalProperties: {}
+          readOnly: true
+        bookings:
+          type: array
+          items:
+            type: object
+            additionalProperties: {}
+          readOnly: true
+        cod:
+          type: object
+          additionalProperties: {}
+          nullable: true
+          readOnly: true
+        fraud:
+          type: object
+          additionalProperties: {}
+          nullable: true
+          readOnly: true
+      required:
+      - bookings
+      - cod
+      - events
+      - fraud
+      - id
+      - items
+      - operational_notes
+      - order_id
+      - order_number
+      - reference
     MfaEmailSendRequest:
       type: object
       properties:
@@ -6728,6 +7417,11 @@ components:
         can_pay:
           type: boolean
           readOnly: true
+        shipment:
+          type: object
+          additionalProperties: {}
+          nullable: true
+          readOnly: true
       required:
       - address_line_1
       - address_line_2
@@ -6762,6 +7456,7 @@ components:
       - recipient_name
       - region
       - requires_shipping
+      - shipment
       - shipping_method_name
       - shipping_total
       - status
@@ -7622,6 +8317,12 @@ components:
       required:
       - idempotency_key
       - payment_method
+    PrepareShipmentRequest:
+      type: object
+      properties:
+        operational_notes:
+          type: string
+          maxLength: 500
     Price:
       type: object
       properties:
@@ -9169,6 +9870,126 @@ components:
         * `sold` - Sold
         * `damaged` - Damaged
         * `lost` - Lost
+    ShipmentStatusEnum:
+      enum:
+      - ready
+      - picking
+      - packed
+      - ready_for_dispatch
+      - dispatched
+      - in_transit
+      - delivered
+      - delivery_failed
+      - return_to_sender
+      - cancelled
+      type: string
+      description: |-
+        * `ready` - Ready for fulfillment
+        * `picking` - Picking
+        * `packed` - Packed
+        * `ready_for_dispatch` - Ready for dispatch
+        * `dispatched` - Dispatched
+        * `in_transit` - In transit
+        * `delivered` - Delivered
+        * `delivery_failed` - Delivery failed
+        * `return_to_sender` - Return to sender
+        * `cancelled` - Cancelled before dispatch
+    ShipmentSummary:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        reference:
+          type: string
+          pattern: ^SHP-[0-9]{6,}$
+          maxLength: 20
+        order_number:
+          type: string
+        status:
+          $ref: '#/components/schemas/ShipmentStatusEnum'
+        courier_name:
+          type: string
+          maxLength: 100
+        tracking_number:
+          type: string
+          maxLength: 120
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        fraud_status:
+          type: string
+          nullable: true
+          readOnly: true
+      required:
+      - created_at
+      - fraud_status
+      - id
+      - order_number
+      - reference
+    ShipmentSummaryPage:
+      type: object
+      properties:
+        count:
+          type: integer
+        page:
+          type: integer
+        page_size:
+          type: integer
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/ShipmentSummary'
+      required:
+      - count
+      - page
+      - page_size
+      - results
+    ShipmentTransitionRequest:
+      type: object
+      properties:
+        status:
+          $ref: '#/components/schemas/ShipmentTransitionTargetEnum'
+        occurred_at:
+          type: string
+          format: date-time
+        note:
+          type: string
+          maxLength: 300
+        serials:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              type: string
+              minLength: 1
+              maxLength: 120
+      required:
+      - status
+    ShipmentTransitionTargetEnum:
+      enum:
+      - picking
+      - packed
+      - ready_for_dispatch
+      - dispatched
+      - in_transit
+      - delivered
+      - delivery_failed
+      - return_to_sender
+      - cancelled
+      type: string
+      description: |-
+        * `picking` - Picking
+        * `packed` - Packed
+        * `ready_for_dispatch` - Ready for dispatch
+        * `dispatched` - Dispatched
+        * `in_transit` - In transit
+        * `delivered` - Delivered
+        * `delivery_failed` - Delivery failed
+        * `return_to_sender` - Return to sender
+        * `cancelled` - Cancelled before dispatch
     SignInMethods:
       type: object
       properties:

@@ -1,6 +1,11 @@
 'use client';
 
-import type { Order, OrderPaymentStatus, OrderStatus } from '@matecart/shared-contracts';
+import type {
+  Order,
+  OrderPaymentStatus,
+  OrderStatus,
+  ShipmentStatus,
+} from '@matecart/shared-contracts';
 import { errorMessage } from '@matecart/shared-ui';
 import type { Route } from 'next';
 import Link from 'next/link';
@@ -31,6 +36,11 @@ const COPY = {
     refunded: 'Refunded',
     delivery: 'Delivery',
     slot: 'Delivery time',
+    shipment: 'Shipment',
+    shipmentReference: 'Shipment reference',
+    trackingNumber: 'Tracking number',
+    trackShipment: 'Track with courier',
+    deliveryProgress: 'Delivery progress',
     invoice: 'View invoice',
     cancel: 'Cancel order',
     confirmCancel: 'Cancel this order? Reserved items will be released.',
@@ -53,6 +63,18 @@ const COPY = {
       refunded: 'Refunded',
       failed: 'Payment not completed',
     } satisfies Record<OrderPaymentStatus, string>,
+    shipmentStatuses: {
+      ready: 'Ready for fulfillment',
+      picking: 'Picking',
+      packed: 'Packed',
+      ready_for_dispatch: 'Ready for dispatch',
+      dispatched: 'Dispatched',
+      in_transit: 'In transit',
+      delivered: 'Delivered',
+      delivery_failed: 'Delivery attempt failed',
+      return_to_sender: 'Returning to sender',
+      cancelled: 'Shipment cancelled',
+    } satisfies Record<ShipmentStatus, string>,
   },
   bn: {
     loading: 'আপনার অর্ডার লোড হচ্ছে…',
@@ -73,6 +95,11 @@ const COPY = {
     refunded: 'ফেরত',
     delivery: 'ডেলিভারি',
     slot: 'ডেলিভারির সময়',
+    shipment: 'শিপমেন্ট',
+    shipmentReference: 'শিপমেন্ট রেফারেন্স',
+    trackingNumber: 'ট্র্যাকিং নম্বর',
+    trackShipment: 'কুরিয়ারে ট্র্যাক করুন',
+    deliveryProgress: 'ডেলিভারির অগ্রগতি',
     invoice: 'ইনভয়েস দেখুন',
     cancel: 'অর্ডার বাতিল করুন',
     confirmCancel: 'অর্ডারটি বাতিল করবেন? সংরক্ষিত পণ্য ছেড়ে দেওয়া হবে।',
@@ -95,6 +122,18 @@ const COPY = {
       refunded: 'ফেরত দেওয়া হয়েছে',
       failed: 'পেমেন্ট সম্পন্ন হয়নি',
     } satisfies Record<OrderPaymentStatus, string>,
+    shipmentStatuses: {
+      ready: 'ফুলফিলমেন্টের জন্য প্রস্তুত',
+      picking: 'পণ্য সংগ্রহ হচ্ছে',
+      packed: 'প্যাক করা হয়েছে',
+      ready_for_dispatch: 'পাঠানোর জন্য প্রস্তুত',
+      dispatched: 'পাঠানো হয়েছে',
+      in_transit: 'পথে আছে',
+      delivered: 'ডেলিভারি সম্পন্ন',
+      delivery_failed: 'ডেলিভারি চেষ্টা ব্যর্থ',
+      return_to_sender: 'প্রেরকের কাছে ফেরত যাচ্ছে',
+      cancelled: 'শিপমেন্ট বাতিল',
+    } satisfies Record<ShipmentStatus, string>,
   },
 } as const;
 
@@ -238,6 +277,48 @@ export function OrderApp({ id, lang }: { id: string; lang: string }) {
               <p className="mb-0 text-sm">
                 {copy.slot}: {order.delivery_slot_label}
               </p>
+            )}
+            {order.shipment && (
+              <div className="mt-5 border-t border-store-line pt-4">
+                <h3 className="mt-0 text-base">{copy.shipment}</h3>
+                <p className="mb-1 text-sm">
+                  {copy.shipmentReference}: <strong>{order.shipment.reference}</strong>
+                </p>
+                <p className="my-1 font-semibold">{copy.shipmentStatuses[order.shipment.status]}</p>
+                {order.shipment.courier_name && (
+                  <p className="my-1 text-sm">{order.shipment.courier_name}</p>
+                )}
+                {order.shipment.tracking_number && (
+                  <p className="my-1 text-sm">
+                    {copy.trackingNumber}: {order.shipment.tracking_number}
+                  </p>
+                )}
+                {order.shipment.tracking_url && (
+                  <a
+                    href={order.shipment.tracking_url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className={`font-semibold underline ${FOCUS}`}
+                  >
+                    {copy.trackShipment}
+                  </a>
+                )}
+                {order.shipment.events.length > 0 && (
+                  <div className="mt-4">
+                    <h4 className="my-2 text-sm">{copy.deliveryProgress}</h4>
+                    <ol className="m-0 list-none space-y-2 p-0 text-sm">
+                      {order.shipment.events.map((event, index) => (
+                        <li key={`${event.occurred_at}-${index}`} className="flex gap-3">
+                          <time className="shrink-0 text-store-muted">
+                            {dates.format(new Date(event.occurred_at))}
+                          </time>
+                          <span>{copy.shipmentStatuses[event.status]}</span>
+                        </li>
+                      ))}
+                    </ol>
+                  </div>
+                )}
+              </div>
             )}
           </section>
         )}
