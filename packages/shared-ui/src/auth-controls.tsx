@@ -387,3 +387,49 @@ export function Loading({ children = 'Loading your account…' }: { children?: R
     </p>
   );
 }
+
+/**
+ * Asks before a permanent action. Nothing happens until the person chooses the confirm button;
+ * closing or cancelling calls only `onCancel`.
+ */
+export function ConfirmDialog({
+  title,
+  children,
+  confirmLabel = 'Delete',
+  onConfirm,
+  onCancel,
+}: {
+  title: string;
+  children: ReactNode;
+  confirmLabel?: string;
+  onConfirm: () => Promise<void>;
+  onCancel: () => void;
+}) {
+  const [busy, setBusy] = useState(false);
+  return (
+    <Dialog title={title} onClose={onCancel}>
+      <div className="grid gap-5">
+        <div className="text-sm leading-6 text-muted">{children}</div>
+        <div className="flex flex-wrap gap-3">
+          <Button
+            variant="danger"
+            busy={busy}
+            onClick={async () => {
+              setBusy(true);
+              try {
+                await onConfirm();
+              } finally {
+                setBusy(false);
+              }
+            }}
+          >
+            {confirmLabel}
+          </Button>
+          <Button variant="secondary" disabled={busy} onClick={onCancel}>
+            Cancel
+          </Button>
+        </div>
+      </div>
+    </Dialog>
+  );
+}

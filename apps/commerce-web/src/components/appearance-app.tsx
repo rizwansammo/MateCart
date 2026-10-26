@@ -15,6 +15,8 @@ import {
   isHexColor,
   isReadable,
   resolveTheme,
+  translationLanguage,
+  withTranslation,
 } from '@matecart/shared-ui';
 import { authApi as api } from '@/lib/auth-client';
 
@@ -82,7 +84,12 @@ type Draft = Pick<
   | 'announcement'
   | 'footer_text'
   | 'show_name_with_logo'
-> & { tagline_bn: string };
+> & { tagline_translation: string };
+
+function translatedTagline(a: StoreAppearance): string {
+  const language = translationLanguage(a.languages, a.default_language);
+  return language ? (a.translations[language.code]?.tagline ?? '') : '';
+}
 
 function draftOf(a: StoreAppearance): Draft {
   return {
@@ -94,7 +101,7 @@ function draftOf(a: StoreAppearance): Draft {
     announcement: a.announcement,
     footer_text: a.footer_text,
     show_name_with_logo: a.show_name_with_logo,
-    tagline_bn: a.translations.bn?.tagline ?? '',
+    tagline_translation: translatedTagline(a),
   };
 }
 
@@ -300,7 +307,7 @@ export function AppearanceSettings({ canManageSettings }: { canManageSettings: b
   if (!data || !draft)
     return error ? <Alert>{error}</Alert> : <Loading>Loading appearance…</Loading>;
 
-  const bangla = data.languages.includes('bn') && data.default_language !== 'bn';
+  const translation = translationLanguage(data.languages, data.default_language);
   const theme = resolveTheme(data.preset, {
     primaryColor: draft.primary_color,
     accentColor: draft.accent_color,
@@ -330,7 +337,11 @@ export function AppearanceSettings({ canManageSettings }: { canManageSettings: b
       announcement: draft.announcement,
       footer_text: draft.footer_text,
       show_name_with_logo: draft.show_name_with_logo,
-      translations: bangla ? { bn: { tagline: draft.tagline_bn } } : {},
+      translations: translation
+        ? withTranslation(data.translations, translation.code, {
+            tagline: draft.tagline_translation,
+          })
+        : data.translations,
     };
     if (data.can_rename) body.store_name = draft.store_name;
     void run(() => api.patch(`${BASE}/appearance/`, body), 'Your appearance is saved.');
@@ -392,14 +403,14 @@ export function AppearanceSettings({ canManageSettings }: { canManageSettings: b
               maxLength={160}
               onChange={(e) => set({ tagline: e.target.value })}
             />
-            {bangla && (
+            {translation && (
               <TextField
-                label="Tagline in Bangla"
-                lang="bn"
-                className="font-bangla"
-                value={draft.tagline_bn}
+                label={`Tagline in ${translation.name}`}
+                lang={translation.code}
+                className={translation.code === 'bn' ? 'font-bangla' : ''}
+                value={draft.tagline_translation}
                 maxLength={160}
-                onChange={(e) => set({ tagline_bn: e.target.value })}
+                onChange={(e) => set({ tagline_translation: e.target.value })}
               />
             )}
             <TextArea

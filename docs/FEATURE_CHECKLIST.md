@@ -100,7 +100,12 @@ Update the status in the same change that completes a feature.
 - [x] Merchant appearance and content screens; public storefront configuration API; contracts
 - [x] Controlled business preset change command (refuses incompatible products)
 - [x] Authentication smoke test closed (12/12, carried from Phase 04.1)
-- [ ] Owner commit, GitHub CI and independent acceptance of Phase 05
+- [x] Phase 05 commit `e3810cb` and GitHub CI run 40297666311 (4/4, 807 tests)
+- [x] Published pages cannot be emptied; drafts may be empty (05.1)
+- [x] Homepage sections need a title to be shown; new sections start hidden (05.1)
+- [x] Translation fields follow the store's non-default language (English or Bangla) (05.1)
+- [x] Confirmation before permanently deleting pages and sections (05.1)
+- [ ] Owner commit, GitHub CI and independent acceptance of Phase 05.1 (closes Phase 05)
 
 ## Carried into Phases 07 and 08 (from Phase 04.1, not implemented yet)
 

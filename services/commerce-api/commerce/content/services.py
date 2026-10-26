@@ -115,6 +115,11 @@ def save_page(
             target.slug = slugify(target.title)[:80].strip("-") or "page"
         if "translations" in data:
             target.translations = _clean_translations(data["translations"], PAGE_TEXT)
+        if target.status == PageStatus.PUBLISHED and not target.body.strip():
+            # Same rule as publishing: a live page never becomes empty (05.1).
+            raise ValidationError(
+                {"body": ["A published page needs its text. Unpublish it first."]}
+            )
         validated(target, exclude=["tenant"])
         save_unique(
             target, {"content_page_slug_unique": ("slug", "Another page uses this address.")}
@@ -160,6 +165,9 @@ SECTION_FIELDS = ["section_type", "is_enabled", "title", "image_id", "collection
 
 
 def _check_section(section: HomeSection) -> None:
+    if section.is_enabled and not section.title.strip():
+        # Shown sections need a title; incomplete ones can be saved while hidden (05.1).
+        raise ValidationError({"title": ["Give the section a title before showing it."]})
     if section.image is not None and section.image.kind != MediaKind.IMAGE:
         raise ValidationError({"image": ["Choose an image."]})
     if section.section_type == SectionType.COLLECTION_HIGHLIGHT:

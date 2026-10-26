@@ -332,23 +332,15 @@ def test_homepage_sections_default_order_and_publish(
 
 
 def test_section_links_and_media_are_checked(editor: Api, deployment_tenant: Tenant) -> None:
+    hero = {"section_type": "hero", "title": "Hero"}
     for cta_url in ("https://evil.example", "//evil.example", "javascript:alert(1)"):
-        response = editor.post(
-            SECTIONS, {"section_type": "hero", "cta_label": "Shop", "cta_url": cta_url}
-        )
-        assert response.status_code == 400, cta_url
-    assert (
-        editor.post(
-            SECTIONS,
-            {"section_type": "hero", "cta_label": "Shop", "cta_url": "/collections/new-in"},
-        ).status_code
-        == 201
-    )
+        response = editor.post(SECTIONS, {**hero, "cta_label": "Shop", "cta_url": cta_url})
+        assert response.json()["error"]["details"].keys() == {"cta_url"}, cta_url
+    linked = editor.post(SECTIONS, {**hero, "cta_label": "Shop", "cta_url": "/collections/new-in"})
+    assert linked.status_code == 201
     document = stored_asset(deployment_tenant, kind="document")
-    assert (
-        editor.post(SECTIONS, {"section_type": "hero", "image": str(document.pk)}).status_code
-        == 400
-    )
+    refused = editor.post(SECTIONS, {**hero, "image": str(document.pk)})
+    assert refused.json()["error"]["details"] == {"image": ["Choose an image."]}
 
 
 # --- Public configuration -------------------------------------------------------------------------
@@ -421,3 +413,90 @@ def test_appearance_and_content_are_isolated_per_store(
 
         with pytest.raises(IntegrityError), transaction.atomic():
             point_logo_at_other_store()
+
+
+# --- Phase 05.1 corrections -----------------------------------------------------------------------
+
+
+def _published_page(editor: Api) -> dict[str, Any]:
+    page = editor.post(PAGES, {"title": "Shipping", "body": "Delivery in 2 days."}).json()
+    editor.post(f"{PAGES}{page['id']}/status/", {"status": "published"})
+    return dict(page)
+
+
+@pytest.mark.parametrize("body", ["", "   \n\t  "])
+def test_published_pages_cannot_be_emptied(
+    editor: Api, make_api: Callable[[], Api], body: str
+) -> None:
+    page = _published_page(editor)
+    refused = editor.patch(f"{PAGES}{page['id']}/", {"body": body, "title": "Changed"})
+    assert refused.status_code == 400
+    assert "body" in refused.json()["error"]["details"]
+    stored = editor.get(f"{PAGES}{page['id']}/").json()
+    assert (stored["body"], stored["title"], stored["status"]) == (
+        "Delivery in 2 days.",
+        "Shipping",
+        "published",
+    )
+    public = make_api().get("/api/storefront/pages/shipping/").json()
+    assert public["body"] == "Delivery in 2 days."
+
+
+def test_drafts_may_be_empty_and_published_pages_still_edit(editor: Api) -> None:
+    draft = editor.post(PAGES, {"title": "About"}).json()
+    assert editor.patch(f"{PAGES}{draft['id']}/", {"body": ""}).status_code == 200
+    page = _published_page(editor)
+    updated = editor.patch(f"{PAGES}{page['id']}/", {"body": "Delivery in 1 day."})
+    assert (updated.status_code, updated.json()["status"]) == (200, "published")
+
+
+def test_sections_need_a_title_to_be_shown(editor: Api, make_api: Callable[[], Api]) -> None:
+    hidden = editor.post(SECTIONS, {"section_type": "brand_story", "is_enabled": False})
+    assert hidden.status_code == 201
+    blank_shown = editor.post(SECTIONS, {"section_type": "hero", "title": "   "})
+    assert blank_shown.json()["error"]["details"] == {
+        "title": ["Give the section a title before showing it."]
+    }
+    section_id = hidden.json()["id"]
+    refused = editor.patch(f"{SECTIONS}{section_id}/", {"is_enabled": True})
+    assert "title" in refused.json()["error"]["details"]
+    assert make_api().get("/api/storefront/home/").json() == []
+
+    shown = editor.patch(f"{SECTIONS}{section_id}/", {"title": "Our story", "is_enabled": True})
+    assert shown.json()["is_enabled"] is True
+    cleared = editor.patch(f"{SECTIONS}{section_id}/", {"title": ""})
+    assert "title" in cleared.json()["error"]["details"]
+    public = make_api().get("/api/storefront/home/").json()
+    assert [(s["section_type"], s["title"]) for s in public] == [("brand_story", "Our story")]
+
+
+@pytest.mark.parametrize("preset", ["fashion", "grocery", "electronics", "general", "books"])
+def test_preset_default_sections_are_valid_to_show(
+    editor: Api, deployment_tenant: Tenant, preset: str
+) -> None:
+    set_preset(deployment_tenant, preset)
+    sections = editor.post(f"{SECTIONS}defaults/").json()
+    for section in sections:
+        if section["section_type"] != "collection_highlight":
+            response = editor.patch(f"{SECTIONS}{section['id']}/", {"is_enabled": True})
+            assert response.status_code == 200, (preset, section["section_type"])
+
+
+@pytest.mark.parametrize(("default", "other"), [("en", "bn"), ("bn", "en")])
+def test_translations_round_trip_for_either_default_language(
+    editor: Api, deployment_tenant: Tenant, default: str, other: str
+) -> None:
+    with tenant_context(deployment_tenant):
+        StoreSettings.objects.update(default_language=default, supported_languages=[default, other])
+    saved = editor.patch(APPEARANCE, {"translations": {other: {"tagline": "Translated"}}})
+    assert saved.status_code == 200, saved.json()
+    assert editor.get(APPEARANCE).json()["translations"] == {other: {"tagline": "Translated"}}
+    assert (
+        editor.patch(APPEARANCE, {"translations": {default: {"tagline": "x"}}}).status_code == 400
+    )
+    page = editor.post(
+        PAGES, {"title": "About", "translations": {other: {"title": "T", "body": "B"}}}
+    )
+    assert editor.get(f"{PAGES}{page.json()['id']}/").json()["translations"] == {
+        other: {"title": "T", "body": "B"}
+    }

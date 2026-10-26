@@ -1,9 +1,11 @@
 # Progress and handoff
 
-Updated: 2026-10-26 (Asia/Dhaka). **Phase 05 — Presets, Themes & Branding is
-implemented and locally verified, ready for the owner's commit, push, GitHub CI and
-independent acceptance.** Phases 01–04 (with 02.1, 02.2, 03.1 and 04.1) are accepted and
-closed. Phase 06 has not started and needs explicit authorization.
+Updated: 2026-10-26 (Asia/Dhaka). **Phase 05.1 — Focused Content Integrity and UX
+Corrections is implemented and locally verified, ready for the owner's commit, push,
+GitHub CI and independent review; it is not yet accepted.** Phase 05 — Presets, Themes &
+Branding is committed and GitHub-verified (`e3810cb`). Phases 01–04 (with 02.1, 02.2,
+03.1 and 04.1) are accepted and closed. Phase 06 has not started and needs explicit
+authorization.
 
 ## Accepted baseline and boundaries
 
@@ -17,7 +19,8 @@ closed. Phase 06 has not started and needs explicit authorization.
 | Correction 03.1 | Accepted and Phase 03 closed (owner decision 2026-10-26): `5d6152ab98a0d01993845173b92370e75cffa936`, run 40237897132, 4/4 jobs, 463 tests (370 commerce, 57 control, 17 contracts, 16 UI, 3 Node); 12 local live smoke checks. Findings closed in scope. |
 | Phase 04        | Implemented and pushed (GitHub-verified): `1bd61be0a49278e25cb8d201a809e171d32eaf38`, run 40246230098, SUCCESS 4/4 jobs, 701 tests (596 commerce, 57 control, 29 contracts, 16 UI, 3 Node). Post-push review requested the 04.1 corrections.              |
 | Correction 04.1 | Accepted and Phase 04 closed: `8290fe424ea7729d46c392e2ab974fa646f2fcf6`, run 40249765179, 4/4 jobs, 735 tests (630 commerce, 57 control, 29 contracts, 16 UI, 3 Node).                                                                                   |
-| Phase 05        | **Implemented and verified locally, not committed.** Baseline `8290fe4` on `main`; no commit, push or PR was created by the assistant. CI and independent acceptance pending.                                                                             |
+| Phase 05        | Implemented and pushed (GitHub-verified): `e3810cb465a771cc9b18437290f67aba1bbd7f02`, run 40297666311, SUCCESS 4/4 jobs, 807 tests (667 commerce, 57 control, 34 contracts, 46 UI, 3 Node). Review requested the 05.1 corrections.                        |
+| Correction 05.1 | **Implemented and verified locally, not committed.** Baseline `e3810cb` on `main`; no commit, push or PR was created by the assistant. CI and independent review pending; not accepted.                                                                   |
 | Architecture    | Dedicated single-tenant deployment, tenant-aware modular monolith, future hybrid only if approved; commerce/control independent.                                                                                                                          |
 | Product         | Private beta, manual onboarding. Public commercial signup/subscriptions/billing deferred. Public customer registration is authorized.                                                                                                                     |
 | Prototype       | MateCart-UI strictly read-only; no edits/build/install (HEAD `9ff1361`, clean).                                                                                                                                                                           |
@@ -29,6 +32,53 @@ and staff invitations; 03.1 closed backend team step-up, OIDC binding order and
 narrow Google provider failure handling (D-039 to D-049, AUTHENTICATION.md,
 SECURITY.md). External Google, SMS and SMTP acceptance remains outstanding until
 genuine providers are configured.
+
+## Phase 05.1 corrections (corrective subphase, not accepted)
+
+No migration, model, API shape or OpenAPI change; the existing `translations` JSON is
+reused. Phase 04, authentication and preset defaults are untouched.
+
+1. **Published pages could be emptied.** Publishing required text, but `save_page()` did
+   not re-check it on later edits, so a live page could be saved with an empty or
+   whitespace-only body. Now refused with HTTP 400 (`body`); the stored text and status
+   are kept. Drafts may still be empty.
+2. **Blank homepage sections could be shown.** `_check_section()` had no title rule and
+   the UI created new sections enabled. A section now needs a non-blank title to be
+   enabled (enabling a blank one or clearing an enabled one's title: HTTP 400, `title`);
+   incomplete sections save while hidden. The UI creates new sections hidden. The
+   collection-highlight rule and the five preset default homepages are unchanged and
+   still valid (tested).
+3. **Bangla-default stores offered Bangla translation fields.** Merchant screens
+   hard-coded `bn` as the translation language and hid it when Bangla was the default.
+   New `translationLanguage()` in `@matecart/shared-ui` picks the store's non-default
+   supported language (Bangla for English-default stores, English for Bangla-default,
+   none for single-language stores); labels name it ("Tagline in English", "Page text
+   in Bangla"). `withTranslation()` merges the edited language into the stored map
+   without dropping other languages or fields (previously page saves replaced the map).
+4. **Pages and sections were deleted without confirmation.** New shared `ConfirmDialog`
+   names the item, states the deletion is permanent and offers Cancel/Delete; Cancel
+   sends nothing, Delete sends one DELETE.
+
+Files: `commerce/content/services.py`, `tests/test_appearance.py`;
+`packages/shared-ui/src/{translations.ts (new), auth-controls.tsx, index.ts,
+content-ui.test.tsx (new)}`; `apps/commerce-web/src/components/{appearance-app.tsx,
+content-app.tsx}`.
+
+## Verification record (Phase 05.1, observed locally)
+
+**827 automated tests passed, 0 failed** (678 commerce + 57 control + 34 contracts + 55
+shared UI + 3 Node): 11 new commerce tests in `test_appearance.py` (published-page
+emptying ×2, drafts, section titles, preset defaults ×5, translations both directions ×2)
+and 9 new UI tests in `content-ui.test.tsx`. One existing section test was updated to
+give its sections titles and assert specific error keys.
+
+| Check        | Actual observation                                                                                                                                         |
+| ------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Backend      | `pnpm api:test`: 678 + 57 passed (includes the OpenAPI drift test). `pnpm api:lint`: Ruff, format, strict mypy (175 + 52). `makemigrations --check`: none. |
+| Frontend     | `pnpm check` passed (Prettier, ESLint, typecheck, 34 + 55 + 3 tests). `pnpm build` passed (Webpack, both apps).                                            |
+| Live         | `/manage/appearance`, `/manage/content`, `/api/storefront/config/` and `/home/` return 200; `pnpm health` passed; `docker compose config` passed.          |
+| Not verified | No manual browser walk-through of the dialogs or bilingual fields; auth smoke not re-run (no auth change, per instruction).                                |
+| GitHub CI    | Phase 05.1 not run (uncommitted). Last CI: run 40297666311 (Phase 05), 4/4, 807 tests.                                                                     |
 
 ## Phase 05 implemented scope
 
@@ -80,7 +130,7 @@ shared UI + 3 Node): 37 new commerce tests (35 in `test_appearance.py`, 2 guard 
 | Live         | `/manage/appearance`, `/manage/content`, `/api/storefront/config/` and `/home/` respond through the Next.js proxy; anonymous mutation refused; `pnpm health` passed; `docker compose config` passed.      |
 | Auth smoke   | `node scripts/auth-smoke.mjs --local`, run once: **12/12 passed**, closing the item carried from Phase 04.1.                                                                                              |
 | Preservation | Other projects' containers, volumes and networks unchanged; prototype `9ff1361` clean; no env files, keys or the Optimus font in the change set.                                                          |
-| GitHub CI    | Phase 05 not run (uncommitted). Last CI: run 40249765179 (Phase 04.1), 4/4, 735 tests.                                                                                                                    |
+| GitHub CI    | After push: `e3810cb`, run 40297666311, SUCCESS 4/4 jobs, 807 tests.                                                                                                                                      |
 
 ## Phase 04.1 corrections (accepted)
 
@@ -239,9 +289,9 @@ contract tests. Plus 7 live catalogue and 12 live authentication smoke checks.
 
 ## Remaining scope, limits and next step
 
-- **Next step:** owner reviews the uncommitted Phase 05 diff, commits and pushes it,
-  verifies GitHub CI, and requests independent acceptance. Phase 06 starts only after
-  explicit authorization.
+- **Next step:** owner reviews the uncommitted Phase 05.1 diff, commits and pushes it,
+  verifies GitHub CI, and requests independent review; Phase 05 is accepted only after
+  that. Phase 06 starts only after explicit authorization.
 - Phase 05 limits: themes are previewed in the dashboard; customer pages that render them
   arrive in Phase 06. Module states are configuration only in Phase 05. Contact address
   and social links are not modelled yet.

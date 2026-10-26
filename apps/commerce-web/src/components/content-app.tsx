@@ -3,7 +3,18 @@
 import { useCallback, useEffect, useState } from 'react';
 import type { ContentPage, HomeSection, SectionType } from '@matecart/shared-contracts';
 import { contentPage, homeSection } from '@matecart/shared-contracts';
-import { Alert, Button, Dialog, Loading, TextField, errorMessage } from '@matecart/shared-ui';
+import type { TranslationLanguage } from '@matecart/shared-ui';
+import {
+  Alert,
+  Button,
+  ConfirmDialog,
+  Dialog,
+  Loading,
+  TextField,
+  errorMessage,
+  translationLanguage,
+  withTranslation,
+} from '@matecart/shared-ui';
 import { authApi as api } from '@/lib/auth-client';
 import { Panel, TextArea, uploadImage } from './appearance-app';
 
@@ -159,6 +170,7 @@ function Sections() {
   const [sections, setSections] = useState<HomeSection[] | null>(null);
   const [collections, setCollections] = useState<Collection[]>([]);
   const [editing, setEditing] = useState<HomeSection | null>(null);
+  const [confirming, setConfirming] = useState<HomeSection | null>(null);
   const [error, setError] = useState('');
   const load = useCallback(async () => {
     const rows = await api.get<unknown[]>(`${BASE}/sections/`);
@@ -261,7 +273,7 @@ function Sections() {
                 <Button
                   variant="secondary"
                   aria-label={`Delete ${section.title || 'section'}`}
-                  onClick={() => void act(() => api.delete(`${BASE}/sections/${section.id}/`))}
+                  onClick={() => setConfirming(section)}
                 >
                   Delete
                 </Button>
@@ -279,7 +291,8 @@ function Sections() {
               void act(() =>
                 api.post(`${BASE}/sections/`, {
                   section_type: type,
-                  is_enabled: type !== 'collection_highlight',
+                  // Hidden until it has a title (and, for highlights, a collection).
+                  is_enabled: false,
                 }),
               )
             }
@@ -288,6 +301,20 @@ function Sections() {
           </Button>
         ))}
       </div>
+      {confirming && (
+        <ConfirmDialog
+          title="Delete this section?"
+          onCancel={() => setConfirming(null)}
+          onConfirm={async () => {
+            const target = confirming;
+            setConfirming(null);
+            await act(() => api.delete(`${BASE}/sections/${target.id}/`));
+          }}
+        >
+          “{confirming.title || SECTION_LABELS[confirming.section_type]}” will be removed from your
+          homepage permanently. This cannot be undone.
+        </ConfirmDialog>
+      )}
       {editing && (
         <SectionEditor
           section={editing}
@@ -302,12 +329,12 @@ function Sections() {
 
 function PageEditor({
   page,
-  bangla,
+  translation,
   onClose,
   onSaved,
 }: {
   page: ContentPage | (typeof TEMPLATES)[number];
-  bangla: boolean;
+  translation: TranslationLanguage | null;
   onClose: () => void;
   onSaved: () => Promise<void>;
 }) {
@@ -318,8 +345,8 @@ function PageEditor({
     page_type: page.page_type,
     body: existing?.body ?? '',
     show_in_footer: existing?.show_in_footer ?? true,
-    title_bn: existing?.translations.bn?.title ?? '',
-    body_bn: existing?.translations.bn?.body ?? '',
+    title_translation: translation ? (existing?.translations[translation.code]?.title ?? '') : '',
+    body_translation: translation ? (existing?.translations[translation.code]?.body ?? '') : '',
   });
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
@@ -332,7 +359,12 @@ function PageEditor({
       page_type: form.page_type,
       body: form.body,
       show_in_footer: form.show_in_footer,
-      translations: bangla ? { bn: { title: form.title_bn, body: form.body_bn } } : {},
+      translations: translation
+        ? withTranslation(existing?.translations ?? {}, translation.code, {
+            title: form.title_translation,
+            body: form.body_translation,
+          })
+        : (existing?.translations ?? {}),
     };
     try {
       await (existing
@@ -371,22 +403,22 @@ function PageEditor({
           value={form.body}
           onChange={(e) => setForm({ ...form, body: e.target.value })}
         />
-        {bangla && (
+        {translation && (
           <>
             <TextField
-              label="Title in Bangla"
-              lang="bn"
-              className="font-bangla"
-              value={form.title_bn}
-              onChange={(e) => setForm({ ...form, title_bn: e.target.value })}
+              label={`Title in ${translation.name}`}
+              lang={translation.code}
+              className={translation.code === 'bn' ? 'font-bangla' : ''}
+              value={form.title_translation}
+              onChange={(e) => setForm({ ...form, title_translation: e.target.value })}
             />
             <TextArea
-              label="Page text in Bangla"
-              lang="bn"
-              className="font-bangla"
+              label={`Page text in ${translation.name}`}
+              lang={translation.code}
+              className={translation.code === 'bn' ? 'font-bangla' : ''}
               rows={5}
-              value={form.body_bn}
-              onChange={(e) => setForm({ ...form, body_bn: e.target.value })}
+              value={form.body_translation}
+              onChange={(e) => setForm({ ...form, body_translation: e.target.value })}
             />
           </>
         )}
@@ -411,9 +443,10 @@ function PageEditor({
   );
 }
 
-function Pages({ bangla }: { bangla: boolean }) {
+function Pages({ translation }: { translation: TranslationLanguage | null }) {
   const [pages, setPages] = useState<ContentPage[] | null>(null);
   const [editing, setEditing] = useState<ContentPage | (typeof TEMPLATES)[number] | null>(null);
+  const [confirming, setConfirming] = useState<ContentPage | null>(null);
   const [error, setError] = useState('');
   const load = useCallback(async () => {
     setPages((await api.get<unknown[]>(`${BASE}/pages/`)).map(contentPage));
@@ -472,7 +505,7 @@ function Pages({ bangla }: { bangla: boolean }) {
                 <Button
                   variant="secondary"
                   aria-label={`Delete ${page.title}`}
-                  onClick={() => void act(() => api.delete(`${BASE}/pages/${page.id}/`))}
+                  onClick={() => setConfirming(page)}
                 >
                   Delete
                 </Button>
@@ -497,10 +530,24 @@ function Pages({ bangla }: { bangla: boolean }) {
           </Button>
         </div>
       </div>
+      {confirming && (
+        <ConfirmDialog
+          title="Delete this page?"
+          onCancel={() => setConfirming(null)}
+          onConfirm={async () => {
+            const target = confirming;
+            setConfirming(null);
+            await act(() => api.delete(`${BASE}/pages/${target.id}/`));
+          }}
+        >
+          “{confirming.title}” (/pages/{confirming.slug}) will be deleted permanently, including its
+          translations. This cannot be undone.
+        </ConfirmDialog>
+      )}
       {editing && (
         <PageEditor
           page={editing}
-          bangla={bangla}
+          translation={translation}
           onClose={() => setEditing(null)}
           onSaved={load}
         />
@@ -511,12 +558,12 @@ function Pages({ bangla }: { bangla: boolean }) {
 
 export function ContentSettings() {
   const [tab, setTab] = useState<'home' | 'pages'>('home');
-  const [bangla, setBangla] = useState(false);
+  const [translation, setTranslation] = useState<TranslationLanguage | null>(null);
   useEffect(() => {
     void api
       .get<{ languages?: string[]; default_language?: string }>('/api/manage/store/appearance/')
-      .then((a) => setBangla(Boolean(a.languages?.includes('bn')) && a.default_language !== 'bn'))
-      .catch(() => setBangla(false));
+      .then((a) => setTranslation(translationLanguage(a.languages ?? [], a.default_language ?? '')))
+      .catch(() => setTranslation(null));
   }, []);
   return (
     <div className="grid gap-6">
@@ -547,7 +594,7 @@ export function ContentSettings() {
           </button>
         ))}
       </div>
-      {tab === 'home' ? <Sections /> : <Pages bangla={bangla} />}
+      {tab === 'home' ? <Sections /> : <Pages translation={translation} />}
     </div>
   );
 }
