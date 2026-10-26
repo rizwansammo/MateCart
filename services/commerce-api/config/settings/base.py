@@ -46,6 +46,8 @@ INSTALLED_APPS = [
     "commerce.orders",
     # Phase 09: physical shipments, courier tracking, COD reconciliation and fraud review.
     "commerce.fulfillment",
+    # Phase 10: customer purchase-linked after sales records.
+    "commerce.aftersales",
     # Phase 05: store content (pages, homepage sections). Theme and modules live in stores.
     "commerce.content",
 ]
