@@ -161,9 +161,7 @@ export function AfterSalesManage() {
                   maxLength={36}
                   placeholder="UUID from verified order operations"
                   value={evidence[item.id] ?? ''}
-                  onChange={(event) =>
-                    setEvidence({ ...evidence, [item.id]: event.target.value })
-                  }
+                  onChange={(event) => setEvidence({ ...evidence, [item.id]: event.target.value })}
                 />
               </label>
             ) : null}

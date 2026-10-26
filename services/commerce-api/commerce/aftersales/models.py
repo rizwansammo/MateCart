@@ -89,7 +89,9 @@ class AfterSalesCase(TenantOwnedModel, TimestampedModel):
             TenantForeignKeyConstraint(field="customer", name="after_case_customer_tenant"),
             TenantForeignKeyConstraint(field="order_item", name="after_case_item_tenant"),
             TenantForeignKeyConstraint(field="refund", name="after_case_refund_tenant"),
-            TenantForeignKeyConstraint(field="replacement_order", name="after_case_replacement_tenant"),
+            TenantForeignKeyConstraint(
+                field="replacement_order", name="after_case_replacement_tenant"
+            ),
             models.UniqueConstraint(
                 fields=["tenant", "customer", "request_key_hash"], name="after_case_key_unique"
             ),

@@ -18,7 +18,6 @@ from commerce.catalog.models import ElectronicsDetails
 from commerce.core.domain import ConflictError
 from commerce.fulfillment.models import Shipment, ShipmentStatus
 from commerce.identity.models import User
-from commerce.stores.modules import enabled_modules
 from commerce.orders.models import (
     Order,
     OrderItem,
@@ -27,6 +26,7 @@ from commerce.orders.models import (
     Refund,
     RefundStatus,
 )
+from commerce.stores.modules import enabled_modules
 
 from .models import AfterSalesCase, CaseKind, CaseMessage, CaseStatus, ProductReview, ReviewStatus
 
@@ -144,7 +144,10 @@ def submit_case(
     reason: str,
     idempotency_key: str,
 ) -> AfterSalesCase:
-    if kind in (CaseKind.RETURN, CaseKind.EXCHANGE) and "returns_exchanges" not in enabled_modules():
+    if (
+        kind in (CaseKind.RETURN, CaseKind.EXCHANGE)
+        and "returns_exchanges" not in enabled_modules()
+    ):
         raise ConflictError("Returns and exchanges are unavailable.", "returns_unavailable")
     digest = hashlib.sha256(idempotency_key.strip().encode()).hexdigest()
     with transaction.atomic():
@@ -243,10 +246,12 @@ def transition_case(
                 raise ConflictError("Inspect the return before resolution.", "return_not_inspected")
             refund = (
                 Refund.objects.select_for_update().filter(pk=refund_id).first()
-                if refund_id is not None else None
+                if refund_id is not None
+                else None
             )
             if (
-                refund is None or refund.order_id != case.order_item.order_id
+                refund is None
+                or refund.order_id != case.order_item.order_id
                 or refund.status != RefundStatus.SUCCEEDED
                 or AfterSalesCase.objects.filter(refund=refund).exclude(pk=case.pk).exists()
             ):
@@ -259,7 +264,8 @@ def transition_case(
                 raise ConflictError("Receive and inspect the item first.", "exchange_not_inspected")
             replacement = (
                 Order.objects.select_for_update().filter(pk=replacement_order_id).first()
-                if replacement_order_id is not None else None
+                if replacement_order_id is not None
+                else None
             )
             if (
                 replacement is None
@@ -275,7 +281,8 @@ def transition_case(
                     order=replacement, status=ShipmentStatus.DELIVERED
                 ).exists()
                 or AfterSalesCase.objects.filter(replacement_order=replacement)
-                   .exclude(pk=case.pk).exists()
+                .exclude(pk=case.pk)
+                .exists()
             ):
                 raise ConflictError(
                     "A delivered replacement order for the same customer and SKU is required.",
@@ -283,14 +290,20 @@ def transition_case(
                 )
             case.replacement_order = replacement
         elif refund_id is not None or replacement_order_id is not None:
-            raise ValidationError({"evidence": ["Evidence is accepted only when resolving a claim."]})
+            raise ValidationError(
+                {"evidence": ["Evidence is accepted only when resolving a claim."]}
+            )
         if status in (CaseStatus.REJECTED, CaseStatus.RESOLVED) and not reason.strip():
             raise ValidationError({"reason": ["Record a decision reason."]})
         case.status = status
         case.decision_reason = reason.strip()
         case.save(
             update_fields=[
-                "status", "decision_reason", "refund", "replacement_order", "updated_at",
+                "status",
+                "decision_reason",
+                "refund",
+                "replacement_order",
+                "updated_at",
             ]
         )
         record_audit_event(

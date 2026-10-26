@@ -70,7 +70,7 @@ def assign_asset(*, variant_id: Any, asset_id: Any, limit: int, actor: User) -> 
             variant=variant,
             defaults={"asset": asset, "enabled": True, "download_limit": limit},
         )
-        # Issue only for orders already verified as paid. Existing bindings retain their original asset.
+        # Issue only for verified payments. Existing bindings retain their original asset.
         orders = Order.objects.filter(items__variant=variant).distinct()
         for order in orders:
             issue_for_order(order)

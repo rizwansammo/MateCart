@@ -182,9 +182,21 @@ REGISTRY: tuple[ModuleSpec, ...] = (
         requires=("online_payments",),
     ),
     ModuleSpec("courier_booking", "Courier booking", "Book and track couriers.", "09", True),
-    ModuleSpec("product_reviews", "Product reviews", "Verified customer reviews.", "10", True, default_on=ALL),
     ModuleSpec(
-        "returns_exchanges", "Returns and exchanges", "Customer return requests.", "10", True, default_on=ALL
+        "product_reviews",
+        "Product reviews",
+        "Verified customer reviews.",
+        "10",
+        True,
+        default_on=ALL,
+    ),
+    ModuleSpec(
+        "returns_exchanges",
+        "Returns and exchanges",
+        "Customer return requests.",
+        "10",
+        True,
+        default_on=ALL,
     ),
     ModuleSpec(
         "digital_downloads",

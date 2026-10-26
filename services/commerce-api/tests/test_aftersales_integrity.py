@@ -21,7 +21,8 @@ pytestmark = pytest.mark.django_db
 
 
 def test_customer_case_replay_and_cross_tenant_isolation(
-    store: Any, tenant_b: Tenant,
+    store: Any,
+    tenant_b: Tenant,
 ) -> None:
     buyer = customer_client(store.tenant, "tenant-a-support@example.test")
     body = {
@@ -71,5 +72,8 @@ def test_unapproved_case_cannot_be_resolved(
         format="json",
     )
     assert rejected.status_code == 409
-    assert handler.get(f"/api/manage/aftersales/cases/{created.data['id']}/").data["status"] == "requested"
+    assert (
+        handler.get(f"/api/manage/aftersales/cases/{created.data['id']}/").data["status"]
+        == "requested"
+    )
     assert APIClient().get("/api/manage/aftersales/cases/").status_code == 401
