@@ -21,6 +21,7 @@ import {
 import { authApi as api } from '@/lib/auth-client';
 import { AppearanceSettings } from './appearance-app';
 import { ContentSettings } from './content-app';
+import { AfterSalesManage } from './after-sales-manage';
 
 function TeamSettings() {
   const [data, setData] = useState<Team | null>(null);
@@ -339,6 +340,7 @@ function ProtectedManagement({ path }: { path: string }) {
   const canManage = session.permissions.includes('staff.manage');
   const canEditContent = session.permissions.includes('content.manage');
   const canManageSettings = session.permissions.includes('store.settings');
+  const canHandleOrders = session.permissions.includes('orders.manage');
   const denied = (
     <Alert>You do not have permission to change this. Ask your store owner for help.</Alert>
   );
@@ -348,20 +350,21 @@ function ProtectedManagement({ path }: { path: string }) {
       name={session.store_name}
       subtitle={`${session.user.full_name} · ${session.role_label}`}
       team={canManage}
-      links={
-        canEditContent
-          ? [
-              { href: '/manage/appearance', label: 'Appearance' },
-              { href: '/manage/content', label: 'Content' },
-            ]
-          : []
-      }
+      links={[
+        ...(canEditContent ? [
+          { href: '/manage/appearance', label: 'Appearance' },
+          { href: '/manage/content', label: 'Content' },
+        ] : []),
+        ...(canHandleOrders ? [{ href: '/manage/aftersales', label: 'Customer requests' }] : []),
+      ]}
       onLogout={async () => {
         await api.post('/api/manage/auth/logout/');
         window.location.assign('/manage/sign-in');
       }}
     >
-      {path === 'appearance' ? (
+      {path === 'aftersales' ? (
+        canHandleOrders ? <AfterSalesManage /> : denied
+      ) : path === 'appearance' ? (
         canEditContent ? (
           <AppearanceSettings canManageSettings={canManageSettings} />
         ) : (
