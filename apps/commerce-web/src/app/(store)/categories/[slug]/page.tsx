@@ -47,7 +47,7 @@ export default async function CategoryPage({ params, searchParams }: Props) {
   const { path, category } = found;
   const query = parseListingQuery(search);
   const results = await getProducts(
-    apiQuery(query, { category: slug }, PAGE_SIZE[ctx.theme.preset.id]),
+    apiQuery(query, { category: slug }, PAGE_SIZE[ctx.theme.presentation.card]),
   );
   if (!results) notFound();
 

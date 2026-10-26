@@ -4,7 +4,7 @@ import type {
   PublicVariant,
   StorefrontConfig,
 } from '@matecart/shared-contracts';
-import { resolveTheme, type PresetId } from '@matecart/shared-ui';
+import { PRESETS, resolveTheme, type PresetId } from '@matecart/shared-ui';
 
 import { messages } from '@/lib/i18n';
 import type { StoreContext } from '@/lib/store-context';
@@ -102,6 +102,7 @@ export function storeConfig(extra: Partial<StorefrontConfig['store']> = {}): Sto
       ...extra,
     },
     preset: 'general',
+    active_theme: 'general-marketplace',
     theme: {
       primary_color: null,
       accent_color: null,
@@ -129,6 +130,6 @@ export function storeContext(
   lang = 'en',
   store: Partial<StorefrontConfig['store']> = {},
 ): StoreContext {
-  const config = { ...storeConfig(store), preset };
+  const config = { ...storeConfig(store), preset, active_theme: PRESETS[preset].defaultTheme };
   return { config, theme: resolveTheme(preset), lang, t: messages(lang) };
 }

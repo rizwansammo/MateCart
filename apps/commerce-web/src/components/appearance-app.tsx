@@ -308,10 +308,12 @@ export function AppearanceSettings({ canManageSettings }: { canManageSettings: b
     return error ? <Alert>{error}</Alert> : <Loading>Loading appearance…</Loading>;
 
   const translation = translationLanguage(data.languages, data.default_language);
-  const theme = resolveTheme(data.preset, {
-    primaryColor: draft.primary_color,
-    accentColor: draft.accent_color,
-  });
+  // The assigned theme with the draft colours on top (D-069). The theme itself is read-only here.
+  const theme = resolveTheme(
+    data.preset,
+    { primaryColor: draft.primary_color, accentColor: draft.accent_color },
+    data.active_theme,
+  );
   const set = (patch: Partial<Draft>) => setDraft({ ...draft, ...patch });
 
   async function run(action: () => Promise<unknown>, message: string) {
@@ -373,10 +375,10 @@ export function AppearanceSettings({ canManageSettings }: { canManageSettings: b
         <div className="grid gap-6">
           <Panel
             title={`${data.preset_label} preset`}
-            intro={`${theme.preset.style}: ${theme.preset.description} Your preset is set by NetaMate when your store is created.`}
+            intro={`${theme.theme.name} theme. ${theme.theme.description} Your preset and theme are set by NetaMate; your colours, logos and texts apply on top.`}
           >
             <div className="flex gap-2">
-              {theme.preset.swatches.map((color) => (
+              {theme.theme.swatches.map((color) => (
                 <span
                   key={color}
                   title={color}
@@ -446,13 +448,13 @@ export function AppearanceSettings({ canManageSettings }: { canManageSettings: b
               <ColorField
                 label="Brand colour"
                 value={draft.primary_color}
-                fallback={theme.preset.colors.primary}
+                fallback={theme.theme.colors.primary}
                 onChange={(v) => set({ primary_color: v })}
               />
               <ColorField
                 label="Accent colour"
                 value={draft.accent_color}
-                fallback={theme.preset.colors.accent}
+                fallback={theme.theme.colors.accent}
                 onChange={(v) => set({ accent_color: v })}
               />
             </div>

@@ -167,6 +167,11 @@ and keys, sharing only this local testing inbox.
   unless `STOREFRONT_INDEXING=allow`. The language cookie holds only a language code.
 - The development preset preview is ignored by production builds. Errors shown to customers
   never include API details.
+- Themes (Phase 06.2, D-069) are assigned only by NetaMate through the audited
+  `assign_store_theme` command; merchant and public APIs expose `active_theme` read-only and
+  ignore it in requests. The theme comes only from the store's configuration, never from
+  cookies, query strings or hosts; unknown or incompatible values fall back to the preset
+  default. Themes are code in the release: no uploads, remote templates or merchant scripts.
 
 ## Limits and scheduled follow-up
 

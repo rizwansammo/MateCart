@@ -16,6 +16,8 @@ from commerce.core.standards import (
 from commerce.tenancy.constraints import TenantForeignKeyConstraint
 from commerce.tenancy.models import TenantOwnedModel
 
+from . import themes
+
 
 class StorePreset(models.TextChoices):
     """The five approved business presets. One commerce engine; the preset drives storefront
@@ -31,8 +33,12 @@ class StorePreset(models.TextChoices):
 class StoreSettings(TenantOwnedModel, TimestampedModel):
     """The store's business configuration: exactly one row per tenant.
 
-    Identity and lifecycle (handle, status) live on Tenant. Theme and branding (Phase 05), domains
-    (Phase 17) and module availability (Phase 05) get their own tables when those phases begin.
+    Identity and lifecycle (handle, status) live on Tenant. Branding (StoreTheme) and module
+    overrides (StoreModule) have their own tables; domains arrive in Phase 17.
+
+    ``preset`` is the business preset. ``active_theme`` is the visual theme NetaMate assigned
+    (blank: the preset's default theme; D-069). Both are platform-owned: merchant APIs never
+    change them.
     """
 
     name = models.CharField(max_length=120)
@@ -52,6 +58,13 @@ class StoreSettings(TenantOwnedModel, TimestampedModel):
     contact_email = models.EmailField(blank=True)
     contact_phone = models.CharField(
         max_length=16, blank=True, validators=[RegexValidator(E164_PATTERN)], help_text="E.164."
+    )
+    active_theme = models.CharField(
+        max_length=64,
+        blank=True,
+        default="",
+        validators=[RegexValidator(themes.THEME_ID_PATTERN)],
+        help_text="Theme assigned by NetaMate; blank uses the preset's default theme.",
     )
 
     class Meta(TenantOwnedModel.Meta):
@@ -85,6 +98,10 @@ class StoreSettings(TenantOwnedModel, TimestampedModel):
                 condition=Q(contact_phone="") | Q(contact_phone__regex=E164_PATTERN),
                 name="stores_storesettings_contact_phone_e164",
             ),
+            models.CheckConstraint(
+                condition=Q(active_theme="") | Q(active_theme__regex=themes.THEME_ID_PATTERN),
+                name="stores_storesettings_active_theme_format",
+            ),
         ]
 
     def __str__(self) -> str:
@@ -98,6 +115,10 @@ class StoreSettings(TenantOwnedModel, TimestampedModel):
         if self.default_language and self.default_language not in languages:
             raise ValidationError(
                 {"default_language": "The default language must be one of the supported languages."}
+            )
+        if self.active_theme and not themes.is_compatible(self.active_theme, self.preset):
+            raise ValidationError(
+                {"active_theme": f"This is not a theme of the {self.preset} preset."}
             )
 
 

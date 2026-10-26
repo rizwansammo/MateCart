@@ -78,8 +78,7 @@ export default async function SearchPage({
     );
   }
 
-  const preset = ctx.theme.preset.id;
-  const results = await getProducts(apiQuery(query, {}, PAGE_SIZE[preset]));
+  const results = await getProducts(apiQuery(query, {}, PAGE_SIZE[ctx.theme.presentation.card]));
   if (!results) throw new StorefrontUnavailableError('/api/catalog/products/', 'HTTP 404');
   return (
     <CatalogListing
@@ -90,7 +89,8 @@ export default async function SearchPage({
       title={t.resultsFor(query.q)}
       crumbs={crumbs}
       categoryLinks={categoryLinks(tree, null, ctx.lang)}
-      typeFilter={preset === 'general'}
+      // Feature availability follows the business preset, never the theme (D-069).
+      typeFilter={ctx.theme.preset.id === 'general'}
       before={<SearchBox ctx={ctx} value={query.q} />}
     />
   );

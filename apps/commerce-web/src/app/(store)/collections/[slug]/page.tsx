@@ -35,7 +35,7 @@ export default async function CollectionPage({ params, searchParams }: Props) {
   const query = parseListingQuery(search);
   const [collection, results] = await Promise.all([
     getCollection(slug),
-    getProducts(apiQuery(query, { collection: slug }, PAGE_SIZE[ctx.theme.preset.id])),
+    getProducts(apiQuery(query, { collection: slug }, PAGE_SIZE[ctx.theme.presentation.card])),
   ]);
   if (!collection || !results) notFound();
 

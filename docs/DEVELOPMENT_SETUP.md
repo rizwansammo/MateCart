@@ -126,6 +126,10 @@ adds labelled storefront review data (categories, about ten products of every ty
 generated images and stock, a collection, homepage sections, pages and Bangla texts). It
 does nothing if its categories already exist and never deletes data.
 
+NetaMate assigns a store's theme with
+`docker compose exec commerce-api python manage.py assign_store_theme --theme <id>` (or
+`--default`); the theme must belong to the store's preset (D-069). Merchants cannot do this.
+
 To preview another preset locally without changing the store, run only commerce-web with
 `STOREFRONT_PREVIEW_PRESET=<fashion|grocery|electronics|general|books> pnpm dev:web`
 (development servers only; production builds ignore it).

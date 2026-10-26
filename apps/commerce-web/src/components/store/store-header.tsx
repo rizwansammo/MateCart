@@ -1,5 +1,5 @@
 import type { CategoryNode } from '@matecart/shared-contracts';
-import type { PresetId } from '@matecart/shared-ui';
+import type { PresentationVariant } from '@matecart/shared-ui';
 import type { Route } from 'next';
 import Form from 'next/form';
 import Link from 'next/link';
@@ -13,10 +13,12 @@ import { NavLinks, type NavItem } from './nav-links';
 import { CONTAINER, ChevronRight, FOCUS, MenuIcon, SearchIcon, UserIcon } from './ui';
 
 /**
- * The storefront header (approved prototype Storefront headers): one component, five layouts.
- * Fashion and Books centre the brand between navigation and search; Grocery and General are
- * search-first marketplaces with a category row; Electronics is a dark technical header.
- * Below the `lg` breakpoint every preset uses one compact row with a menu drawer.
+ * The storefront header (approved prototype Storefront headers): one component, five layouts,
+ * chosen by the theme's `presentation.header` variant (D-069). Editorial and literary centre the
+ * brand between navigation and search; quickshop and marketplace are search-first with a
+ * category row; spec is a dark technical header. Every variant offers the same functions:
+ * search, category navigation, account, language and the mobile drawer (functional parity).
+ * Below the `lg` breakpoint every variant uses one compact row with a menu drawer.
  * Cart, wishlist, compare and notifications are not shown until their phases exist.
  */
 
@@ -24,9 +26,9 @@ const NAV_LIMIT = 8;
 
 function Brand({ ctx, className = '' }: { ctx: StoreContext; className?: string }) {
   const { config, theme } = ctx;
-  const preset = theme.preset.id;
+  const header = theme.presentation.header;
   const logo =
-    theme.preset.layout.darkHeader && config.theme.logo_dark_url
+    theme.theme.layout.darkHeader && config.theme.logo_dark_url
       ? config.theme.logo_dark_url
       : config.theme.logo_url;
   const showName = !logo || config.theme.show_name_with_logo;
@@ -41,7 +43,7 @@ function Brand({ ctx, className = '' }: { ctx: StoreContext; className?: string 
           className="h-8 w-auto max-w-[160px] object-contain"
         />
       ) : (
-        preset === 'grocery' && (
+        header === 'quickshop' && (
           <span
             aria-hidden="true"
             className="size-[26px] flex-none rounded-badge bg-store-primary"
@@ -52,18 +54,17 @@ function Brand({ ctx, className = '' }: { ctx: StoreContext; className?: string 
         <span
           className={
             {
-              fashion: 'truncate font-store-brand text-[26px] leading-none lg:text-[34px]',
-              books:
+              editorial: 'truncate font-store-brand text-[26px] leading-none lg:text-[34px]',
+              literary:
                 'truncate font-store-brand text-[26px] leading-none font-medium lg:text-[34px]',
-              grocery: 'truncate text-xl font-extrabold tracking-[-0.02em] lg:text-[22px]',
-              electronics:
-                'truncate font-store-brand text-base font-semibold tracking-[0.14em] uppercase lg:text-lg',
-              general: 'truncate text-xl font-extrabold tracking-[-0.03em] lg:text-2xl',
-            }[preset]
+              quickshop: 'truncate text-xl font-extrabold tracking-[-0.02em] lg:text-[22px]',
+              spec: 'truncate font-store-brand text-base font-semibold tracking-[0.14em] uppercase lg:text-lg',
+              marketplace: 'truncate text-xl font-extrabold tracking-[-0.03em] lg:text-2xl',
+            }[header]
           }
         >
           {name}
-          {preset === 'electronics' && (
+          {header === 'spec' && (
             <span aria-hidden="true" className="text-store-primary">
               _
             </span>
@@ -74,26 +75,29 @@ function Brand({ ctx, className = '' }: { ctx: StoreContext; className?: string 
   );
 }
 
-const SEARCH: Record<PresetId, { form: string; input: string; button: string; text: boolean }> = {
-  fashion: {
+const SEARCH: Record<
+  PresentationVariant,
+  { form: string; input: string; button: string; text: boolean }
+> = {
+  editorial: {
     form: 'flex h-9 w-[200px] items-center gap-2 border-b border-store-line',
     input: 'min-w-0 flex-1 bg-transparent text-[13.5px] outline-none',
     button: 'text-store-muted',
     text: false,
   },
-  books: {
+  literary: {
     form: 'flex h-[42px] w-full max-w-[340px] items-center gap-2.5 rounded-base border border-store-line bg-store-surface px-3',
     input: 'min-w-0 flex-1 bg-transparent text-sm outline-none',
     button: 'text-store-muted',
     text: false,
   },
-  grocery: {
+  quickshop: {
     form: 'flex h-[46px] w-full items-center gap-2.5 rounded-base border border-store-line bg-store-canvas px-3.5',
     input: 'min-w-0 flex-1 bg-transparent text-[14.5px] outline-none',
     button: 'text-store-muted',
     text: false,
   },
-  electronics: {
+  spec: {
     form: 'flex h-11 w-full items-center overflow-hidden rounded-base border border-store-header-line bg-store-on-header/5',
     input:
       'min-w-0 flex-1 bg-transparent px-3.5 text-sm text-store-on-header outline-none placeholder:text-store-on-header/50',
@@ -101,7 +105,7 @@ const SEARCH: Record<PresetId, { form: string; input: string; button: string; te
       'flex h-full w-[52px] items-center justify-center bg-store-primary text-store-on-primary',
     text: false,
   },
-  general: {
+  marketplace: {
     form: 'flex h-11 w-full items-center overflow-hidden rounded-base border-[1.5px] border-store-ink bg-store-surface',
     input: 'min-w-0 flex-1 bg-transparent px-3.5 text-sm outline-none',
     button:
@@ -111,9 +115,11 @@ const SEARCH: Record<PresetId, { form: string; input: string; button: string; te
 };
 
 function SearchForm({ ctx, id }: { ctx: StoreContext; id: string }) {
-  const preset = ctx.theme.preset.id;
-  const style = SEARCH[preset];
-  const placeholder = preset === 'books' ? ctx.t.searchBooksPlaceholder : ctx.t.searchPlaceholder;
+  const header = ctx.theme.presentation.header;
+  const style = SEARCH[header];
+  // The wording follows the catalogue (books are found by title, author or ISBN), not the theme.
+  const placeholder =
+    ctx.theme.preset.id === 'books' ? ctx.t.searchBooksPlaceholder : ctx.t.searchPlaceholder;
   const button = (
     <button
       type="submit"
@@ -123,7 +129,7 @@ function SearchForm({ ctx, id }: { ctx: StoreContext; id: string }) {
       {style.text ? ctx.t.search : <SearchIcon width={18} height={18} />}
     </button>
   );
-  const iconFirst = preset === 'fashion' || preset === 'books' || preset === 'grocery';
+  const iconFirst = header === 'editorial' || header === 'literary' || header === 'quickshop';
   return (
     <Form action="/search" role="search" className={style.form}>
       {iconFirst && button}
@@ -248,28 +254,28 @@ function MobileDrawer({ ctx, categories }: { ctx: StoreContext; categories: Cate
   );
 }
 
-const NAV: Record<PresetId, { list: string; link: string; active: string }> = {
-  fashion: {
+const NAV: Record<PresentationVariant, { list: string; link: string; active: string }> = {
+  editorial: {
     list: 'flex flex-wrap gap-x-[22px] gap-y-1',
     link: 'border-b-[1.5px] border-transparent py-1.5 text-[12.5px] font-semibold tracking-[0.1em] uppercase hover:border-store-ink',
     active: 'border-store-ink!',
   },
-  books: {
+  literary: {
     list: 'flex justify-center gap-[26px] overflow-x-auto overflow-y-hidden',
     link: 'block border-b-2 border-transparent py-3 font-store-display text-base hover:border-store-line',
     active: 'border-store-primary!',
   },
-  grocery: {
+  quickshop: {
     list: 'flex gap-2 overflow-x-auto overflow-y-hidden pb-3',
     link: 'flex h-[34px] items-center rounded-base border border-store-line bg-store-surface px-3.5 text-[13px] font-semibold whitespace-nowrap hover:border-store-primary',
     active: 'border-store-primary! bg-store-primary/10',
   },
-  electronics: {
+  spec: {
     list: 'flex h-11 items-center gap-6 overflow-x-auto overflow-y-hidden',
     link: 'text-[13px] font-semibold whitespace-nowrap text-store-on-header/70 hover:text-store-on-header',
     active: 'text-store-on-header!',
   },
-  general: {
+  marketplace: {
     list: 'flex h-11 items-center gap-6 overflow-x-auto overflow-y-hidden',
     link: 'text-[13.5px] font-medium whitespace-nowrap hover:underline',
     active: 'font-bold',
@@ -284,7 +290,7 @@ export function StoreHeader({
   categories: CategoryNode[];
 }) {
   const { config, theme, t, lang } = ctx;
-  const preset = theme.preset.id;
+  const header = theme.presentation.header;
   const announcement = localize(
     config.translations,
     'announcement',
@@ -303,13 +309,13 @@ export function StoreHeader({
       <NavLinks
         items={navItems}
         label={t.categories}
-        className={NAV[preset].list}
-        linkClassName={NAV[preset].link}
-        activeClassName={NAV[preset].active}
+        className={NAV[header].list}
+        linkClassName={NAV[header].link}
+        activeClassName={NAV[header].active}
       />
     </div>
   );
-  const dark = theme.preset.layout.darkHeader;
+  const dark = theme.theme.layout.darkHeader;
   const iconButton = `flex size-11 items-center justify-center rounded-base ${FOCUS}`;
   const langButton =
     'h-9 rounded-base px-2 text-[12.5px] font-semibold opacity-80 hover:opacity-100';
@@ -320,13 +326,12 @@ export function StoreHeader({
         <p
           className={`m-0 flex min-h-[34px] items-center justify-center px-4 py-1.5 text-center text-xs ${
             {
-              fashion: 'bg-store-ink tracking-[0.04em] text-store-canvas',
-              books: 'bg-store-primary tracking-[0.02em] text-store-on-primary',
-              grocery: 'bg-store-primary font-semibold text-store-on-primary',
-              electronics:
-                'border-b border-store-header-line font-store-spec text-store-on-header/80',
-              general: 'border-b border-store-line bg-store-canvas text-store-muted',
-            }[preset]
+              editorial: 'bg-store-ink tracking-[0.04em] text-store-canvas',
+              literary: 'bg-store-primary tracking-[0.02em] text-store-on-primary',
+              quickshop: 'bg-store-primary font-semibold text-store-on-primary',
+              spec: 'border-b border-store-header-line font-store-spec text-store-on-header/80',
+              marketplace: 'border-b border-store-line bg-store-canvas text-store-muted',
+            }[header]
           }`}
         >
           {announcement}
@@ -338,14 +343,14 @@ export function StoreHeader({
         <div className="flex h-14 items-center gap-1 px-2">
           <MobileDrawer ctx={ctx} categories={categories} />
           <Brand ctx={ctx} className="flex-1 px-1" />
-          {(preset === 'fashion' || preset === 'books') && (
+          {(header === 'editorial' || header === 'literary') && (
             <Link href="/search" aria-label={t.search} className={iconButton}>
               <SearchIcon />
             </Link>
           )}
           <AccountLink ctx={ctx} className={iconButton} showLabel={false} />
         </div>
-        {(preset === 'grocery' || preset === 'general' || preset === 'electronics') && (
+        {(header === 'quickshop' || header === 'marketplace' || header === 'spec') && (
           <div className="px-3 pb-3">
             <SearchForm ctx={ctx} id="store-search-mobile" />
           </div>
@@ -354,39 +359,39 @@ export function StoreHeader({
 
       {/* Desktop headers */}
       <div className="hidden lg:block">
-        {(preset === 'fashion' || preset === 'books') && (
+        {(header === 'editorial' || header === 'literary') && (
           <>
             <div
               className={`${CONTAINER} grid h-[84px] grid-cols-[1fr_auto_1fr] items-center gap-6`}
             >
-              {preset === 'fashion' ? nav() : <SearchForm ctx={ctx} id="store-search" />}
+              {header === 'editorial' ? nav() : <SearchForm ctx={ctx} id="store-search" />}
               <div className="flex flex-col items-center gap-1">
                 <Brand ctx={ctx} />
-                {preset === 'books' && config.store.tagline && (
+                {header === 'literary' && config.store.tagline && (
                   <span className="text-[10.5px] tracking-[0.32em] text-store-muted uppercase">
                     {localize(config.translations, 'tagline', config.store.tagline, lang)}
                   </span>
                 )}
               </div>
               <div className="flex items-center justify-end gap-1.5">
-                {preset === 'fashion' && <SearchForm ctx={ctx} id="store-search" />}
+                {header === 'editorial' && <SearchForm ctx={ctx} id="store-search" />}
                 <Language ctx={ctx} className={langButton} />
                 <AccountLink
                   ctx={ctx}
-                  className={`${iconButton} ${preset === 'books' ? 'w-auto! px-2.5 text-[13.5px]' : ''}`}
-                  showLabel={preset === 'books'}
+                  className={`${iconButton} ${header === 'literary' ? 'w-auto! px-2.5 text-[13.5px]' : ''}`}
+                  showLabel={header === 'literary'}
                 />
               </div>
             </div>
-            {preset === 'books' && nav(`border-t border-store-line ${CONTAINER}`)}
+            {header === 'literary' && nav(`border-t border-store-line ${CONTAINER}`)}
           </>
         )}
 
-        {(preset === 'grocery' || preset === 'general' || preset === 'electronics') && (
+        {(header === 'quickshop' || header === 'marketplace' || header === 'spec') && (
           <>
             <div className={`${CONTAINER} flex h-[72px] items-center gap-5`}>
               <Brand ctx={ctx} className="flex-none" />
-              {preset === 'general' && categories.length > 0 && (
+              {header === 'marketplace' && categories.length > 0 && (
                 <MenuDrawer
                   trigger={
                     <>
@@ -404,7 +409,7 @@ export function StoreHeader({
               <div className="flex-1">
                 <SearchForm ctx={ctx} id="store-search" />
               </div>
-              {preset !== 'electronics' && <Language ctx={ctx} className={langButton} />}
+              {header !== 'spec' && <Language ctx={ctx} className={langButton} />}
               <AccountLink
                 ctx={ctx}
                 showLabel
@@ -415,7 +420,7 @@ export function StoreHeader({
                 }
               />
             </div>
-            {preset === 'electronics' ? (
+            {header === 'spec' ? (
               <div className="border-t border-store-header-line">
                 <div className={`${CONTAINER} flex items-center gap-4`}>
                   {nav('min-w-0 flex-1')}

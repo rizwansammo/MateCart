@@ -10,6 +10,7 @@ import {
   storefrontConfig,
   storefrontPage,
   storefrontSection,
+  DEFAULT_STORE_THEMES,
   STORE_PRESETS,
   type CategoryNode,
   type Decoder,
@@ -95,7 +96,10 @@ function previewPreset(): StorePreset | null {
 export const getStorefrontConfig = cache(async (): Promise<StorefrontConfig> => {
   const config = await required('/api/storefront/config/', storefrontConfig);
   const preview = previewPreset();
-  return preview ? { ...config, preset: preview } : config;
+  // A preview shows the preset's default theme, as a store of that preset would.
+  return preview
+    ? { ...config, preset: preview, active_theme: DEFAULT_STORE_THEMES[preview] }
+    : config;
 });
 
 export const getHomeSections = cache((): Promise<StorefrontSection[]> =>

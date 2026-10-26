@@ -1,13 +1,21 @@
 /**
- * The five approved preset identities (D-061), from the read-only prototype (MateCart-UI:
- * DesignSystem.tsx, Storefront.tsx, ProductCard.tsx). One engine, five presentations: these are
- * visual definitions only. Business defaults (modules, homepage sections, product types) live in
- * commerce-api.
+ * Business presets and storefront themes (D-061, D-069).
  *
- * `resolveTheme` turns a store's preset and validated brand overrides into the effective theme;
- * `themeVariables` turns that into the CSS custom properties the `store-*` Tailwind tokens read
- * (theme.css). Unknown presets fall back to General; unreadable or malformed colours are ignored.
+ * A business preset (Fashion, Grocery, Electronics, General, Books) decides what a store can
+ * sell and which modules it has; that lives in commerce-api. A theme is a visual design for one
+ * preset: colours, typography, layout preferences and the presentation variant of each storefront
+ * region. Themes never change functionality: every theme of a preset uses the same components,
+ * data and business rules (D-069). Merchant branding then overrides a few tokens of the theme.
+ *
+ *   business preset + assigned theme + merchant branding  ->  resolved storefront presentation
+ *
+ * The five registered themes are the approved prototype designs (MateCart-UI: DesignSystem.tsx,
+ * Storefront.tsx, ProductCard.tsx). Their identifiers come from the shared catalogue
+ * (`@matecart/shared-contracts` themes.json); NetaMate assigns themes, merchants never do.
+ * `resolveTheme` is deterministic and never lets an unknown or other-preset theme through.
  */
+
+import { DEFAULT_STORE_THEMES } from '@matecart/shared-contracts';
 
 export const PRESET_IDS = ['fashion', 'grocery', 'electronics', 'general', 'books'] as const;
 export type PresetId = (typeof PRESET_IDS)[number];
@@ -16,7 +24,7 @@ export type FontRole = 'geist' | 'geist-mono' | 'instrument-serif' | 'newsreader
 export type CardAspect = '3/4' | '1/1' | '2/3';
 export type Density = 'compact' | 'standard' | 'comfortable';
 
-export interface PresetColors {
+export interface ThemeColors {
   canvas: string;
   surface: string;
   ink: string;
@@ -30,15 +38,51 @@ export interface PresetColors {
   onHeader: string;
   headerLine: string;
 }
+/** Earlier name of ThemeColors (Phase 05). */
+export type PresetColors = ThemeColors;
 
-export interface PresetDefinition {
+/**
+ * How a theme presents each storefront region. The storefront components implement these
+ * variants once, with shared behaviour; a new theme picks variants (and later, new variants are
+ * added to the same components). The current values name the five approved designs.
+ */
+export type PresentationVariant = 'editorial' | 'quickshop' | 'spec' | 'marketplace' | 'literary';
+export type HeroStyle = 'editorial' | 'promo' | 'spotlight' | 'carousel' | 'featured-title';
+
+export interface ThemePresentation {
+  /** Header composition (brand position, search style, category navigation). */
+  header: PresentationVariant;
+  /** Homepage hero layout. */
+  hero: HeroStyle;
+  /** Product cards, grids and page density. */
+  card: PresentationVariant;
+  /** Homepage sections, section headings and listing titles. */
+  sections: PresentationVariant;
+  /** Product page gallery and title block. */
+  product: PresentationVariant;
+}
+
+/** A business preset as the storefront needs it. */
+export interface BusinessPreset {
   id: PresetId;
   label: string;
+  /** The theme a store of this preset uses until NetaMate assigns another. */
+  defaultTheme: ThemeId;
+}
+
+export interface ThemeDefinition {
+  /** Permanent identifier (never a display name; never reused). */
+  id: string;
+  /** The one business preset this theme serves. */
+  preset: PresetId;
+  name: string;
   style: string;
   description: string;
+  /** Increases when the design changes in a release; identity stays the same. */
+  revision: number;
   /** The identity triple shown in the design system. */
   swatches: readonly [string, string, string];
-  colors: PresetColors;
+  colors: ThemeColors;
   fonts: {
     display: FontRole;
     displayWeight: number;
@@ -52,16 +96,30 @@ export interface PresetDefinition {
     columns: number;
     quantityStepper: boolean;
     darkHeader: boolean;
-    heroStyle: 'editorial' | 'promo' | 'spotlight' | 'carousel' | 'featured-title';
   };
+  presentation: ThemePresentation;
 }
 
-export const PRESETS: Readonly<Record<PresetId, PresetDefinition>> = {
-  fashion: {
-    id: 'fashion',
-    label: 'Fashion & Apparel',
+export const THEME_IDS = [
+  'fashion-editorial',
+  'grocery-quickshop',
+  'electronics-spec-first',
+  'general-marketplace',
+  'books-literary',
+] as const;
+export type ThemeId = (typeof THEME_IDS)[number];
+
+/** Theme definitions by identifier. Tests may pass their own registry to `resolveTheme`. */
+export type ThemeRegistry = Readonly<Record<string, ThemeDefinition>>;
+
+export const THEMES: Readonly<Record<ThemeId, ThemeDefinition>> = {
+  'fashion-editorial': {
+    id: 'fashion-editorial',
+    preset: 'fashion',
+    name: 'Fashion Editorial',
     style: 'Editorial',
     description: 'Ivory canvas, serif headlines and tall 3:4 imagery.',
+    revision: 1,
     swatches: ['#FBF8F3', '#2A2620', '#9C4A2B'],
     colors: {
       canvas: '#FBF8F3',
@@ -89,14 +147,22 @@ export const PRESETS: Readonly<Record<PresetId, PresetDefinition>> = {
       columns: 4,
       quantityStepper: false,
       darkHeader: false,
-      heroStyle: 'editorial',
+    },
+    presentation: {
+      header: 'editorial',
+      hero: 'editorial',
+      card: 'editorial',
+      sections: 'editorial',
+      product: 'editorial',
     },
   },
-  grocery: {
-    id: 'grocery',
-    label: 'Grocery & Essentials',
+  'grocery-quickshop': {
+    id: 'grocery-quickshop',
+    preset: 'grocery',
+    name: 'Grocery Quick Shop',
     style: 'Quick shop',
     description: 'Fresh green, a dense grid and quantity steppers on cards.',
+    revision: 1,
     swatches: ['#F6F8F4', '#00B050', '#FFF3DC'],
     colors: {
       canvas: '#F6F8F4',
@@ -119,14 +185,22 @@ export const PRESETS: Readonly<Record<PresetId, PresetDefinition>> = {
       columns: 6,
       quantityStepper: true,
       darkHeader: false,
-      heroStyle: 'promo',
+    },
+    presentation: {
+      header: 'quickshop',
+      hero: 'promo',
+      card: 'quickshop',
+      sections: 'quickshop',
+      product: 'quickshop',
     },
   },
-  electronics: {
-    id: 'electronics',
-    label: 'Electronics & Gadgets',
+  'electronics-spec-first': {
+    id: 'electronics-spec-first',
+    preset: 'electronics',
+    name: 'Electronics Spec-first',
     style: 'Spec-first',
     description: 'Dark header, electric blue and monospaced specifications.',
+    revision: 1,
     swatches: ['#0B0F14', '#2F6BFF', '#F3F5F8'],
     colors: {
       canvas: '#F3F5F8',
@@ -154,14 +228,22 @@ export const PRESETS: Readonly<Record<PresetId, PresetDefinition>> = {
       columns: 4,
       quantityStepper: false,
       darkHeader: true,
-      heroStyle: 'spotlight',
+    },
+    presentation: {
+      header: 'spec',
+      hero: 'spotlight',
+      card: 'spec',
+      sections: 'spec',
+      product: 'spec',
     },
   },
-  general: {
-    id: 'general',
-    label: 'General / Multi-category',
+  'general-marketplace': {
+    id: 'general-marketplace',
+    preset: 'general',
+    name: 'General Marketplace',
     style: 'Marketplace',
     description: 'Neutral base, red deals and category carousels.',
+    revision: 1,
     swatches: ['#FAFAF9', '#0D0F0E', '#C8312B'],
     colors: {
       canvas: '#FAFAF9',
@@ -183,14 +265,22 @@ export const PRESETS: Readonly<Record<PresetId, PresetDefinition>> = {
       columns: 5,
       quantityStepper: false,
       darkHeader: false,
-      heroStyle: 'carousel',
+    },
+    presentation: {
+      header: 'marketplace',
+      hero: 'carousel',
+      card: 'marketplace',
+      sections: 'marketplace',
+      product: 'marketplace',
     },
   },
-  books: {
-    id: 'books',
-    label: 'Bookstore & Booksellers',
+  'books-literary': {
+    id: 'books-literary',
+    preset: 'books',
+    name: 'Books Literary',
     style: 'Literary',
     description: 'Paper canvas, oxblood, Newsreader serif and cover grids.',
+    revision: 1,
     swatches: ['#F7F2E8', '#6E1F2A', '#1B1A17'],
     colors: {
       canvas: '#F7F2E8',
@@ -218,10 +308,39 @@ export const PRESETS: Readonly<Record<PresetId, PresetDefinition>> = {
       columns: 5,
       quantityStepper: false,
       darkHeader: false,
-      heroStyle: 'featured-title',
+    },
+    presentation: {
+      header: 'literary',
+      hero: 'featured-title',
+      card: 'literary',
+      sections: 'literary',
+      product: 'literary',
     },
   },
 };
+
+function isThemeId(value: string): value is ThemeId {
+  return (THEME_IDS as readonly string[]).includes(value);
+}
+
+function defaultThemeOf(preset: PresetId): ThemeId {
+  const id = DEFAULT_STORE_THEMES[preset];
+  if (!isThemeId(id)) throw new Error(`No registered default theme for the ${preset} preset`);
+  return id;
+}
+
+const PRESET_LABELS: Readonly<Record<PresetId, string>> = {
+  fashion: 'Fashion & Apparel',
+  grocery: 'Grocery & Essentials',
+  electronics: 'Electronics & Gadgets',
+  general: 'General / Multi-category',
+  books: 'Bookstore & Booksellers',
+};
+
+/** The business presets with their labels and default themes. */
+export const PRESETS: Readonly<Record<PresetId, BusinessPreset>> = Object.fromEntries(
+  PRESET_IDS.map((id) => [id, { id, label: PRESET_LABELS[id], defaultTheme: defaultThemeOf(id) }]),
+) as Record<PresetId, BusinessPreset>;
 
 /** CSS font stacks for each role. Every var() has a fallback (see theme.css). */
 export const FONT_STACKS: Readonly<Record<FontRole, string>> = {
@@ -289,15 +408,25 @@ export interface ThemeOverrides {
   accentColor?: string | null;
 }
 
+/** Why the assigned theme was not used (for operational logs; never shown to customers). */
+export type ThemeRecovery = 'unknown-theme' | 'incompatible-theme';
+
 export interface ResolvedTheme {
-  preset: PresetDefinition;
-  colors: PresetColors & {
+  /** The store's business preset. */
+  preset: BusinessPreset;
+  /** The theme in effect (assigned, or the preset's default). */
+  theme: ThemeDefinition;
+  /** Shortcut to `theme.presentation`. */
+  presentation: ThemePresentation;
+  colors: ThemeColors & {
     onPrimary: string;
     onAccent: string;
     onAction: string;
     actionHover: string;
     focus: string;
   };
+  /** Set when the assigned theme could not be used and the preset default was used instead. */
+  recovery: ThemeRecovery | null;
 }
 
 function validOverride(value: string | null | undefined): string | null {
@@ -310,9 +439,26 @@ export function isPresetId(value: unknown): value is PresetId {
   return typeof value === 'string' && (PRESET_IDS as readonly string[]).includes(value);
 }
 
-/** The effective theme: preset defaults plus valid overrides; General when the preset is unknown. */
-export function resolveTheme(preset: unknown, overrides: ThemeOverrides = {}): ResolvedTheme {
-  const definition = PRESETS[isPresetId(preset) ? preset : 'general'];
+/**
+ * The effective theme: the assigned theme when it exists and belongs to the store's preset,
+ * otherwise the preset's default (with `recovery` set, never another preset's theme), plus valid
+ * brand colour overrides. Unknown presets fall back to General.
+ */
+export function resolveTheme(
+  preset: unknown,
+  overrides: ThemeOverrides = {},
+  themeId?: string | null,
+  registry: ThemeRegistry = THEMES,
+): ResolvedTheme {
+  const business = PRESETS[isPresetId(preset) ? preset : 'general'];
+  let definition: ThemeDefinition = THEMES[business.defaultTheme];
+  let recovery: ThemeRecovery | null = null;
+  if (themeId) {
+    const assigned = registry[themeId];
+    if (!assigned) recovery = 'unknown-theme';
+    else if (assigned.preset !== business.id) recovery = 'incompatible-theme';
+    else definition = assigned;
+  }
   const base = definition.colors;
   const primary = validOverride(overrides.primaryColor) ?? base.primary;
   const accent = validOverride(overrides.accentColor) ?? base.accent;
@@ -321,7 +467,9 @@ export function resolveTheme(preset: unknown, overrides: ThemeOverrides = {}): R
   const actionHover = shade(action, luminance(action) < 0.1 ? 0.14 : -0.12);
   const focus = contrast(primary, base.canvas) >= 3 ? primary : base.ink;
   return {
-    preset: definition,
+    preset: business,
+    theme: definition,
+    presentation: definition.presentation,
     colors: {
       ...base,
       primary,
@@ -333,13 +481,14 @@ export function resolveTheme(preset: unknown, overrides: ThemeOverrides = {}): R
       actionHover,
       focus,
     },
+    recovery,
   };
 }
 
 /** CSS custom properties for a theme scope (read by the `store-*` tokens in theme.css). */
 export function themeVariables(theme: ResolvedTheme): Record<string, string> {
   const c = theme.colors;
-  const f = theme.preset.fonts;
+  const f = theme.theme.fonts;
   return {
     '--store-canvas': c.canvas,
     '--store-surface': c.surface,

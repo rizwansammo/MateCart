@@ -6,6 +6,7 @@ from django.db import transaction
 from commerce.audit.services import record_audit_event
 from commerce.catalog.models import Product
 from commerce.catalog.services import ALLOWED_PRODUCT_TYPES
+from commerce.stores import themes
 from commerce.stores.models import StorePreset, StoreSettings
 from commerce.tenancy.context import tenant_context
 from commerce.tenancy.models import Tenant
@@ -16,7 +17,8 @@ class Command(BaseCommand):
     help = (
         "NetaMate administration: change the store's business preset. Refused while any product "
         "(draft, active or archived) uses a product type the new preset does not offer, so no "
-        "product is silently invalidated. Appearance overrides and content are kept."
+        "product is silently invalidated. Appearance overrides and content are kept; a theme "
+        "assigned for the old preset is cleared, so the store uses the new preset's default."
     )
 
     def add_arguments(self, parser: CommandParser) -> None:
@@ -46,11 +48,16 @@ class Command(BaseCommand):
                     "does not offer them. Change or archive and convert those products first."
                 )
             previous, settings.preset = settings.preset, preset
-            settings.save(update_fields=["preset", "updated_at"])
+            changes: dict[str, Any] = {"preset": {"from": previous, "to": preset}}
+            # A theme belongs to one preset (D-069): never keep one the new preset cannot use.
+            if settings.active_theme and not themes.is_compatible(settings.active_theme, preset):
+                changes["active_theme"] = {"from": settings.active_theme, "to": ""}
+                settings.active_theme = ""
+            settings.save(update_fields=["preset", "active_theme", "updated_at"])
             record_audit_event(
                 action="store.preset.changed",
                 resource=settings,
                 actor_label="change_store_preset",
-                changes={"preset": {"from": previous, "to": preset}},
+                changes=changes,
             )
         self.stdout.write(self.style.SUCCESS(f"Store preset changed from {previous} to {preset}."))

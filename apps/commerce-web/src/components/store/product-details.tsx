@@ -130,7 +130,7 @@ export function ProductHeader({
   ctx: StoreContext;
 }) {
   const { t, lang, theme, config } = ctx;
-  const preset = theme.preset.id;
+  const look = theme.presentation.product;
   const name = localize(product.translations, 'name', product.name, lang);
   const summary = localize(product.translations, 'summary', product.summary, lang);
   const primary = product.categories.find((c) => c.is_primary) ?? product.categories[0];
@@ -139,12 +139,12 @@ export function ProductHeader({
   const book = product.book;
   const authors = book?.authors.length ? book.authors : product.authors;
   const size = {
-    fashion: 'text-[30px] lg:text-[44px]',
-    books: 'text-[30px] lg:text-[40px]',
-    grocery: 'text-[26px] lg:text-[32px]',
-    electronics: 'text-[26px] lg:text-[32px]',
-    general: 'text-[26px] lg:text-[32px]',
-  }[preset];
+    editorial: 'text-[30px] lg:text-[44px]',
+    literary: 'text-[30px] lg:text-[40px]',
+    quickshop: 'text-[26px] lg:text-[32px]',
+    spec: 'text-[26px] lg:text-[32px]',
+    marketplace: 'text-[26px] lg:text-[32px]',
+  }[look];
 
   return (
     <div className="flex flex-col gap-2.5">
@@ -157,7 +157,7 @@ export function ProductHeader({
         </Link>
       )}
       <h1 className={`m-0 store-display leading-[1.08] tracking-[-0.02em] ${size}`}>{name}</h1>
-      {(preset === 'grocery' || preset === 'general') && otherName && otherName !== name && (
+      {(look === 'quickshop' || look === 'marketplace') && otherName && otherName !== name && (
         <p lang={other} className="m-0 text-base text-store-muted">
           {otherName}
         </p>
@@ -201,7 +201,10 @@ export function ProductHeader({
   );
 }
 
-/** A few facts beside the price, in the preset's manner (specs for Electronics, facts for Books). */
+/**
+ * A few facts beside the price, chosen by the product's type (specs for electronics, facts for
+ * books): product data, so every theme shows them.
+ */
 export function ProductHighlights({
   product,
   ctx,

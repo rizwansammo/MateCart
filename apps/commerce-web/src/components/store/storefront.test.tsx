@@ -1,5 +1,5 @@
 import type { StorefrontSection } from '@matecart/shared-contracts';
-import { PRESETS, PRESET_IDS, type PresetId } from '@matecart/shared-ui';
+import { PRESETS, PRESET_IDS, THEMES, type PresetId } from '@matecart/shared-ui';
 import { fireEvent, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { Route } from 'next';
@@ -51,8 +51,12 @@ describe('the five preset storefronts', () => {
     );
     const scope = container.querySelector(`[data-preset="${preset}"]`) as HTMLElement;
     expect(scope).not.toBeNull();
-    expect(scope.style.getPropertyValue('--store-canvas')).toBe(PRESETS[preset].colors.canvas);
-    expect(scope.style.getPropertyValue('--store-header')).toBe(PRESETS[preset].colors.header);
+    expect(scope.style.getPropertyValue('--store-canvas')).toBe(
+      THEMES[PRESETS[preset].defaultTheme].colors.canvas,
+    );
+    expect(scope.style.getPropertyValue('--store-header')).toBe(
+      THEMES[PRESETS[preset].defaultTheme].colors.header,
+    );
     // Real store data only: announcement, brand, categories and published footer pages.
     expect(screen.getByText('Sample prices')).toBeInTheDocument();
     expect(screen.getAllByRole('link', { name: /Review Store/ }).length).toBeGreaterThan(0);
@@ -157,7 +161,12 @@ describe('product cards', () => {
     ['books', 'aspect-[2/3]'],
   ] as const)('%s cards use the approved image shape', (preset, aspect) => {
     const { container } = render(
-      <ProductCard product={summary()} preset={preset} lang="en" t={t} />,
+      <ProductCard
+        product={summary()}
+        variant={storeContext(preset).theme.presentation.card}
+        lang="en"
+        t={t}
+      />,
     );
     expect(container.querySelector(`.${CSS.escape(aspect)}`)).not.toBeNull();
     expect(screen.getByRole('link')).toHaveAttribute('href', '/products/gitanjali');
@@ -166,26 +175,32 @@ describe('product cards', () => {
     expect(container.textContent).not.toMatch(/★|review|% off|only \d+ left/i);
   });
   it('shows authors on book cards and the other language on grocery cards', () => {
-    const { unmount } = render(<ProductCard product={summary()} preset="books" lang="en" t={t} />);
+    const { unmount } = render(
+      <ProductCard product={summary()} variant="literary" lang="en" t={t} />,
+    );
     expect(screen.getByText('Rabindranath Tagore')).toBeInTheDocument();
     unmount();
-    render(<ProductCard product={summary()} preset="grocery" lang="en" t={t} secondaryLang="bn" />);
+    render(
+      <ProductCard product={summary()} variant="quickshop" lang="en" t={t} secondaryLang="bn" />,
+    );
     expect(screen.getByText('গীতাঞ্জলি')).toHaveAttribute('lang', 'bn');
   });
   it('marks sold-out and unpriced products honestly', () => {
     const { unmount } = render(
-      <ProductCard product={summary({ in_stock: false })} preset="fashion" lang="en" t={t} />,
+      <ProductCard product={summary({ in_stock: false })} variant="editorial" lang="en" t={t} />,
     );
     expect(screen.getByText('Sold out')).toBeInTheDocument();
     unmount();
-    render(<ProductCard product={summary({ price: null })} preset="general" lang="en" t={t} />);
+    render(
+      <ProductCard product={summary({ price: null })} variant="marketplace" lang="en" t={t} />,
+    );
     expect(screen.getByText('Price not available')).toBeInTheDocument();
   });
   it('uses the translated name in Bangla', () => {
     render(
       <ProductCard
         product={summary()}
-        preset="general"
+        variant="marketplace"
         lang="bn"
         t={storeContext('general', 'bn').t}
       />,
@@ -407,7 +422,7 @@ describe('product page', () => {
     render(
       <ProductExperience
         product={product}
-        preset="fashion"
+        look="editorial"
         lang="en"
         today={today}
         requestedVariant={requested}
@@ -451,7 +466,7 @@ describe('product page', () => {
     const { rerender } = render(
       <ProductExperience
         product={special}
-        preset="books"
+        look="literary"
         lang="en"
         today="2026-10-26"
         requestedVariant="pre"
@@ -464,7 +479,7 @@ describe('product page', () => {
     rerender(
       <ProductExperience
         product={special}
-        preset="books"
+        look="literary"
         lang="en"
         today="2026-10-26"
         requestedVariant="ebook"
@@ -477,7 +492,7 @@ describe('product page', () => {
     rerender(
       <ProductExperience
         product={special}
-        preset="books"
+        look="literary"
         lang="en"
         today="2026-10-26"
         requestedVariant="none"
@@ -503,7 +518,7 @@ describe('product page', () => {
       render(
         <ProductExperience
           product={book}
-          preset="books"
+          look="literary"
           lang="en"
           today={today}
           requestedVariant={id}

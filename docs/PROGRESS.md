@@ -1,11 +1,10 @@
 # Progress and handoff
 
-Updated: 2026-10-26 (Asia/Dhaka). **Phase 06.1 — Focused Storefront Corrections is
+Updated: 2026-10-26 (Asia/Dhaka). **Phase 06.2 — Multi Theme Architecture Readiness is
 implemented and locally verified, ready for the owner's commit, push, GitHub CI and
-independent review; it is not yet accepted.** Phase 06 — Customer Storefront is committed
-and GitHub-verified (`46c2e1a`). Phases 01–05 (with 02.1, 02.2, 03.1, 04.1 and 05.1) are
-accepted and closed. Phase 07 and the managed theme work have not started and need explicit
-authorization.
+independent review; it is not yet accepted.** Phases 01–06 (with 02.1, 02.2, 03.1, 04.1, 05.1
+and 06.1) are accepted and closed. Phase 07 and the managed theme marketplace have not started
+and need explicit authorization.
 
 ## Accepted baseline and boundaries
 
@@ -22,7 +21,8 @@ authorization.
 | Phase 05        | Implemented and pushed (GitHub-verified): `e3810cb465a771cc9b18437290f67aba1bbd7f02`, run 40297666311, SUCCESS 4/4 jobs, 807 tests (667 commerce, 57 control, 34 contracts, 46 UI, 3 Node). Review requested the 05.1 corrections.                        |
 | Correction 05.1 | Accepted and Phase 05 closed: `613cd49edee5c16b31e3beb34d0b84b74f6dce72`, run 40301529264, 4/4 jobs, 827 tests (678 commerce, 57 control, 34 contracts, 55 UI, 3 Node).                                                                                   |
 | Phase 06        | Implemented and pushed (GitHub-verified): `46c2e1af3078a46e1531c6783304f3430dacfbf0`, run 40311886344, SUCCESS 4/4 jobs, 894 tests (679 commerce, 57 control, 39 contracts, 55 UI, 61 web, 3 Node). Review requested the 06.1 corrections.                |
-| Correction 06.1 | **Implemented and verified locally, not committed.** Baseline `46c2e1a` on `main`; no commit, push or PR was created by the assistant. CI and independent review pending; not accepted.                                                                   |
+| Correction 06.1 | Accepted and Phase 06 closed: `df0490f65a80f7b0a883bdfb9278808302d21fa2`, run 40315255063, 4/4 jobs, 913 tests (682 commerce, 57 control, 40 contracts, 55 UI, 76 web, 3 Node).                                                                           |
+| Phase 06.2      | **Implemented and verified locally, not committed.** Supplementary architecture subphase before Phase 07; baseline `df0490f` on `main`; no commit, push or PR was created by the assistant. CI and independent review pending.                            |
 | Architecture    | Dedicated single-tenant deployment, tenant-aware modular monolith, future hybrid only if approved; commerce/control independent.                                                                                                                          |
 | Product         | Private beta, manual onboarding. Public commercial signup/subscriptions/billing deferred. Public customer registration is authorized.                                                                                                                     |
 | Prototype       | MateCart-UI strictly read-only; no edits/build/install (HEAD `9ff1361`, clean).                                                                                                                                                                           |
@@ -35,7 +35,61 @@ narrow Google provider failure handling (D-039 to D-049, AUTHENTICATION.md,
 SECURITY.md). External Google, SMS and SMTP acceptance remains outstanding until
 genuine providers are configured.
 
-## Phase 06.1 corrections (corrective subphase, not accepted)
+## Phase 06.2 multi-theme architecture readiness (supplementary subphase, not accepted)
+
+Decision D-069. Architecture readiness only: no new theme, layout, marketplace, showcase,
+licensing, console UI or merchant theme control. Rule: one commerce engine, shared functional
+components, several visual themes; themes are presentation only.
+
+- **Preset versus theme.** `StoreSettings.preset` stays the business preset (product types,
+  modules, homepage defaults, feature availability). A theme is a visual design for exactly one
+  preset; merchant branding (`StoreTheme`) overrides a few of its tokens.
+- **Catalogue and registry.** Identities in `packages/shared-contracts/src/themes.json` (+
+  `themes.ts`: `STORE_THEMES`, `DEFAULT_STORE_THEMES`, `isThemeOfPreset`), mirrored in
+  `commerce/stores/themes.py` for validation; `scripts/themes.test.mjs` checks the API enum
+  against the catalogue. Visual definitions in `@matecart/shared-ui` `THEMES` (`presets.ts`):
+  id, preset, name, style, description, revision, swatches, colours, fonts, layout and
+  `presentation` variants (header, hero, card, sections, product). Registered:
+  `fashion-editorial`, `grocery-quickshop`, `electronics-spec-first`, `general-marketplace`,
+  `books-literary` (one default each; the existing designs, token for token).
+- **Assignment.** Additive `StoreSettings.active_theme` (migration `stores.0004`, blank =
+  preset default, format CHECK, model validation of preset compatibility). Only the trusted
+  service `stores.services.assign_theme` changes it, audited as `store.theme.assigned`, reached
+  only from `manage.py assign_store_theme --theme <id> | --default`. Merchant and public APIs
+  cannot change it (crafted payloads are ignored). `change_store_preset` clears an assignment
+  the new preset cannot use, in the same audited change.
+- **Resolution.** `effective_theme()` (API) and `resolveTheme(preset, branding, themeId)` (UI)
+  return the assigned theme when it belongs to the preset, else the preset default with a
+  logged recovery; never another preset's theme. The public config and the merchant appearance
+  response carry the read-only `active_theme`; the storefront reads nothing theme-related from
+  the request. `StoreThemeScope` marks `data-preset` and `data-theme`.
+- **Presentation extension points.** Storefront components switch on the theme's variants
+  (header, hero, cards and grids, sections, product page) instead of the preset; business
+  choices (General's product-type filter, the book search wording) stay on the preset. A new
+  theme of a preset is a registry entry choosing variants (plus any new variant in the shared
+  components), not a copy of the storefront.
+- **Merchant screen.** `/manage/appearance` previews with the assigned theme and states that the
+  preset and theme are set by NetaMate; no selection, activation or upload control exists.
+
+## Verification record (Phase 06.2, observed locally)
+
+**960 automated tests passed, 0 failed** (698 commerce + 57 control + 44 contracts + 76 shared
+UI + 80 commerce-web + 5 Node): 16 new commerce tests (`test_themes.py`), 4 contract, 21 shared
+UI (`themes.test.tsx`: registry, frozen token baseline for all presets, resolution and
+recovery, test-only second theme), 4 commerce-web parity tests (`themes.test.tsx`) and 2 Node
+catalogue checks. Existing tests were migrated to the new shapes without weakening them.
+
+| Check         | Actual observation                                                                                                                                                                                                                                                                                                                                             |
+| ------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Backend       | `pnpm api:test`: 698 + 57 passed (OpenAPI drift test included). `pnpm api:lint` passed (178 + 52 files) after wrapping two lines and a raw-string fix; `test_themes.py` re-run (16 passed). `makemigrations --check`: no changes. `verify_auth_migrations.py`: fresh, reverse, reapply and drift checks passed for both services; temporary databases removed. |
+| Frontend      | `pnpm check` passed (Prettier, ESLint, typecheck, 44 + 76 + 80 + 5 tests). `pnpm build` passed (both apps).                                                                                                                                                                                                                                                    |
+| API contract  | `pnpm api:schema`: `active_theme` (enum `ActiveThemeEnum`) on the storefront configuration and the merchant appearance response; nothing removed.                                                                                                                                                                                                              |
+| Visual parity | 25 headless-Chrome captures (5 presets × home, listing and product at 1440/390 px) before and after: 24 byte-identical; the one difference (22 pixels in product images) also appears between two captures of the unchanged code, so it is capture noise. Theme tokens equal a baseline frozen before the change.                                              |
+| Live          | Dev store migrated additively (`stores.0004`); it resolves `general-marketplace`; storefront, merchant and console routes respond; `pnpm health` and `docker compose config` passed.                                                                                                                                                                           |
+| Not verified  | No Central Console integration exists to test (Phases 16-17). No screen-reader or real-device run.                                                                                                                                                                                                                                                             |
+| GitHub CI     | Phase 06.2 not run (uncommitted). Last CI: run 40315255063 (Phase 06.1), 4/4, 913 tests.                                                                                                                                                                                                                                                                       |
+
+## Phase 06.1 corrections (accepted)
 
 Three gaps from the independent post-push review of Phase 06, fixed without redesign. No
 model, migration or dependency change; inventory, pricing, authentication and content
@@ -81,7 +135,7 @@ presets).
 | API contract | `pnpm api:schema`: only `local_date` (string, date) added to the storefront configuration.                                                                                                                                                                                                                                      |
 | Live         | Bangla search for "গীতাঞ্জলি" returns Gitanjali through the API and `/search`; `local_date` is the Dhaka date; the pre-order book shows "Pre-order · Releases 15 March 2027" and Gitanjali "In stock". `pnpm health` passed (a first run hit the console's first-compile delay; re-run passed). `docker compose config` passed. |
 | Not verified | The empty-homepage fallback was not exercised against the review store (that would mean disabling its sections); it is covered by the component tests. Preset screenshots were not repeated (no layout change).                                                                                                                 |
-| GitHub CI    | Phase 06.1 not run (uncommitted). Last CI: run 40311886344 (Phase 06), 4/4, 894 tests.                                                                                                                                                                                                                                          |
+| GitHub CI    | After push: `df0490f`, run 40315255063, SUCCESS 4/4 jobs, 913 tests.                                                                                                                                                                                                                                                            |
 
 ## Phase 06 implemented scope
 
@@ -426,9 +480,17 @@ contract tests. Plus 7 live catalogue and 12 live authentication smoke checks.
 
 ## Remaining scope, limits and next step
 
-- **Next step:** owner reviews the uncommitted Phase 06.1 diff, commits and pushes it,
-  verifies GitHub CI and requests independent review; Phase 06 is accepted only after that.
-  Phase 07 and the managed theme marketplace work start only after explicit authorization.
+- **Next step:** owner reviews the uncommitted Phase 06.2 diff, commits and pushes it,
+  verifies GitHub CI and requests independent review. Phase 07 and the managed theme
+  marketplace (showcase, licensing, console assignment UI) start only after explicit
+  authorization.
+- Phase 06.2 limits (documented, not defects): the theme catalogue is kept in three places by
+  design (API validation, shared identities, visual definitions), guarded by tests; assignment
+  is a NetaMate command in the store's container until the console and deployment agent exist
+  (16-17); the five variant names equal the five designs, so a future theme reuses them or
+  adds a variant to the shared components; product information shown only by some designs
+  (authors on literary cards, SKU on spec product pages, other-language names) is
+  presentation, while capabilities are tested equal across themes of a preset.
 - Phase 06 limits (documented, not defects): no "in stock only" filter or brand, author,
   publisher and format facet lists (the API has no facet counts; an exact stock filter would
   duplicate D-060 in SQL); Grocery cards do not show pack sizes (product pages do); images are served as uploaded (no resizing or `srcset`); HTML is not cached by shared

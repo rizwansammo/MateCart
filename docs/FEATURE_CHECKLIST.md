@@ -125,7 +125,20 @@ Update the status in the same change that completes a feature.
 - [x] Search finds products by translated names in the store's languages (06.1)
 - [x] Pre-order labels use the store-local date (`local_date`, same day as availability) (06.1)
 - [x] Homepage falls back to the store and its newest products when no section can render (06.1)
-- [ ] Owner commit, GitHub CI and independent review of Phase 06.1 (closes Phase 06)
+- [x] Phase 06.1 commit `df0490f` and GitHub CI run 40315255063 (4/4, 913 tests); Phase 06 accepted and closed
+
+## Multi-theme architecture readiness (Phase 06.2)
+
+- [x] Business presets and visual themes separated; themes are presentation only (D-069)
+- [x] Typed theme registry with the five approved designs as default themes, tokens unchanged
+- [x] Persistent platform-owned active theme (`active_theme`), preset default when blank
+- [x] Safe resolution: never another preset's theme; unusable assignments logged and recovered
+- [x] Presentation extension points (header, hero, cards, sections, product page variants)
+- [x] Trusted, audited theme assignment (`assign_store_theme`); merchants and customers cannot assign
+- [x] Preset change clears an incompatible theme assignment
+- [x] Functional parity tests between two themes of one preset; five storefronts visually unchanged
+- [ ] Owner commit, GitHub CI and independent review of Phase 06.2
+- [ ] Later (not scheduled here): theme showcase (themes.matecart.pro), premium licences, console assignment UI (16), deployment operations (17)
 - [ ] Deferred from Phase 06: "in stock only" filter and facet lists (brand, author, publisher, format); pack sizes on Grocery cards; responsive image sizes and shared HTML caching (12/17)
 
 ## Carried into Phases 07 and 08 (from Phase 04.1, not implemented yet)

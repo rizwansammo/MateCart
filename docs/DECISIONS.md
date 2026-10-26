@@ -691,6 +691,36 @@ idempotency_conflict`. The free-text reason, actor and a batch's supplier
   in its IANA time zone, the same day availability uses. Storefront date decisions (pre-order
   labels) use it instead of the browser's or server's UTC date. It carries no time of day.
 
+### D-069 · NetaMate managed theme architecture (2026-10-26, Phase 06.2)
+
+- **Business preset ≠ visual theme ≠ merchant branding.** The preset (`StoreSettings.preset`)
+  decides products, modules and feature availability. A theme is a visual design for exactly
+  one preset. Branding (`StoreTheme`) overrides a few tokens of the assigned theme and is never
+  written into the registry; resetting colours returns to the theme's own colours.
+- **Functional parity.** Themes are presentation only: one commerce engine, shared functional
+  components and APIs, several visual themes. Themes of one preset never differ in business
+  rules, data, permissions, prices, stock, search, cart, checkout, orders or enabled modules,
+  and never hide a capability. Feature availability follows the preset, modules and platform
+  configuration, never theme identity. Tests compare capabilities across themes of a preset.
+- **Registry.** Code-owned and released with MateCart: identities in shared-contracts
+  `themes.json` (validated by commerce-api `stores/themes.py`), visual definitions in
+  shared-ui `THEMES` with presentation variants per storefront region. Identifiers are
+  permanent, never display names; each preset has exactly one default. A design change raises
+  `revision` and ships in a normal release; no remote theme fetching, uploads or plugins.
+- **Assignment.** `StoreSettings.active_theme` (blank: the preset default) is platform-owned.
+  Only the trusted, audited `assign_theme` service changes it (today the `assign_store_theme`
+  command; later the Central Console through signed deployment operations, Phases 16-17).
+  Merchants cannot select, activate, switch, buy, upload or remove themes; merchant and public
+  APIs expose it read-only. Self-service switching between purchased themes is not approved.
+- **Resolution and independence.** The store resolves its theme locally from its own database
+  (assignment, else default); an unknown or incompatible value falls back to the preset default
+  with an operator log, never another preset's theme. Rendering never calls the console or a
+  licence service.
+- **Licences (future).** Theme definition, assignment, entitlement and branding are separate. A
+  premium licence check belongs in the platform before a trusted assignment; the store keeps no
+  licence, price or purchase records. The showcase (themes.matecart.pro) and marketplace are
+  later work.
+
 ## Open questions for the owner
 
 | #   | Question                                                                                                                                   | Status                                                                                                    | Needed by |

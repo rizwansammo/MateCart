@@ -1,4 +1,4 @@
-import type { PresetId } from '@matecart/shared-ui';
+import type { PresentationVariant } from '@matecart/shared-ui';
 import type { Metadata, Route } from 'next';
 import { notFound } from 'next/navigation';
 
@@ -24,12 +24,12 @@ interface Props {
   searchParams: Promise<SearchParams>;
 }
 
-const RELATED: Record<PresetId, number> = {
-  fashion: 4,
-  grocery: 6,
-  electronics: 4,
-  general: 5,
-  books: 5,
+const RELATED: Record<PresentationVariant, number> = {
+  editorial: 4,
+  quickshop: 6,
+  spec: 4,
+  marketplace: 5,
+  literary: 5,
 };
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
@@ -62,18 +62,21 @@ export default async function ProductPage({ params, searchParams }: Props) {
   if (!product) notFound();
 
   const { t, lang, theme } = ctx;
-  const preset = theme.preset.id;
+  const presentation = theme.presentation;
   const name = localize(product.translations, 'name', product.name, lang);
   const primary = product.categories.find((c) => c.is_primary) ?? product.categories[0];
   const requested = typeof search.variant === 'string' ? search.variant : null;
   const relatedPage = primary
     ? await getProducts(
-        new URLSearchParams({ category: primary.slug, page_size: String(RELATED[preset] + 1) }),
+        new URLSearchParams({
+          category: primary.slug,
+          page_size: String(RELATED[presentation.card] + 1),
+        }),
       )
     : null;
   const related = (relatedPage?.results ?? [])
     .filter((p) => p.id !== product.id)
-    .slice(0, RELATED[preset]);
+    .slice(0, RELATED[presentation.card]);
 
   const description = localize(product.translations, 'description', product.description, lang);
   const facts = factRows(product, t, lang);
@@ -108,7 +111,7 @@ export default async function ProductPage({ params, searchParams }: Props) {
       />
       <ProductExperience
         product={product}
-        preset={preset}
+        look={presentation.product}
         lang={lang}
         today={ctx.config.local_date}
         requestedVariant={requested}
@@ -118,10 +121,10 @@ export default async function ProductPage({ params, searchParams }: Props) {
       {tabs.length > 0 && <Tabs label={name} tabs={tabs} />}
       {related.length > 0 && (
         <section aria-labelledby="related-products" className="flex flex-col gap-5">
-          <SectionHeading preset={preset} id="related-products" title={t.related} />
+          <SectionHeading variant={presentation.sections} id="related-products" title={t.related} />
           <ProductGrid
             products={related}
-            preset={preset}
+            variant={presentation.card}
             lang={lang}
             t={t}
             secondaryLang={secondaryLanguage(ctx)}

@@ -22,6 +22,7 @@ const config = {
     languages: ['en', 'bn'],
   },
   preset: 'fashion',
+  active_theme: 'fashion-editorial',
   theme: {
     primary_color: '#1F6F4A',
     accent_color: null,
@@ -56,6 +57,12 @@ describe('appearance response boundaries', () => {
       expect(() => storefrontConfig({ ...config, local_date })).toThrow();
     }
   });
+  it('carries the active theme identifier and rejects malformed ones (06.2)', () => {
+    expect(storefrontConfig(config).active_theme).toBe('fashion-editorial');
+    for (const active_theme of ['Fashion Editorial', '../x', '', null, 'a'.repeat(65)]) {
+      expect(() => storefrontConfig({ ...config, active_theme })).toThrow();
+    }
+  });
   it('rejects unknown presets', () => {
     expect(() => storefrontConfig({ ...config, preset: 'casino' })).toThrow();
   });
@@ -71,6 +78,7 @@ describe('appearance response boundaries', () => {
     const appearance = storeAppearance({
       preset: 'books',
       preset_label: 'Bookstore & Booksellers',
+      active_theme: 'books-literary',
       store_name: 'Northlight',
       can_rename: false,
       default_language: 'en',

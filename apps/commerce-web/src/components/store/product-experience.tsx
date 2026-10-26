@@ -1,7 +1,7 @@
 'use client';
 
 import type { PublicImage, PublicProductDetail, PublicVariant } from '@matecart/shared-contracts';
-import type { PresetId } from '@matecart/shared-ui';
+import type { PresentationVariant } from '@matecart/shared-ui';
 import { useState, type ReactNode } from 'react';
 
 import { formatDate, messages } from '@/lib/i18n';
@@ -24,19 +24,19 @@ import { FOCUS, StoreImage } from './ui';
  * product texts are passed in as `header` and `highlights`.
  */
 
-const ASPECT: Record<PresetId, string> = {
-  fashion: 'aspect-[4/5]',
-  grocery: 'aspect-square',
-  electronics: 'aspect-[4/3]',
-  general: 'aspect-square',
-  books: 'aspect-[2/3]',
+const ASPECT: Record<PresentationVariant, string> = {
+  editorial: 'aspect-[4/5]',
+  quickshop: 'aspect-square',
+  spec: 'aspect-[4/3]',
+  marketplace: 'aspect-square',
+  literary: 'aspect-[2/3]',
 };
-const COLUMNS: Record<PresetId, string> = {
-  fashion: 'lg:grid-cols-[1.15fr_1fr]',
-  grocery: 'lg:grid-cols-2',
-  electronics: 'lg:grid-cols-2',
-  general: 'lg:grid-cols-2',
-  books: 'lg:grid-cols-[minmax(0,0.75fr)_minmax(0,1.25fr)]',
+const COLUMNS: Record<PresentationVariant, string> = {
+  editorial: 'lg:grid-cols-[1.15fr_1fr]',
+  quickshop: 'lg:grid-cols-2',
+  spec: 'lg:grid-cols-2',
+  marketplace: 'lg:grid-cols-2',
+  literary: 'lg:grid-cols-[minmax(0,0.75fr)_minmax(0,1.25fr)]',
 };
 const SWATCH = /^#[0-9A-Fa-f]{6}$/;
 
@@ -50,14 +50,14 @@ export function galleryFor(images: PublicImage[], variant: PublicVariant | null)
 
 function Gallery({
   images,
-  preset,
+  look,
   name,
   lang,
   active,
   onSelect,
 }: {
   images: PublicImage[];
-  preset: PresetId;
+  look: PresentationVariant;
   name: string;
   lang: string;
   active: number;
@@ -69,7 +69,7 @@ function Gallery({
   return (
     <div className="flex flex-col gap-2.5 lg:sticky lg:top-40">
       <div
-        className={`relative overflow-hidden rounded-base bg-store-surface ${ASPECT[preset]} ${preset === 'books' ? 'mx-auto w-full max-w-[420px] shadow-overlay' : ''}`}
+        className={`relative overflow-hidden rounded-base bg-store-surface ${ASPECT[look]} ${look === 'literary' ? 'mx-auto w-full max-w-[420px] shadow-overlay' : ''}`}
       >
         <StoreImage
           src={current?.url}
@@ -78,7 +78,7 @@ function Gallery({
           height={current?.height}
           label={name}
           priority
-          fit={preset === 'grocery' || preset === 'electronics' ? 'contain' : 'cover'}
+          fit={look === 'quickshop' || look === 'spec' ? 'contain' : 'cover'}
         />
       </div>
       {images.length > 1 && (
@@ -204,12 +204,12 @@ function PriceAndStock({
   variant,
   lang,
   today,
-  preset,
+  look,
 }: {
   variant: PublicVariant | null;
   lang: string;
   today: string;
-  preset: PresetId;
+  look: PresentationVariant;
 }) {
   const t = messages(lang);
   if (!variant) return <p className="m-0 text-store-muted">{t.notAvailable}</p>;
@@ -276,7 +276,7 @@ function PriceAndStock({
             {t.isbn}: <b className="font-store-spec text-store-ink">{variant.isbn}</b>
           </span>
         )}
-        {preset === 'electronics' && (
+        {look === 'spec' && (
           <span className="text-store-muted">
             {t.sku}: <b className="font-store-spec text-store-ink">{variant.sku}</b>
           </span>
@@ -309,7 +309,7 @@ function PurchaseBox({ lang }: { lang: string }) {
 
 export function ProductExperience({
   product,
-  preset,
+  look,
   lang,
   today,
   requestedVariant,
@@ -317,7 +317,7 @@ export function ProductExperience({
   highlights,
 }: {
   product: PublicProductDetail;
-  preset: PresetId;
+  look: PresentationVariant;
   lang: string;
   /** Today in the store's time zone (YYYY-MM-DD, from the API's store_today), to tell
    * pre-orders from stock on hand on the same calendar day as availability. */
@@ -340,10 +340,10 @@ export function ProductExperience({
   }
 
   return (
-    <div className={`grid items-start gap-5 lg:gap-12 ${COLUMNS[preset]}`}>
+    <div className={`grid items-start gap-5 lg:gap-12 ${COLUMNS[look]}`}>
       <Gallery
         images={galleryFor(product.images, variant)}
-        preset={preset}
+        look={look}
         name={product.name}
         lang={lang}
         active={imageIndex}
@@ -351,7 +351,7 @@ export function ProductExperience({
       />
       <div className="flex min-w-0 flex-col gap-5">
         {header}
-        <PriceAndStock variant={variant} lang={lang} today={today} preset={preset} />
+        <PriceAndStock variant={variant} lang={lang} today={today} look={look} />
         {variant && <Options product={product} variant={variant} lang={lang} onChange={choose} />}
         {highlights}
         <PurchaseBox lang={lang} />

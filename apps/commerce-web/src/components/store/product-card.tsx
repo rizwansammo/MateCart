@@ -1,5 +1,5 @@
 import type { PublicProductSummary } from '@matecart/shared-contracts';
-import type { PresetId } from '@matecart/shared-ui';
+import type { PresentationVariant } from '@matecart/shared-ui';
 import type { Route } from 'next';
 import Link from 'next/link';
 
@@ -9,16 +9,18 @@ import { priceLabel } from '@/lib/money';
 import { FOCUS, StoreImage } from './ui';
 
 /**
- * One product card, five presentations (approved prototype ProductCard): editorial 3:4 for
- * Fashion, dense bordered tiles for Grocery, spec-style cards for Electronics, marketplace
- * tiles for General and cover-first cards for Books. Only real data is shown: the default
+ * One product card, five presentations chosen by the theme's `presentation.card` variant
+ * (approved prototype ProductCard; D-069): editorial 3:4, dense quickshop tiles, spec-style cards,
+ * marketplace tiles and literary cover-first cards. Every variant links to the same product and
+ * shows the same price and stock state (functional parity). Only real data is shown: the default
  * price (or "From" the lowest), the stock state and, for books, the authors. Shopping
  * buttons arrive with the cart (Phase 07), so a card is a link to its product.
  */
 
 export interface CardProps {
   product: PublicProductSummary;
-  preset: PresetId;
+  /** The theme's card presentation (`presentation.card`). */
+  variant: PresentationVariant;
   lang: string;
   t: Messages;
   /** The store's other language, shown under the name on Grocery cards (bilingual labels). */
@@ -42,7 +44,7 @@ function Price({
   );
 }
 
-export function ProductCard({ product, preset, lang, t, secondaryLang, priority }: CardProps) {
+export function ProductCard({ product, variant, lang, t, secondaryLang, priority }: CardProps) {
   const name = localize(product.translations, 'name', product.name, lang);
   const href = `/products/${product.slug}` as Route;
   const image = product.image;
@@ -60,7 +62,7 @@ export function ProductCard({ product, preset, lang, t, secondaryLang, priority 
   );
   const soldOut = !product.in_stock;
 
-  if (preset === 'fashion') {
+  if (variant === 'editorial') {
     return (
       <Link href={href} className={`group flex min-w-0 flex-col gap-3 ${FOCUS}`}>
         <span className="relative block aspect-[3/4] overflow-hidden rounded-base bg-store-surface">
@@ -81,7 +83,7 @@ export function ProductCard({ product, preset, lang, t, secondaryLang, priority 
     );
   }
 
-  if (preset === 'books') {
+  if (variant === 'literary') {
     const authors = product.authors.join(', ');
     return (
       <Link href={href} className={`group flex min-w-0 flex-col gap-3 ${FOCUS}`}>
@@ -105,7 +107,7 @@ export function ProductCard({ product, preset, lang, t, secondaryLang, priority 
     );
   }
 
-  if (preset === 'grocery') {
+  if (variant === 'quickshop') {
     const other = secondaryLang ? product.translations[secondaryLang]?.name : undefined;
     return (
       <Link
@@ -133,7 +135,7 @@ export function ProductCard({ product, preset, lang, t, secondaryLang, priority 
     );
   }
 
-  if (preset === 'electronics') {
+  if (variant === 'spec') {
     return (
       <Link
         href={href}
@@ -180,36 +182,36 @@ export function ProductCard({ product, preset, lang, t, secondaryLang, priority 
   );
 }
 
-const GRID: Record<PresetId, { full: string; listing: string }> = {
-  fashion: {
+const GRID: Record<PresentationVariant, { full: string; listing: string }> = {
+  editorial: {
     full: 'grid grid-cols-2 gap-x-3 gap-y-8 md:grid-cols-3 lg:grid-cols-4 lg:gap-x-5',
     listing: 'grid grid-cols-2 gap-x-3 gap-y-8 md:grid-cols-3 lg:gap-x-5',
   },
-  grocery: {
+  quickshop: {
     full: 'grid grid-cols-2 gap-2.5 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6',
     listing: 'grid grid-cols-2 gap-2.5 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5',
   },
-  electronics: {
+  spec: {
     full: 'grid grid-cols-2 gap-3.5 md:grid-cols-3 lg:grid-cols-4',
     listing: 'grid grid-cols-2 gap-3.5 md:grid-cols-3',
   },
-  general: {
+  marketplace: {
     full: 'grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5',
     listing: 'grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-4',
   },
-  books: {
+  literary: {
     full: 'grid grid-cols-2 gap-x-5 gap-y-8 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5',
     listing: 'grid grid-cols-2 gap-x-5 gap-y-8 sm:grid-cols-3 xl:grid-cols-4',
   },
 };
 
-/** Products per page: a whole number of rows at the preset's widest grid. */
-export const PAGE_SIZE: Record<PresetId, number> = {
-  fashion: 24,
-  grocery: 30,
-  electronics: 24,
-  general: 24,
-  books: 24,
+/** Products per page: a whole number of rows at the card variant's widest grid. */
+export const PAGE_SIZE: Record<PresentationVariant, number> = {
+  editorial: 24,
+  quickshop: 30,
+  spec: 24,
+  marketplace: 24,
+  literary: 24,
 };
 
 export function ProductGrid({
@@ -221,7 +223,7 @@ export function ProductGrid({
   layout?: 'full' | 'listing';
 }) {
   return (
-    <ul className={`m-0 list-none p-0 ${GRID[card.preset][layout]}`}>
+    <ul className={`m-0 list-none p-0 ${GRID[card.variant][layout]}`}>
       {products.map((product, index) => (
         <li key={product.id} className="min-w-0">
           <ProductCard product={product} priority={index < 4} {...card} />

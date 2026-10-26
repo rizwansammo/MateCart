@@ -220,7 +220,7 @@ function Pagination({
 export function CatalogListing(props: ListingProps) {
   const { ctx, pathname, query, results, title, intro, crumbs, featured, before } = props;
   const { t } = ctx;
-  const preset = ctx.theme.preset.id;
+  const look = ctx.theme.presentation.sections;
   const currency = ctx.config.store.currency;
   const totalPages = Math.max(1, Math.ceil(results.count / results.page_size));
 
@@ -265,12 +265,12 @@ export function CatalogListing(props: ListingProps) {
   });
 
   const titleClass = {
-    fashion: 'text-[30px] sm:text-5xl',
-    books: 'text-[30px] sm:text-5xl',
-    grocery: 'text-[28px] sm:text-4xl',
-    electronics: 'text-[28px] sm:text-4xl',
-    general: 'text-[28px] sm:text-4xl',
-  }[preset];
+    editorial: 'text-[30px] sm:text-5xl',
+    literary: 'text-[30px] sm:text-5xl',
+    quickshop: 'text-[28px] sm:text-4xl',
+    spec: 'text-[28px] sm:text-4xl',
+    marketplace: 'text-[28px] sm:text-4xl',
+  }[look];
 
   return (
     <div className={`${CONTAINER} flex flex-col gap-5 pt-6 pb-16`}>
@@ -343,7 +343,7 @@ export function CatalogListing(props: ListingProps) {
             <ProductGrid
               products={results.results}
               layout="listing"
-              preset={preset}
+              variant={ctx.theme.presentation.card}
               lang={ctx.lang}
               t={t}
               secondaryLang={secondaryLanguage(ctx)}

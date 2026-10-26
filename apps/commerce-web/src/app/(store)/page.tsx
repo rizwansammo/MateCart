@@ -1,17 +1,17 @@
-import type { PresetId } from '@matecart/shared-ui';
+import type { PresentationVariant } from '@matecart/shared-ui';
 
 import { hasRenderableSection, HomeFallback, HomeSections } from '@/components/store/home-sections';
 import { apiQuery, parseListingQuery } from '@/lib/catalog-query';
 import { getStoreContext } from '@/lib/store-context';
 import { getCategoryTree, getHomeSections, getProducts } from '@/lib/storefront-api';
 
-/** Products shown by a collection highlight: one or two full rows of the preset's grid. */
-const HIGHLIGHT_SIZE: Record<PresetId, number> = {
-  fashion: 4,
-  grocery: 12,
-  electronics: 8,
-  general: 10,
-  books: 5,
+/** Products shown by a collection highlight: one or two full rows of the card variant's grid. */
+const HIGHLIGHT_SIZE: Record<PresentationVariant, number> = {
+  editorial: 4,
+  quickshop: 12,
+  spec: 8,
+  marketplace: 10,
+  literary: 5,
 };
 
 export default async function StoreHomePage() {
@@ -20,7 +20,7 @@ export default async function StoreHomePage() {
     getHomeSections(),
     getCategoryTree(),
   ]);
-  const size = HIGHLIGHT_SIZE[ctx.theme.preset.id];
+  const size = HIGHLIGHT_SIZE[ctx.theme.presentation.card];
   const firstPage = parseListingQuery({});
 
   // All collection highlights are fetched at once, not one after another.

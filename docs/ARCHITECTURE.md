@@ -148,10 +148,16 @@ Outside the database: cache keys use `tenant_cache_key(...)` (`tenant:<id>:...`)
 
 ### Presets, themes and branding (Phase 05)
 
-- **Split of concerns (D-061).** Visual preset definitions live in `@matecart/shared-ui`
-  (`presets.ts`); business defaults (product types, modules, homepage sections) live in
-  commerce-api. The public API sends the preset id and validated brand overrides; the
-  browser resolves the effective theme with a General fallback.
+- **Split of concerns (D-061, D-069).** Business preset (commerce-api: product types,
+  modules, homepage defaults, feature availability) ≠ visual theme (`@matecart/shared-ui`
+  `THEMES`, one preset each, five registered defaults) ≠ merchant branding (`StoreTheme`).
+  The public API sends the preset, the effective `active_theme` and brand overrides; the
+  storefront resolves preset + theme + branding on the server.
+- **Themes are presentation only (D-069).** Storefront components choose layouts by the theme's
+  presentation variants (header, hero, cards, sections, product page) and keep one functional
+  implementation; business choices stay on the preset. Theme assignment is platform-owned
+  (`StoreSettings.active_theme`, trusted `assign_store_theme` command, audited) and resolved
+  locally, so the store never needs the console to render.
 - **Theme application.** `StoreThemeScope` sets `--store-*` CSS variables on an element and
   the `store-*` Tailwind tokens (`@theme inline`) read them, so themes are scoped,
   server-renderable and never touch the MateCart dashboard or console styling.
@@ -237,12 +243,13 @@ Redis broker, JSON-only serialisation, `acks_late` + `reject_on_worker_lost` + p
 
 ## 7. Planned architecture (not built yet)
 
-| Topic                                                                             | Phase                           |
-| --------------------------------------------------------------------------------- | ------------------------------- |
-| Live Google/SMS provider configuration and acceptance; full notification delivery | 13 (or approved provider setup) |
-| Preset and theme system, white-label branding                                     | 05                              |
-| Production reverse proxy, production images, GHCR releases, installer, agent, TLS | 17                              |
-| Rate limiting, bot protection, CDN, horizontal scaling validation                 | 12, 17, 18                      |
-| AI provider abstraction (GroqCloud first)                                         | 15                              |
-| Store → console metrics channel, alerting                                         | 12, 13, 16                      |
-| Row-level security and verified domain → tenant resolution (pooled mode)          | if approved                     |
+| Topic                                                                               | Phase                            |
+| ----------------------------------------------------------------------------------- | -------------------------------- |
+| Live Google/SMS provider configuration and acceptance; full notification delivery   | 13 (or approved provider setup)  |
+| Preset and theme system, white-label branding                                       | 05, 06.2                         |
+| Theme showcase (themes.matecart.pro), premium theme licences, console assignment UI | later; console 16, operations 17 |
+| Production reverse proxy, production images, GHCR releases, installer, agent, TLS   | 17                               |
+| Rate limiting, bot protection, CDN, horizontal scaling validation                   | 12, 17, 18                       |
+| AI provider abstraction (GroqCloud first)                                           | 15                               |
+| Store → console metrics channel, alerting                                           | 12, 13, 16                       |
+| Row-level security and verified domain → tenant resolution (pooled mode)            | if approved                      |

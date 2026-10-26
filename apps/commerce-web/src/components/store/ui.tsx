@@ -1,4 +1,4 @@
-import type { PresetId } from '@matecart/shared-ui';
+import type { PresentationVariant } from '@matecart/shared-ui';
 import type { Route } from 'next';
 import Link from 'next/link';
 import type { SVGProps } from 'react';
@@ -153,28 +153,28 @@ export function PlainText({ text, className = '' }: { text: string; className?: 
   );
 }
 
-const HEADING: Record<PresetId, { row: string; title: string; link: string }> = {
-  fashion: {
+const HEADING: Record<PresentationVariant, { row: string; title: string; link: string }> = {
+  editorial: {
     row: 'flex items-baseline justify-between gap-4',
     title: 'store-display text-3xl tracking-[-0.01em] sm:text-[40px]',
     link: 'border-b border-current pb-0.5 text-[13px] font-semibold tracking-[0.08em] uppercase',
   },
-  grocery: {
+  quickshop: {
     row: 'flex items-baseline justify-between gap-4',
     title: 'store-display text-[22px] tracking-[-0.02em]',
     link: 'text-[13.5px] font-bold text-store-action',
   },
-  electronics: {
+  spec: {
     row: 'flex items-baseline justify-between gap-4',
     title: 'store-display text-2xl tracking-[-0.02em]',
     link: 'text-[13.5px] font-semibold text-store-primary',
   },
-  general: {
+  marketplace: {
     row: 'flex items-baseline justify-between gap-4',
     title: 'store-display text-[22px] tracking-[-0.02em]',
     link: 'text-[13.5px] font-bold',
   },
-  books: {
+  literary: {
     row: 'flex items-baseline justify-between gap-4 border-b border-store-line pb-3',
     title: 'store-display text-[28px] sm:text-[34px]',
     link: 'text-[13px] font-semibold text-store-primary',
@@ -182,21 +182,22 @@ const HEADING: Record<PresetId, { row: string; title: string; link: string }> = 
 };
 
 export function SectionHeading({
-  preset,
+  variant,
   title,
   subtitle,
   href,
   linkLabel,
   id,
 }: {
-  preset: PresetId;
+  /** The theme's section presentation (`presentation.sections`). */
+  variant: PresentationVariant;
   title: string;
   subtitle?: string;
   href?: Route;
   linkLabel?: string;
   id?: string;
 }) {
-  const style = HEADING[preset];
+  const style = HEADING[variant];
   return (
     <div className={style.row}>
       <div className="min-w-0">
@@ -208,7 +209,7 @@ export function SectionHeading({
       {href && linkLabel && (
         <Link href={href} className={`shrink-0 hover:opacity-80 ${style.link} ${FOCUS}`}>
           {linkLabel}
-          {preset === 'fashion' ? '' : ' →'}
+          {variant === 'editorial' ? '' : ' →'}
         </Link>
       )}
     </div>

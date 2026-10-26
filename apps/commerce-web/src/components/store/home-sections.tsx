@@ -3,7 +3,7 @@ import type {
   PublicProductSummary,
   StorefrontSection,
 } from '@matecart/shared-contracts';
-import type { PresetId } from '@matecart/shared-ui';
+import type { PresentationVariant } from '@matecart/shared-ui';
 import type { Route } from 'next';
 import Link from 'next/link';
 
@@ -15,8 +15,8 @@ import { CONTAINER, FOCUS, PlainText, SectionHeading, StoreImage } from './ui';
 
 /**
  * The homepage as the merchant configured it (Phase 05 content): enabled sections in their
- * saved order, each drawn in the preset's style. Texts follow the customer's language with the
- * default text as fallback; nothing promotional is added. A section without anything real to
+ * saved order, each drawn in the theme's style (`presentation.hero` and `.sections`; D-069).
+ * Texts follow the customer's language with the default text as fallback; nothing promotional is added. A section without anything real to
  * show (no categories, an empty collection) is left out rather than rendered empty.
  */
 
@@ -97,13 +97,13 @@ function Hero({
   first: boolean;
 }) {
   const copy = texts(section, ctx.lang);
-  const preset = ctx.theme.preset.id;
+  const hero = ctx.theme.presentation.hero;
   const Heading = first ? 'h1' : 'h2';
   const image = section.image_url ? (
     <StoreImage src={section.image_url} alt="" label={copy.title} priority={first} />
   ) : null;
 
-  if (preset === 'fashion') {
+  if (hero === 'editorial') {
     return (
       <section className="relative h-[520px] overflow-hidden bg-store-line/60 lg:h-[640px]">
         {image && <div className="absolute inset-0">{image}</div>}
@@ -133,7 +133,7 @@ function Hero({
     );
   }
 
-  if (preset === 'books') {
+  if (hero === 'featured-title') {
     return (
       <section className="relative overflow-hidden bg-store-ink text-store-canvas">
         <div className="absolute inset-0 bg-linear-to-r from-store-ink via-store-ink/90 to-store-primary/60" />
@@ -172,7 +172,7 @@ function Hero({
     );
   }
 
-  if (preset === 'electronics') {
+  if (hero === 'spotlight') {
     return (
       <section className={`${CONTAINER} pt-6`}>
         <div
@@ -207,8 +207,8 @@ function Hero({
     );
   }
 
-  // Grocery (promo panel) and General (marketplace banner)
-  const tint = preset === 'grocery' ? 'bg-store-primary/10' : 'bg-store-accent/10';
+  // Promo panel and marketplace banner
+  const tint = hero === 'promo' ? 'bg-store-primary/10' : 'bg-store-accent/10';
   return (
     <section className={`${CONTAINER} pt-5`}>
       <div
@@ -235,12 +235,12 @@ function Hero({
   );
 }
 
-const TILE_LIMIT: Record<PresetId, number> = {
-  fashion: 3,
-  grocery: 8,
-  electronics: 6,
-  general: 6,
-  books: 10,
+const TILE_LIMIT: Record<PresentationVariant, number> = {
+  editorial: 3,
+  quickshop: 8,
+  spec: 6,
+  marketplace: 6,
+  literary: 10,
 };
 
 function CategoryShowcase({
@@ -254,8 +254,8 @@ function CategoryShowcase({
   ctx: StoreContext;
   index: number;
 }) {
-  const preset = ctx.theme.preset.id;
-  const shown = categories.slice(0, TILE_LIMIT[preset]);
+  const look = ctx.theme.presentation.sections;
+  const shown = categories.slice(0, TILE_LIMIT[look]);
   if (shown.length === 0) return null;
   const copy = texts(section, ctx.lang);
   const id = `home-section-${index}`;
@@ -265,17 +265,17 @@ function CategoryShowcase({
   const href = (c: CategoryNode) => `/categories/${c.slug}` as Route;
 
   const grid = {
-    fashion: 'grid gap-4 md:grid-cols-3',
-    grocery: 'grid grid-cols-3 gap-2.5 sm:grid-cols-4 lg:grid-cols-8',
-    electronics: 'grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-6',
-    general: 'grid grid-cols-3 gap-3 sm:grid-cols-4 lg:grid-cols-6',
-    books: 'grid grid-cols-2 border-t border-l border-store-line sm:grid-cols-3 lg:grid-cols-5',
-  }[preset];
+    editorial: 'grid gap-4 md:grid-cols-3',
+    quickshop: 'grid grid-cols-3 gap-2.5 sm:grid-cols-4 lg:grid-cols-8',
+    spec: 'grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-6',
+    marketplace: 'grid grid-cols-3 gap-3 sm:grid-cols-4 lg:grid-cols-6',
+    literary: 'grid grid-cols-2 border-t border-l border-store-line sm:grid-cols-3 lg:grid-cols-5',
+  }[look];
 
   return (
     <section aria-labelledby={id} className={`${CONTAINER} flex flex-col gap-6`}>
       <SectionHeading
-        preset={preset}
+        variant={look}
         id={id}
         title={copy.title}
         subtitle={copy.subtitle}
@@ -285,7 +285,7 @@ function CategoryShowcase({
       <ul className={`m-0 list-none p-0 ${grid}`}>
         {shown.map((category) => (
           <li key={category.slug} className="min-w-0">
-            {preset === 'books' ? (
+            {look === 'literary' ? (
               <Link
                 href={href(category)}
                 className={`flex h-full flex-col gap-1 border-r border-b border-store-line px-4 py-[18px] hover:bg-store-line/40 ${FOCUS}`}
@@ -295,7 +295,7 @@ function CategoryShowcase({
                   <span className="line-clamp-2 text-xs text-store-muted">{about(category)}</span>
                 )}
               </Link>
-            ) : preset === 'fashion' ? (
+            ) : look === 'editorial' ? (
               <Link href={href(category)} className={`group flex flex-col gap-3 ${FOCUS}`}>
                 <span className="block aspect-[4/5] overflow-hidden rounded-base bg-store-line/60">
                   <StoreImage src={category.image_url} alt="" label={name(category)} />
@@ -307,7 +307,7 @@ function CategoryShowcase({
                   </span>
                 )}
               </Link>
-            ) : preset === 'general' ? (
+            ) : look === 'marketplace' ? (
               <Link href={href(category)} className={`flex flex-col items-center gap-2.5 ${FOCUS}`}>
                 <span className="block aspect-square w-full overflow-hidden rounded-base border border-store-line bg-store-surface">
                   <StoreImage src={category.image_url} alt="" label={name(category)} />
@@ -320,7 +320,7 @@ function CategoryShowcase({
                 className={`flex h-full flex-col items-start gap-2 rounded-base border border-store-line bg-store-surface p-3 hover:border-store-primary ${FOCUS}`}
               >
                 <span
-                  className={`block w-full overflow-hidden rounded-base bg-store-canvas ${preset === 'grocery' ? 'aspect-[1.4/1]' : 'aspect-[16/10]'}`}
+                  className={`block w-full overflow-hidden rounded-base bg-store-canvas ${look === 'quickshop' ? 'aspect-[1.4/1]' : 'aspect-[16/10]'}`}
                 >
                   <StoreImage src={category.image_url} alt="" label={name(category)} />
                 </span>
@@ -351,7 +351,7 @@ function CollectionHighlight({
   return (
     <section aria-labelledby={id} className={`${CONTAINER} flex flex-col gap-6`}>
       <SectionHeading
-        preset={ctx.theme.preset.id}
+        variant={ctx.theme.presentation.sections}
         id={id}
         title={copy.title || section.collection.name}
         subtitle={copy.subtitle}
@@ -360,7 +360,7 @@ function CollectionHighlight({
       />
       <ProductGrid
         products={products}
-        preset={ctx.theme.preset.id}
+        variant={ctx.theme.presentation.card}
         lang={ctx.lang}
         t={ctx.t}
         secondaryLang={secondaryLanguage(ctx)}
@@ -371,7 +371,7 @@ function CollectionHighlight({
 
 function BrandStory({ section, ctx }: { section: StorefrontSection; ctx: StoreContext }) {
   const copy = texts(section, ctx.lang);
-  const preset = ctx.theme.preset.id;
+  const look = ctx.theme.presentation.sections;
   const image = section.image_url ? (
     <StoreImage src={section.image_url} alt="" label={copy.title} />
   ) : null;
@@ -386,7 +386,7 @@ function BrandStory({ section, ctx }: { section: StorefrontSection; ctx: StoreCo
   const text = (
     <div className="flex max-w-[480px] flex-col gap-4">
       <h2
-        className={`m-0 store-display leading-[1.04] ${preset === 'fashion' || preset === 'books' ? 'text-[36px] lg:text-[44px]' : 'text-[28px] tracking-[-0.02em]'}`}
+        className={`m-0 store-display leading-[1.04] ${look === 'editorial' || look === 'literary' ? 'text-[36px] lg:text-[44px]' : 'text-[28px] tracking-[-0.02em]'}`}
       >
         {copy.title}
       </h2>
@@ -398,7 +398,7 @@ function BrandStory({ section, ctx }: { section: StorefrontSection; ctx: StoreCo
     </div>
   );
 
-  if (preset === 'books') {
+  if (look === 'literary') {
     return (
       <section className="bg-store-primary text-store-on-primary">
         <div className={`${CONTAINER} grid items-center gap-10 py-10 md:grid-cols-2 lg:py-14`}>
@@ -413,7 +413,7 @@ function BrandStory({ section, ctx }: { section: StorefrontSection; ctx: StoreCo
     );
   }
   const panel =
-    preset === 'fashion' ? '' : 'rounded-base border border-store-line bg-store-surface p-6 lg:p-8';
+    look === 'editorial' ? '' : 'rounded-base border border-store-line bg-store-surface p-6 lg:p-8';
   return (
     <section className={CONTAINER}>
       <div className={`grid items-center gap-10 ${image ? 'md:grid-cols-2' : ''} ${panel}`}>
@@ -447,27 +447,27 @@ function TrustStrip({
 }) {
   const items = trustItems(section, ctx.lang);
   if (items.length === 0) return null;
-  const preset = ctx.theme.preset.id;
+  const look = ctx.theme.presentation.sections;
   const copy = texts(section, ctx.lang);
   const id = `home-section-${index}`;
   // As many columns as items (up to four), so no empty cell shows the grid's background.
   const columns =
     ['', 'md:grid-cols-1', 'md:grid-cols-2', 'md:grid-cols-3'][items.length] ?? 'md:grid-cols-4';
   const list = {
-    fashion: 'grid gap-px border-y border-store-line bg-store-line',
-    books: 'grid gap-px border-y border-store-line bg-store-line',
-    grocery: 'grid grid-cols-2 gap-2.5',
-    electronics:
-      'grid grid-cols-2 gap-px overflow-hidden rounded-base border border-store-line bg-store-line',
-    general: 'grid grid-cols-2 gap-2.5',
-  }[preset];
+    editorial: 'grid gap-px border-y border-store-line bg-store-line',
+    literary: 'grid gap-px border-y border-store-line bg-store-line',
+    quickshop: 'grid grid-cols-2 gap-2.5',
+    spec: 'grid grid-cols-2 gap-px overflow-hidden rounded-base border border-store-line bg-store-line',
+    marketplace: 'grid grid-cols-2 gap-2.5',
+  }[look];
   const item = {
-    fashion: 'bg-store-canvas px-2 py-7 store-display text-2xl',
-    books: 'bg-store-canvas px-2 py-6 font-store-display text-[19px]',
-    grocery: 'rounded-base border border-store-line bg-store-surface p-4 text-[14.5px] font-bold',
-    electronics: 'bg-store-surface px-[18px] py-4 text-sm font-bold',
-    general: 'rounded-base border border-store-line bg-store-surface p-4 text-[14.5px] font-bold',
-  }[preset];
+    editorial: 'bg-store-canvas px-2 py-7 store-display text-2xl',
+    literary: 'bg-store-canvas px-2 py-6 font-store-display text-[19px]',
+    quickshop: 'rounded-base border border-store-line bg-store-surface p-4 text-[14.5px] font-bold',
+    spec: 'bg-store-surface px-[18px] py-4 text-sm font-bold',
+    marketplace:
+      'rounded-base border border-store-line bg-store-surface p-4 text-[14.5px] font-bold',
+  }[look];
   return (
     <section aria-labelledby={id} className={CONTAINER}>
       <h2 id={id} className="sr-only">
@@ -484,9 +484,9 @@ function TrustStrip({
   );
 }
 
-/** Grocery cards show the other language under the name (bilingual shelf labels). */
+/** Quickshop cards show the other language under the name (bilingual shelf labels). */
 export function secondaryLanguage(ctx: StoreContext): string | null {
-  if (ctx.theme.preset.id !== 'grocery') return null;
+  if (ctx.theme.presentation.card !== 'quickshop') return null;
   return ctx.config.store.languages.find((code) => code !== ctx.lang) ?? null;
 }
 
@@ -519,8 +519,8 @@ export function hasRenderableSection(data: HomeData, lang: string): boolean {
 }
 
 export function HomeSections({ data, ctx }: { data: HomeData; ctx: StoreContext }) {
-  const preset = ctx.theme.preset.id;
-  const editorial = preset === 'fashion' || preset === 'books';
+  const look = ctx.theme.presentation.sections;
+  const editorial = look === 'editorial' || look === 'literary';
   const firstHero = data.sections.findIndex((s) => s.section_type === 'hero');
   return (
     <div
@@ -594,7 +594,7 @@ export function HomeFallback({
       </section>
       <section aria-labelledby="new-arrivals" className={`${CONTAINER} flex flex-col gap-6`}>
         <SectionHeading
-          preset={ctx.theme.preset.id}
+          variant={ctx.theme.presentation.sections}
           id="new-arrivals"
           title={t.newArrivals}
           href={products.length > 0 ? '/shop' : undefined}
@@ -603,7 +603,7 @@ export function HomeFallback({
         {products.length > 0 ? (
           <ProductGrid
             products={products}
-            preset={ctx.theme.preset.id}
+            variant={ctx.theme.presentation.card}
             lang={lang}
             t={t}
             secondaryLang={secondaryLanguage(ctx)}

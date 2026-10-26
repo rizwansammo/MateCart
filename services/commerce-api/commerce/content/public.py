@@ -17,7 +17,7 @@ from commerce.catalog.serializers import public_media_url
 from commerce.core.domain import found
 from commerce.identity.auth import CsrfProtectedAPIView
 from commerce.inventory.services import store_today
-from commerce.stores import appearance, modules
+from commerce.stores import appearance, modules, themes
 
 from .models import ContentPage, HomeSection, PageStatus, PageType, SectionType
 
@@ -74,6 +74,9 @@ class FooterPageSerializer(serializers.Serializer[Any]):
 class StorefrontConfigSerializer(serializers.Serializer[Any]):
     store = StoreInfoSerializer()
     preset = serializers.CharField()
+    # Phase 06.2 (D-069): the theme the storefront renders with (assigned by NetaMate, or the
+    # preset's default). Public by nature; licences and platform data are never included.
+    active_theme = serializers.ChoiceField(choices=themes.THEME_IDS)
     theme = ThemeSerializer()
     modules = serializers.ListField(child=serializers.CharField())
     footer_pages = FooterPageSerializer(many=True)
@@ -129,6 +132,7 @@ class StorefrontConfigView(PublicView):
                 "languages": list(settings.supported_languages),
             },
             "preset": settings.preset,
+            "active_theme": themes.effective_theme(settings.active_theme, settings.preset),
             "theme": {
                 "primary_color": theme.primary_color or None,
                 "accent_color": theme.accent_color or None,

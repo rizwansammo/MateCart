@@ -369,6 +369,7 @@ def test_public_config_exposes_only_storefront_data(
     assert set(config) == {
         "store",
         "preset",
+        "active_theme",
         "theme",
         "modules",
         "footer_pages",

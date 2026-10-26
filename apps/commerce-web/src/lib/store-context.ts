@@ -23,10 +23,19 @@ export const getStoreContext = cache(async (): Promise<StoreContext> => {
     config.store.languages,
     config.store.default_language,
   );
-  const theme = resolveTheme(config.preset, {
-    primaryColor: config.theme.primary_color,
-    accentColor: config.theme.accent_color,
-  });
+  // Business preset + the theme NetaMate assigned + merchant branding (D-069). Only the API's
+  // configuration decides the theme: nothing from the request (cookies, query, host) does.
+  const theme = resolveTheme(
+    config.preset,
+    { primaryColor: config.theme.primary_color, accentColor: config.theme.accent_color },
+    config.active_theme,
+  );
+  if (theme.recovery) {
+    // For operators only; customers see the preset's default design.
+    console.warn(
+      `Storefront theme ${config.active_theme} (${theme.recovery}); using ${theme.theme.id}.`,
+    );
+  }
   return { config, theme, lang, t: messages(lang) };
 });
 

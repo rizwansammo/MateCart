@@ -1,0 +1,9 @@
+{
+  "themes": [
+    { "id": "fashion-editorial", "preset": "fashion", "default": true },
+    { "id": "grocery-quickshop", "preset": "grocery", "default": true },
+    { "id": "electronics-spec-first", "preset": "electronics", "default": true },
+    { "id": "general-marketplace", "preset": "general", "default": true },
+    { "id": "books-literary", "preset": "books", "default": true }
+  ]
+}

@@ -17,7 +17,7 @@ from commerce.core.fields import TenantRelatedField
 from commerce.media.models import MediaAsset
 from commerce.staff.views import ContentStaffView, SettingsStaffView
 
-from . import appearance, modules
+from . import appearance, modules, themes
 from .models import StoreTheme
 
 TAGS = ["manage-appearance"]
@@ -36,6 +36,8 @@ class AssetRefSerializer(serializers.Serializer[Any]):
 class AppearanceSerializer(serializers.Serializer[Any]):
     preset = serializers.CharField()
     preset_label = serializers.CharField()
+    # Read-only (D-069): assigned by NetaMate; AppearanceWriteSerializer has no theme field.
+    active_theme = serializers.ChoiceField(choices=themes.THEME_IDS)
     store_name = serializers.CharField()
     can_rename = serializers.BooleanField()
     default_language = serializers.CharField()
@@ -96,6 +98,7 @@ def appearance_payload(view: ContentStaffView, theme: StoreTheme) -> dict[str, A
     return {
         "preset": settings.preset,
         "preset_label": appearance.PRESET_LABELS.get(settings.preset, settings.preset),
+        "active_theme": themes.effective_theme(settings.active_theme, settings.preset),
         "store_name": settings.name,
         "can_rename": view.can_manage_settings,
         "default_language": settings.default_language,

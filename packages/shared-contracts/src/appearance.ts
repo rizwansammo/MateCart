@@ -35,6 +35,13 @@ function hexOrEmpty(value: unknown): string {
   return text;
 }
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
+// Theme identifiers (see themes.ts); only the format is checked here, the registry decides.
+const THEME_ID = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+function themeId(value: unknown): string {
+  const text = string(value);
+  if (!THEME_ID.test(text) || text.length > 64) throw new Error('Invalid response');
+  return text;
+}
 function isoDate(value: unknown): string {
   const text = string(value);
   if (!ISO_DATE.test(text)) throw new Error('Invalid response');
@@ -65,6 +72,8 @@ export function assetRef(value: unknown): AssetRef {
 export interface StoreAppearance {
   preset: StorePreset;
   preset_label: string;
+  /** The theme NetaMate assigned (read-only for merchants; D-069). */
+  active_theme: string;
   store_name: string;
   can_rename: boolean;
   default_language: string;
@@ -87,6 +96,7 @@ export function storeAppearance(value: unknown): StoreAppearance {
   return {
     preset: preset(o.preset),
     preset_label: string(o.preset_label),
+    active_theme: themeId(o.active_theme),
     store_name: string(o.store_name),
     can_rename: boolean(o.can_rename),
     default_language: string(o.default_language),
@@ -274,6 +284,8 @@ export interface StorefrontConfig {
     languages: string[];
   };
   preset: StorePreset;
+  /** The store's effective theme: assigned by NetaMate, or the preset's default (D-069). */
+  active_theme: string;
   theme: {
     primary_color: string | null;
     accent_color: string | null;
@@ -306,6 +318,7 @@ export function storefrontConfig(value: unknown): StorefrontConfig {
       languages: strings(store.languages),
     },
     preset: preset(o.preset),
+    active_theme: themeId(o.active_theme),
     theme: {
       primary_color: nullable(hexOrEmpty)(theme.primary_color),
       accent_color: nullable(hexOrEmpty)(theme.accent_color),

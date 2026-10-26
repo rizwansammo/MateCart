@@ -9,7 +9,8 @@ const ASPECT: Record<CardAspect, string> = {
 };
 
 /**
- * Applies a resolved store theme to its subtree only. Server components can render it, so the
+ * Applies a resolved store theme to its subtree only (`data-preset` is the business preset,
+ * `data-theme` the theme in effect). Server components can render it, so the
  * first paint already has the store's preset (no flash); nothing is read from browser storage.
  */
 export function StoreThemeScope({
@@ -24,6 +25,7 @@ export function StoreThemeScope({
   return (
     <div
       data-preset={theme.preset.id}
+      data-theme={theme.theme.id}
       style={themeVariables(theme) as CSSProperties}
       className={`bg-store-canvas font-store-body text-store-ink ${className}`}
     >
@@ -51,7 +53,8 @@ export function ThemePreview({
   logoUrl?: string | null;
   compact?: boolean;
 }) {
-  const { layout, label, style } = theme.preset;
+  const { layout, style } = theme.theme;
+  const { label } = theme.preset;
   return (
     <StoreThemeScope
       theme={theme}
@@ -103,7 +106,7 @@ export function ThemePreview({
             className={`${ASPECT[layout.cardAspect]} w-full rounded-base bg-store-canvas`}
           />
           <p className="mt-3 text-sm font-semibold">Sample product</p>
-          {theme.preset.fonts.spec === 'geist-mono' && (
+          {theme.theme.fonts.spec === 'geist-mono' && (
             <p className="font-store-spec text-xs text-store-muted">SKU NX-12 · 6.7&quot; 120 Hz</p>
           )}
           <div className="mt-2 flex items-center justify-between">

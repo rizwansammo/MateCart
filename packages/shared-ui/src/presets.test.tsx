@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { createApiClient } from './api';
 import {
   PRESET_IDS,
-  PRESETS,
+  THEMES,
   contrast,
   isReadable,
   onColor,
@@ -22,19 +22,19 @@ describe('preset themes', () => {
     ['books', '#F7F2E8', '#6E1F2A', '#1B1A17', 'newsreader'],
   ] as const)('%s resolves to the approved identity', (id, swatch, primary, accent, display) => {
     const theme = resolveTheme(id);
-    expect(theme.preset.swatches).toEqual([swatch, primary, accent]);
+    expect(theme.theme.swatches).toEqual([swatch, primary, accent]);
     expect(theme.colors.primary).toBe(primary);
     expect(theme.colors.accent).toBe(accent);
-    expect(theme.preset.fonts.display).toBe(display);
+    expect(theme.theme.fonts.display).toBe(display);
   });
 
   it('keeps the distinctive layout and type choices', () => {
-    expect(PRESETS.fashion.layout.cardAspect).toBe('3/4');
-    expect(PRESETS.grocery.layout.quantityStepper).toBe(true);
-    expect(PRESETS.grocery.layout.density).toBe('compact');
-    expect(PRESETS.electronics.layout.darkHeader).toBe(true);
-    expect(PRESETS.electronics.fonts.spec).toBe('geist-mono');
-    expect(PRESETS.books.layout.cardAspect).toBe('2/3');
+    expect(THEMES['fashion-editorial'].layout.cardAspect).toBe('3/4');
+    expect(THEMES['grocery-quickshop'].layout.quantityStepper).toBe(true);
+    expect(THEMES['grocery-quickshop'].layout.density).toBe('compact');
+    expect(THEMES['electronics-spec-first'].layout.darkHeader).toBe(true);
+    expect(THEMES['electronics-spec-first'].fonts.spec).toBe('geist-mono');
+    expect(THEMES['books-literary'].layout.cardAspect).toBe('2/3');
   });
 
   it.each(PRESET_IDS)('%s call-to-action text meets WCAG AA', (id) => {
@@ -56,8 +56,8 @@ describe('preset themes', () => {
     'ignores the unsafe or unreadable override %j',
     (value) => {
       const theme = resolveTheme('fashion', { primaryColor: value });
-      expect(theme.colors.primary).toBe(PRESETS.fashion.colors.primary);
-      expect(theme.colors.action).toBe(PRESETS.fashion.colors.action);
+      expect(theme.colors.primary).toBe(THEMES['fashion-editorial'].colors.primary);
+      expect(theme.colors.action).toBe(THEMES['fashion-editorial'].colors.action);
     },
   );
 

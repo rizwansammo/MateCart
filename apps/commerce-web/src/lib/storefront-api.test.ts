@@ -89,7 +89,10 @@ describe('public storefront data', () => {
     fetchMock.mockImplementation(() => json(storeConfig()));
     expect((await getStorefrontConfig()).preset).toBe('general');
     vi.stubEnv('NODE_ENV', 'development');
-    expect((await getStorefrontConfig()).preset).toBe('books');
+    expect(await getStorefrontConfig()).toMatchObject({
+      preset: 'books',
+      active_theme: 'books-literary',
+    });
     vi.stubEnv('STOREFRONT_PREVIEW_PRESET', 'casino');
     expect((await getStorefrontConfig()).preset).toBe('general');
   });
