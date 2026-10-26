@@ -131,8 +131,10 @@ and keys, sharing only this local testing inbox.
 - **Inventory integrity (D-054).** Stock changes only through locked service
   operations; PostgreSQL CHECKs refuse negative stock and overselling even if a code
   path forgot a rule, and a trigger keeps the ledger append-only below the ORM.
-  Retries with an idempotency key apply once. Reconciliation proves levels equal the
-  ledger.
+  Retries with an idempotency key apply once; reusing a key for a different request
+  answers `409 idempotency_conflict` (request fingerprint, D-059). Expired batch stock
+  is never advertised, judged purchasable or reserved (D-060). Reconciliation proves
+  levels equal the ledger.
 
 ## Limits and scheduled follow-up
 
@@ -141,6 +143,11 @@ and keys, sharing only this local testing inbox.
   and PDFs are accepted and PDFs are served as downloads. Image resizing/thumbnails
   and a CDN are deferred. Public media may stay in shared caches for up to five
   minutes after a product is unpublished.
+- Phase 04.1: reservations are not assigned to batches, so sellable batch stock
+  subtracts each location's whole reservation (conservative), and batches that expire
+  after a reservation can leave it uncovered until Phase 08 allocation handles it.
+  Keys recorded before 04.1 are verified from the ledger without the batch
+  manufacture date.
 
 - External Google, SMS and SMTP delivery need real configuration and live provider
   acceptance tests before enabling for clients; none were claimed here.

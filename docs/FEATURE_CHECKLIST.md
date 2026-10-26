@@ -84,7 +84,10 @@ Update the status in the same change that completes a feature.
 - [x] Media uploads validated from bytes, tenant-namespaced storage, gated serving
 - [x] Merchant catalogue/pricing/inventory/media APIs; public read-only catalogue API; OpenAPI and shared contracts
 - [x] Two-tenant isolation, concurrency, ledger, media and API tests; live catalogue smoke checks
-- [ ] Owner commit, GitHub CI and independent acceptance of Phase 04
+- [x] Phase 04 owner commit `1bd61be` and GitHub CI run 40246230098 (4/4, 701 tests)
+- [x] Idempotency keys bound to a durable request fingerprint; historical keys verified from the ledger (04.1)
+- [x] Expired batch stock excluded from sellable stock, purchasability and reservations (04.1)
+- [~] Phase 04.1 verified locally; owner commit, CI and independent final acceptance pending
 
 ## Commerce core
 

@@ -1289,8 +1289,8 @@ def set_product_media(
 
 def is_purchasable(variant: ProductVariant) -> bool:
     """Whether a customer could buy one unit now: active product and variant, a default price,
-    and stock when tracked (or a future release date, for pre-orders). Checkout (Phase 07)
-    re-checks this inside its reservation transaction."""
+    and sellable stock when tracked (unexpired for batches, D-060) or a future release date for
+    pre-orders. Checkout (Phase 07) re-checks this inside its reservation transaction."""
     from commerce.inventory import services as inventory
     from commerce.pricing import services as pricing
 
@@ -1303,4 +1303,4 @@ def is_purchasable(variant: ProductVariant) -> bool:
         return True
     if variant.release_date is not None and variant.release_date > inventory.store_today():
         return True
-    return inventory.available_quantity(variant) > 0
+    return inventory.sellable_quantity(variant) > 0

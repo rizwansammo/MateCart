@@ -293,7 +293,9 @@ class StockMovement(TenantOwnedModel):
     once applied (the level row is locked, so they form a gap-free sequence per level).
     ``operation_id`` groups the entries of one operation (a transfer's two legs, one entry per
     serial); the first entry carries the caller's ``idempotency_key``, which is unique, so a
-    retried request returns the original operation instead of applying it twice.
+    retried request returns the original operation instead of applying it twice. Since Phase 04.1
+    it also carries ``request_fingerprint``, the SHA-256 of the request's canonical identity, so a
+    different request reusing the key is refused instead of replayed (D-059).
     """
 
     occurred_at = models.DateTimeField(default=timezone.now, editable=False)
@@ -315,6 +317,10 @@ class StockMovement(TenantOwnedModel):
         "self", null=True, blank=True, on_delete=models.PROTECT, related_name="+"
     )
     idempotency_key = models.CharField(max_length=100, null=True, blank=True)  # noqa: DJ001
+    # NULL on keys recorded before Phase 04.1; those are verified against the ledger (D-059).
+    request_fingerprint = models.CharField(  # noqa: DJ001
+        max_length=64, null=True, blank=True, editable=False
+    )
     reference_type = models.CharField(max_length=50, blank=True)
     reference_id = models.CharField(max_length=100, blank=True)
     reason = models.CharField(max_length=500, blank=True)
@@ -348,6 +354,14 @@ class StockMovement(TenantOwnedModel):
                 fields=["tenant", "idempotency_key"],
                 condition=Q(idempotency_key__isnull=False),
                 name="inventory_movement_idempotency_unique",
+            ),
+            models.CheckConstraint(
+                condition=Q(request_fingerprint__isnull=True)
+                | (
+                    Q(idempotency_key__isnull=False)
+                    & Q(request_fingerprint__regex=r"^[0-9a-f]{64}$")
+                ),
+                name="inventory_movement_fingerprint_with_key",
             ),
             # A movement is reversed at most once.
             models.UniqueConstraint(

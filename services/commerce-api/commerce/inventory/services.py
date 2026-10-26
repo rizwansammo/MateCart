@@ -7,26 +7,34 @@ database's CHECK constraints refuse negative stock or reservations beyond on-han
 code path forgot a rule.
 
 Idempotency: callers may pass an ``idempotency_key``. The first movement of the operation stores
-it (unique per store); a retry with the same key and the same request returns the original
-operation, a different request with that key is refused.
+it (unique per store) with the fingerprint of the request's canonical identity (``Intent``); a
+retry with the same key and the same request returns the original operation, a request that
+differs in anything that changes stock is refused with ``idempotency_conflict`` (D-059).
+
+Sellable stock: expired batches stay in on-hand stock (expiry changes sellability, not the
+ledger), but they are never offered or reserved. ``sellable_quantities`` is the one definition
+used by the public catalogue, ``is_purchasable`` and ``reserve`` (D-060).
 
 Policy: stock never goes negative (no backorders in Phase 04). Reservations (``reserve``,
 ``release``, ``fulfil``) are the extension points Phases 07/08 will call from checkout and
 orders; they are complete and tested here but not exposed through the API.
 """
 
+import hashlib
+import json
 import re
 import uuid
 import zoneinfo
 from collections import defaultdict
 from collections.abc import Callable, Sequence
-from dataclasses import dataclass, field
-from datetime import date, datetime
+from dataclasses import dataclass, field, replace
+from datetime import date
 from decimal import Decimal, InvalidOperation
 from typing import Any
 
 from django.db import IntegrityError, transaction
 from django.db.models import Count, Q, Sum
+from django.utils import timezone
 from rest_framework.exceptions import ValidationError
 
 from commerce.audit.services import field_changes, record_audit_event
@@ -118,6 +126,80 @@ class Operation:
     operation_id: uuid.UUID
     movements: list[StockMovement] = field(default_factory=list)
     replayed: bool = False
+    fingerprint: str | None = None
+
+
+QUANTUM = Decimal("0.001")
+FINGERPRINT_VERSION = 1
+
+
+def _decimal_text(value: Decimal | None) -> str | None:
+    return None if value is None else f"{value.quantize(QUANTUM):f}"
+
+
+@dataclass(frozen=True)
+class Intent:
+    """What a stock request does: the identity an idempotency key is bound to (D-059).
+
+    Included: the operation (first movement type), variant, locations, signed quantity, batch
+    code and dates, the set of serials, the reversed operation and the business reference
+    (``reference_type``/``reference_id``). Excluded: the free-text ``reason``, the actor and a
+    batch's supplier reference, which describe a change without changing its effect.
+    """
+
+    movement_type: str
+    variant: Any
+    location: Any
+    quantity: Decimal | None = None
+    to_location: Any = None
+    batch_code: str | None = None
+    batch_expires_on: date | None = None
+    batch_manufactured_on: date | None = None
+    serials: tuple[str, ...] = ()
+    reverses: Any = None
+    reference: tuple[str, str] = ("", "")
+
+    def canonical(self) -> dict[str, Any]:
+        def text(value: Any) -> str | None:
+            return None if value is None else str(value)
+
+        return {
+            "v": FINGERPRINT_VERSION,
+            "type": self.movement_type,
+            "variant": text(self.variant),
+            "location": text(self.location),
+            "to_location": text(self.to_location),
+            "quantity": _decimal_text(self.quantity),
+            "batch": None
+            if self.batch_code is None
+            else [
+                self.batch_code,
+                text(self.batch_expires_on and self.batch_expires_on.isoformat()),
+                text(self.batch_manufactured_on and self.batch_manufactured_on.isoformat()),
+            ],
+            "serials": sorted(set(self.serials)),
+            "reverses": text(self.reverses),
+            "reference": list(self.reference),
+        }
+
+    def fingerprint(self) -> str:
+        """SHA-256 of the canonical JSON: stable across processes, no floats, no reprs."""
+        payload = json.dumps(self.canonical(), sort_keys=True, separators=(",", ":"))
+        return hashlib.sha256(payload.encode()).hexdigest()
+
+
+def _reference(request: StockRequest) -> tuple[str, str]:
+    return (request.reference_type[:50], request.reference_id[:100])
+
+
+def _batch_identity(batch: BatchInput | None) -> dict[str, Any]:
+    if batch is None:
+        return {}
+    return {
+        "batch_code": batch.code.strip(),
+        "batch_expires_on": batch.expires_on,
+        "batch_manufactured_on": batch.manufactured_on,
+    }
 
 
 # --- Helpers --------------------------------------------------------------------------------------
@@ -131,7 +213,7 @@ def is_tracked(variant: ProductVariant) -> bool:
 def store_today() -> date:
     """Today's date in the store's time zone (expiry dates are calendar dates of the store)."""
     name = StoreSettings.objects.values_list("timezone", flat=True).first() or "UTC"
-    return datetime.now(zoneinfo.ZoneInfo(name)).date()
+    return timezone.now().astimezone(zoneinfo.ZoneInfo(name)).date()
 
 
 def clean_quantity(variant: ProductVariant, value: Any, *, signed: bool = False) -> Decimal:
@@ -289,6 +371,15 @@ def _record(
         raise InsufficientStock()
     if reserved < 0:
         raise ConflictError("Less stock is reserved than that.", "insufficient_reservation")
+    if batch is not None and on_hand_delta < 0 and reserved > 0:
+        # Reservations are only ever backed by unexpired batch stock (D-060): removing such stock
+        # must leave enough for them, as for plain stock. Expired stock is promised to no one.
+        today = store_today()
+        if batch.expires_on is None or batch.expires_on >= today:
+            key = (level.variant_id, level.location_id)
+            eligible = _eligible_batch_stock([level.variant_id], today).get(key, ZERO)
+            if eligible + on_hand_delta < reserved:
+                raise InsufficientStock("That unexpired stock is reserved.")
     level.on_hand, level.reserved = on_hand, reserved
     level.save(update_fields=["on_hand", "reserved", "updated_at"])
     if batch is not None:
@@ -310,6 +401,7 @@ def _record(
         serial=serial,
         reversal_of=reversal_of,
         idempotency_key=request.idempotency_key if first else None,
+        request_fingerprint=operation.fingerprint if first else None,
         reference_type=request.reference_type[:50],
         reference_id=request.reference_id[:100],
         reason=request.reason[:500],
@@ -321,19 +413,72 @@ def _record(
     return movement
 
 
-def _replay(
-    request: StockRequest, *, movement_type: str, variant: ProductVariant, location: StockLocation
-) -> Operation | None:
+def _recorded_intent(movements: Sequence[StockMovement]) -> Intent:
+    """The identity of an operation recorded before fingerprints existed, rebuilt from its ledger
+    entries. Batch dates are taken from the batch itself; the manufacture date is not compared."""
+    first = movements[0]
+    kind = first.movement_type
+    if kind in (MovementType.TRANSFER_OUT, MovementType.TRANSFER_IN):
+        inbound = [m for m in movements if m.movement_type == MovementType.TRANSFER_IN]
+        quantity: Decimal | None = sum((m.on_hand_delta for m in inbound), ZERO)
+        to_location = inbound[0].location_id if inbound else None
+    elif kind in (MovementType.RESERVED, MovementType.RELEASED):
+        quantity, to_location = abs(sum((m.reserved_delta for m in movements), ZERO)), None
+    elif kind == MovementType.FULFILLED:
+        quantity, to_location = -sum((m.on_hand_delta for m in movements), ZERO), None
+    elif kind == MovementType.REVERSAL:
+        quantity, to_location = None, None
+    else:
+        quantity, to_location = sum((m.on_hand_delta for m in movements), ZERO), None
+    batch = Batch.objects.filter(pk=first.batch_id).first() if first.batch_id else None
+    reverses = (
+        StockMovement.objects.filter(pk=first.reversal_of_id)
+        .values_list("operation_id", flat=True)
+        .first()
+        if first.reversal_of_id
+        else None
+    )
+    serials = tuple(
+        SerialNumber.objects.filter(
+            pk__in=[m.serial_id for m in movements if m.serial_id]
+        ).values_list("serial", flat=True)
+    )
+    return Intent(
+        movement_type=kind,
+        variant=first.variant_id,
+        location=first.location_id,
+        quantity=quantity,
+        to_location=to_location,
+        batch_code=batch.code if batch else None,
+        batch_expires_on=batch.expires_on if batch else None,
+        serials=serials,
+        reverses=reverses,
+        reference=(first.reference_type, first.reference_id),
+    )
+
+
+def _matches(first: StockMovement, intent: Intent) -> bool:
+    if first.request_fingerprint is not None:
+        return first.request_fingerprint == intent.fingerprint()
+    # Recorded before Phase 04.1: compare everything the ledger proves; a request that omits a
+    # batch expiry is compared without it, never against a guess.
+    movements = list(
+        StockMovement.objects.filter(operation_id=first.operation_id).order_by("occurred_at", "pk")
+    )
+    recorded = _recorded_intent(movements)
+    if intent.batch_expires_on is None:
+        recorded = replace(recorded, batch_expires_on=None)
+    return recorded.canonical() == replace(intent, batch_manufactured_on=None).canonical()
+
+
+def _replay(request: StockRequest, intent: Intent) -> Operation | None:
+    """The committed operation for this key, if any. A different request is a conflict."""
     if request.idempotency_key is None:
         return None
     first = StockMovement.objects.filter(idempotency_key=request.idempotency_key).first()
     if first is None:
         return None
-    if (
-        first.movement_type != movement_type
-        or first.variant_id != variant.pk
-        or first.location_id != location.pk
-    ):
+    if not _matches(first, intent):
         raise ConflictError(
             "This idempotency key was already used for a different stock change.",
             "idempotency_conflict",
@@ -347,7 +492,7 @@ def _replay(
 def _execute(
     request: StockRequest,
     *,
-    movement_type: str,
+    intent: Intent,
     variant: ProductVariant,
     location: StockLocation,
     body: Callable[[Operation, ProductVariant, Product], None],
@@ -355,17 +500,17 @@ def _execute(
     audit: dict[str, Any],
 ) -> Operation:
     """Run ``body`` as one idempotent, audited operation under the variant lock."""
-    replayed = _replay(request, movement_type=movement_type, variant=variant, location=location)
+    movement_type = intent.movement_type
+    replayed = _replay(request, intent)
     if replayed is not None:
         return replayed
-    operation = Operation(uuid7())
+    fingerprint = intent.fingerprint() if request.idempotency_key is not None else None
+    operation = Operation(uuid7(), fingerprint=fingerprint)
     try:
         with transaction.atomic():
             locked, product = _lock_variant(variant)
             # A concurrent retry of the same request has committed while we waited for the lock.
-            replayed = _replay(
-                request, movement_type=movement_type, variant=variant, location=location
-            )
+            replayed = _replay(request, intent)
             if replayed is not None:
                 return replayed
             body(operation, locked, product)
@@ -386,7 +531,8 @@ def _execute(
         diag = getattr(exc.__cause__, "diag", None)
         if getattr(diag, "constraint_name", None) != _IDEMPOTENCY_CONSTRAINT:
             raise
-        replayed = _replay(request, movement_type=movement_type, variant=variant, location=location)
+        # The key was taken concurrently by an operation on another variant: replay or refuse.
+        replayed = _replay(request, intent)
         if replayed is None:
             raise
         return replayed
@@ -561,9 +707,18 @@ def receive(
             batch=lot,
         )
 
+    intent = Intent(
+        movement_type=MovementType.RECEIPT,
+        variant=variant.pk,
+        location=location.pk,
+        quantity=amount,
+        serials=tuple(serial_list),
+        reference=_reference(request),
+        **_batch_identity(batch),
+    )
     return _execute(
         request,
-        movement_type=MovementType.RECEIPT,
+        intent=intent,
         variant=variant,
         location=location,
         body=body,
@@ -641,9 +796,18 @@ def adjust(
             batch=lot,
         )
 
+    intent = Intent(
+        movement_type=movement_type,
+        variant=variant.pk,
+        location=location.pk,
+        quantity=delta,
+        serials=tuple(serial_list),
+        reference=_reference(request),
+        **_batch_identity(batch),
+    )
     return _execute(
         request,
-        movement_type=movement_type,
+        intent=intent,
         variant=variant,
         location=location,
         body=body,
@@ -713,9 +877,19 @@ def transfer(
                 batch=lot,
             )
 
+    intent = Intent(
+        movement_type=MovementType.TRANSFER_OUT,
+        variant=variant.pk,
+        location=source.pk,
+        to_location=destination.pk,
+        quantity=amount,
+        batch_code=batch_code.strip() if batch_code is not None else None,
+        serials=tuple(serial_list),
+        reference=_reference(request),
+    )
     return _execute(
         request,
-        movement_type=MovementType.TRANSFER_OUT,
+        intent=intent,
         variant=variant,
         location=source,
         body=body,
@@ -773,9 +947,16 @@ def reverse(*, movement: StockMovement, request: StockRequest) -> Operation:
             )
 
     try:
+        intent = Intent(
+            movement_type=MovementType.REVERSAL,
+            variant=variant.pk,
+            location=location.pk,
+            reverses=movement.operation_id,
+            reference=_reference(request),
+        )
         return _execute(
             request,
-            movement_type=MovementType.REVERSAL,
+            intent=intent,
             variant=variant,
             location=location,
             body=body,
@@ -806,6 +987,14 @@ def reserve(
 
     def body(operation: Operation, locked: ProductVariant, product: Product) -> None:
         level = _lock_levels(locked, [location])[location.pk]
+        if product.tracking_mode == TrackingMode.BATCH:
+            # Reservations are not tied to batches, so all of them must fit in unexpired stock.
+            # Batch levels only change under this variant lock, so this read is stable.
+            eligible = _eligible_batch_stock([locked.pk], store_today()).get(
+                (locked.pk, location.pk), ZERO
+            )
+            if level.reserved + amount > eligible:
+                raise InsufficientStock("There isn't enough unexpired stock to reserve.")
         _record(
             level,
             operation=operation,
@@ -816,9 +1005,16 @@ def reserve(
             first=True,
         )
 
+    intent = Intent(
+        movement_type=MovementType.RESERVED,
+        variant=variant.pk,
+        location=location.pk,
+        quantity=amount,
+        reference=_reference(request),
+    )
     return _execute(
         request,
-        movement_type=MovementType.RESERVED,
+        intent=intent,
         variant=variant,
         location=location,
         body=body,
@@ -845,9 +1041,16 @@ def release(
             first=True,
         )
 
+    intent = Intent(
+        movement_type=MovementType.RELEASED,
+        variant=variant.pk,
+        location=location.pk,
+        quantity=amount,
+        reference=_reference(request),
+    )
     return _execute(
         request,
-        movement_type=MovementType.RELEASED,
+        intent=intent,
         variant=variant,
         location=location,
         body=body,
@@ -875,9 +1078,16 @@ def fulfil(
             first=True,
         )
 
+    intent = Intent(
+        movement_type=MovementType.FULFILLED,
+        variant=variant.pk,
+        location=location.pk,
+        quantity=amount,
+        reference=_reference(request),
+    )
     return _execute(
         request,
-        movement_type=MovementType.FULFILLED,
+        intent=intent,
         variant=variant,
         location=location,
         body=body,
@@ -889,12 +1099,57 @@ def fulfil(
 # --- Queries --------------------------------------------------------------------------------------
 
 
-def available_quantity(variant: ProductVariant) -> Decimal:
-    """Available stock across active locations."""
-    total = StockLevel.objects.filter(variant=variant, location__is_active=True).aggregate(
-        total=Sum("available")
-    )["total"]
-    return total if total is not None else ZERO
+def _eligible_batch_stock(
+    variant_ids: Sequence[Any], today: date
+) -> dict[tuple[Any, Any], Decimal]:
+    """Unexpired batch on-hand per (variant, location) at active locations. A batch is sellable
+    through its expiry date (store calendar, inclusive); batches without a date never expire."""
+    rows = (
+        BatchLevel.objects.filter(
+            batch__variant_id__in=variant_ids, location__is_active=True, on_hand__gt=0
+        )
+        .filter(Q(batch__expires_on__isnull=True) | Q(batch__expires_on__gte=today))
+        .values("batch__variant_id", "location_id")
+        .annotate(total=Sum("on_hand"))
+    )
+    return {(row["batch__variant_id"], row["location_id"]): row["total"] for row in rows}
+
+
+def sellable_quantities(variants: Sequence[ProductVariant]) -> dict[Any, Decimal]:
+    """Stock that can be promised to customers now, per variant (three queries for any number).
+
+    Plain and serial-tracked variants: ``available`` (on-hand minus reserved) at active locations.
+    Batch-tracked variants: unexpired batch stock at active locations minus that location's whole
+    reservation, because reservations are not assigned to batches; this never overstates (D-060).
+    Untracked and digital variants are not stock-limited; callers decide for them.
+    """
+    ids = [variant.pk for variant in variants]
+    result: dict[Any, Decimal] = dict.fromkeys(ids, ZERO)
+    if not ids:
+        return result
+    batch_tracked = set(
+        ProductVariant.objects.filter(
+            pk__in=ids, product__tracking_mode=TrackingMode.BATCH
+        ).values_list("pk", flat=True)
+    )
+    eligible = _eligible_batch_stock(list(batch_tracked), store_today()) if batch_tracked else {}
+    levels = StockLevel.objects.filter(variant_id__in=ids, location__is_active=True).values(
+        "variant_id", "location_id", "available", "reserved"
+    )
+    for level in levels:
+        key = (level["variant_id"], level["location_id"])
+        usable = (
+            eligible.get(key, ZERO) - level["reserved"]
+            if level["variant_id"] in batch_tracked
+            else level["available"]
+        )
+        if usable > 0:
+            result[level["variant_id"]] += usable
+    return result
+
+
+def sellable_quantity(variant: ProductVariant) -> Decimal:
+    return sellable_quantities([variant])[variant.pk]
 
 
 def batches_by_expiry(variant: ProductVariant, location: StockLocation) -> list[BatchLevel]:

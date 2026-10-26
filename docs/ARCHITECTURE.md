@@ -129,9 +129,14 @@ Outside the database: cache keys use `tenant_cache_key(...)` (`tenant:<id>:...`)
   that lock the variant and its levels in a fixed order, append ledger movements
   with the resulting balances and respect PostgreSQL CHECKs (no negative stock, no
   reservations beyond stock). The ledger is append-only in the ORM and in
-  PostgreSQL; reversals compensate. Optional idempotency keys make retries safe.
-  Reservations (`reserve`/`release`/`fulfil`) are ready for checkout and orders
-  (07/08) but not exposed yet.
+  PostgreSQL; reversals compensate. Optional idempotency keys make retries safe;
+  each key is bound to the request's fingerprint, so a different request with a
+  reused key is refused (D-059). Reservations (`reserve`/`release`/`fulfil`) are
+  ready for checkout and orders (07/08) but not exposed yet.
+- **Sellable stock (D-060).** `sellable_quantities()` is the one definition used by
+  the public catalogue, `is_purchasable()` and `reserve()`: available stock at active
+  locations, and for batch-tracked variants only unexpired batch stock (store
+  calendar, expiry date inclusive) minus the location's reservations.
 - **Media (D-055).** Files are validated from their bytes, stored under
   `tenants/<tenant>/media/...` on a named volume (local) and never served from the
   filesystem directly: staff stream through the API; the public route serves only

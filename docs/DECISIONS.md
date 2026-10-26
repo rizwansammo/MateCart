@@ -520,6 +520,59 @@ Owner-confirmed product decisions (from the Phase 01 brief): multi-tenant-aware 
   sorting by newest, name or price. Rate limiting and response caching are part of
   the Phase 12/17 traffic work.
 
+### D-059 · Idempotency keys are bound to the request's identity (2026-10-26, Phase 04.1)
+
+- **Finding (confirmed, high):** `_replay()` compared only the first movement's type,
+  variant and location. A different request reusing a key (another quantity, batch,
+  serial set, transfer destination, reversal target or reservation quantity) received
+  the original operation as a successful replay. Reproduced on PostgreSQL by 14
+  service tests, the HTTP API (200 instead of 409) and two concurrent tests.
+- **Decision:** each operation builds an `Intent`: movement type, variant, location,
+  destination, signed quantity (3-decimal string), batch code with expiry and
+  manufacture dates, the normalised set of serials (order and case do not matter),
+  the reversed operation and the business reference (`reference_type`,
+  `reference_id`). Its canonical JSON (sorted keys, no floats, versioned `v: 1`) is
+  hashed with SHA-256 and stored as `StockMovement.request_fingerprint` on the
+  operation's first movement, next to the key (additive migration
+  `inventory.0003`; CHECK: a fingerprint requires a key and is 64 hex characters).
+  A retry replays only when the fingerprints match; otherwise `409
+idempotency_conflict`. The free-text reason, actor and a batch's supplier
+  reference are descriptive and excluded, so a reworded retry still replays.
+- **Historical keys:** movements recorded before Phase 04.1 keep `NULL`
+  fingerprints (the ledger is never rewritten). Their identity is rebuilt from the
+  recorded movements (type, variant, locations, quantities, batch code and expiry,
+  serials, reversed operation, reference); a mismatch is a conflict. The manufacture
+  date of such batches is not compared. Verified on the three real keys in the
+  development ledger (identical retry replays, changed quantity conflicts).
+- **Concurrency:** unchanged locking. Same-variant duplicates are serialised by the
+  variant lock and re-checked under it; a key taken concurrently on another variant
+  surfaces as the unique-key violation and is resolved by the same comparison.
+
+### D-060 · Sellable stock excludes expired batches (2026-10-26, Phase 04.1)
+
+- **Finding (confirmed, medium):** the public catalogue (`_in_stock`) and
+  `is_purchasable()` used `StockLevel.available`, which still counts expired batch
+  stock, so a product whose batches had all expired was advertised as in stock.
+  `reserve()` had the same gap and could reserve expired units.
+- **Decision:** `inventory.services.sellable_quantities()` is the single definition
+  (three queries for any number of variants). Plain and serial-tracked variants:
+  `available` at active locations. Batch-tracked variants: unexpired batch on-hand
+  at active locations minus the location's whole reservation, floored at zero per
+  location. Reservations are not assigned to batches in Phase 04, so assuming they
+  use unexpired stock never overstates what can be sold. Untracked and digital
+  variants are not stock-limited; pre-orders (future release date) stay orderable
+  through their own rule and are not counted as physical stock.
+- **Expiry policy:** a batch is sellable through its expiry date, inclusive, in the
+  store's IANA time zone (`store_today()`, now based on `django.utils.timezone.now`).
+  Undated batches never expire. Expiry changes sellability only; on-hand stock and
+  the ledger are unchanged and reconciliation still balances.
+- **Reservations:** `reserve()` for batch-tracked variants requires all reservations
+  at the location to fit in unexpired stock. Any movement that removes unexpired batch
+  stock may not leave the location's reservations uncovered (as plain stock already
+  refuses to dip into reserved units); expired stock can still be written off or
+  moved. Batches expiring after a reservation was made can leave it uncovered; the
+  catalogue then shows zero sellable stock, and Phase 08 allocation must handle it.
+
 ## Open questions for the owner
 
 | #   | Question                                                                                                                                   | Status                                                                                                    | Needed by |

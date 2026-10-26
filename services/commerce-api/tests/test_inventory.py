@@ -337,7 +337,7 @@ def test_low_stock_thresholds_are_configurable(ctx: Tenant, tee: ProductVariant)
         level=level(tee), low_stock_threshold=Decimal("5"), actor=None
     )
     assert stock.low_stock_threshold == 5
-    assert inventory.available_quantity(tee) == 3
+    assert inventory.sellable_quantity(tee) == 3
 
 
 # --- Batches and expiry ---------------------------------------------------------------------------

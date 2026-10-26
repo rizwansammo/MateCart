@@ -21,8 +21,7 @@ from rest_framework.views import APIView
 from commerce.core.domain import found, found_in
 from commerce.core.pagination import PageQuerySerializer, paginate, paginated
 from commerce.identity.auth import CsrfProtectedAPIView
-from commerce.inventory.models import StockLevel
-from commerce.inventory.services import store_today
+from commerce.inventory.services import sellable_quantities, store_today
 from commerce.media.models import MediaAsset
 from commerce.media.views import file_response
 from commerce.pricing.models import Price
@@ -300,19 +299,15 @@ def _prices(variant_ids: list[Any]) -> dict[Any, Price]:
 
 def _in_stock(variants: list[ProductVariant]) -> dict[Any, bool]:
     """True per variant when a customer could order it now: untracked, digital, a future release
-    (pre-order) or available stock at an active location. Quantities are never exposed."""
+    (pre-order) or sellable stock (unexpired, unreserved, at an active location; D-060).
+    Quantities are never exposed."""
     tracked_products = set(
         Product.objects.filter(
             pk__in={variant.product_id for variant in variants}, track_inventory=True
         ).values_list("pk", flat=True)
     )
-    stocked = set(
-        StockLevel.objects.filter(
-            variant_id__in=[variant.pk for variant in variants],
-            location__is_active=True,
-            available__gt=0,
-        ).values_list("variant_id", flat=True)
-    )
+    sellable = sellable_quantities(variants)
+    stocked = {pk for pk, quantity in sellable.items() if quantity > 0}
     today = store_today()
     result: dict[Any, bool] = {}
     for variant in variants:
