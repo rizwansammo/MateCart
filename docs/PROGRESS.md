@@ -2,10 +2,12 @@
 
 Updated: 2026-10-27 (Asia/Dhaka). **Phase 08 — Orders, Payments & Invoices and Correction 08.1 are
 accepted and closed at `b2eb55f75a8e878599328c92b139eed6b7230d33` (GitHub Actions 40380408247:
-4/4 jobs, 1,050 tests, 0 failures). Phase 09 — Fulfillment & Courier is implemented locally, pending
-owner commit/push, GitHub CI and independent review. No real payment or courier provider is
-configured.** Phases 01–08 (with 02.1, 02.2, 03.1, 04.1, 05.1, 06.1, 06.2, 07.1 and 08.1) are
-accepted and closed.
+4/4 jobs, 1,050 tests, 0 failures). Phase 09 — Fulfillment & Courier was implemented and pushed at
+`84d790e0dbf8d4eae269bbcb5cd0f258c72f678f` (GitHub Actions 40393494776: 4/4 jobs, 1,067
+tests, 0 failures). Independent review requested the two Phase 09.1 integrity corrections, which
+are implemented locally pending owner commit/push, CI and review. No real payment or courier
+provider is configured.** Phases 01–08 (with 02.1, 02.2, 03.1, 04.1, 05.1, 06.1, 06.2, 07.1 and
+08.1) are accepted and closed.
 The managed theme marketplace remains deferred.
 
 ## Accepted baseline and boundaries
@@ -29,12 +31,39 @@ The managed theme marketplace remains deferred.
 | Correction 07.1 | **Accepted and Phase 07 closed:** `12f2d5b14c7a744126764c86e116d02d69f56abe`, run 40366676323, 4/4 jobs, 1,007 tests, 0 failures.                                                                                                                         |
 | Phase 08        | Implemented and pushed: `a806baced20b7f39547b4bed7c92a4f1afb1809a`, run 40376575339, 4/4 jobs, 1,045 tests. Review requested the 08.1 corrections.                                                                                                        |
 | Correction 08.1 | **Accepted and Phase 08 closed:** `b2eb55f75a8e878599328c92b139eed6b7230d33`, run 40380408247, 4/4 jobs, 1,050 tests, 0 failures.                                                                                                                         |
+| Phase 09        | Implemented and pushed: `84d790e0dbf8d4eae269bbcb5cd0f258c72f678f`, run 40393494776, 4/4 jobs, 1,067 tests. Independent review requested the two 09.1 integrity corrections.                                                                              |
 | Architecture    | Dedicated single-tenant deployment, tenant-aware modular monolith, future hybrid only if approved; commerce/control independent.                                                                                                                          |
 | Product         | Private beta, manual onboarding. Public commercial signup/subscriptions/billing deferred. Public customer registration is authorized.                                                                                                                     |
 | Prototype       | MateCart-UI strictly read-only; no edits/build/install (HEAD `9ff1361`, clean).                                                                                                                                                                           |
 | Roadmap         | All 19 main phases preserved; 02.1/02.2/03.1 are corrective subphases, not additional main phases.                                                                                                                                                        |
 
-## Phase 09 fulfillment and courier (implemented locally; acceptance pending)
+## Phase 09.1 shipment and courier integrity corrections (implemented locally; acceptance pending)
+
+Corrective subphase after independent review of `84d790e` (GitHub Actions 40393494776, 4/4 jobs,
+1,067 tests). It is not a new main phase and introduces no model, migration, API, contract, UI,
+provider or dependency change.
+
+- **Cancellation integrity.** Direct shipment cancellation is refused with
+  `cancel_order_instead`; pre-dispatch cancellation must use the existing authorized Order
+  cancellation operation. That operation locks Order then Shipment, refuses active courier
+  bookings and dispatched goods, cancels both records, and releases the existing Order-owned stock,
+  coupon, slot and payment commitments once in the same transaction. A failure in shipment history
+  recording rolls the complete cancellation back.
+- **Callback atomicity.** Authenticated courier callback insertion, locked booking/shipment
+  revalidation, stale/transition handling, shipment history and the durable callback outcome now
+  commit together. Unexpected failures roll back the event ID and any shipment work so the same
+  provider event can retry. The existing unique constraint serializes concurrent copies; recognized
+  duplicate, stale, invalid-transition and unknown-reference outcomes remain explicit and safe.
+- **Verification.** The fulfillment and fulfillment-concurrency modules pass (20 tests), including
+  five new regressions. Existing Order cancellation and FEFO/idempotent fulfillment tests pass (2
+  tests). Final gates pass: `pnpm check`, `pnpm build`, `pnpm api:lint`, `pnpm api:test`,
+  `pnpm api:schema`, `pnpm health` and `docker compose config --quiet`. **1,072 automated tests
+  pass, 0 fail:** commerce API 787, control API 57, shared contracts 51, shared UI 76, commerce-web
+  96 and Node 5. OpenAPI remains valid and byte-identical; no migration workflow was repeated
+  because this correction has no schema change. All six health probes pass with the eight existing
+  Compose services healthy and the storefront/console running for review.
+
+## Phase 09 fulfillment and courier (implemented and pushed; correction 09.1 pending)
 
 Decision D-074; operational details in [SHIPPING.md](SHIPPING.md).
 
@@ -698,8 +727,8 @@ contract tests. Plus 7 live catalogue and 12 live authentication smoke checks.
 
 ## Remaining scope, limits and next step
 
-- **Next step:** owner review of the Phase 09 working tree, then owner commit/push, GitHub CI and
-  independent Phase 09 review. Do not mark Phase 09 accepted or start Phase 10 before that review.
+- **Next step:** owner review of the Phase 09.1 working tree, then owner commit/push, GitHub CI and
+  independent review. Do not mark Phase 09 accepted or start Phase 10 before that review.
 - **Courier provider decision needed:** no real provider is selected. External booking and provider
   callbacks remain unavailable until the owner approves an adapter, credentials and real sandbox
   verification; manual shipment and tracking operations remain available without one.

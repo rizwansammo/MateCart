@@ -10,15 +10,18 @@ digital-only orders are rejected and mixed orders include only their physical it
 
 ```text
 ready -> picking -> packed -> ready_for_dispatch -> dispatched -> in_transit -> delivered
-   |         |         |              |                  |             |
-   +---------+---------+--------------+-> cancelled      +-------------+-> delivery_failed
-                                                                         |        |
-                                                                         +--------+-> in_transit
-                                                                         +--------+-> return_to_sender
+                                                      |             |
+                                                      +-------------+-> delivery_failed
+                                                                       |        |
+                                                                       +--------+-> in_transit
+                                                                       +--------+-> return_to_sender
 ```
 
-`cancelled` is pre-dispatch only. `return_to_sender` is an operational shipping state, not the
-Phase 10 return/exchange workflow. Order and shipment status remain distinct.
+`cancelled` is pre-dispatch only and is reached only through full Order cancellation, never through
+the standalone shipment transition endpoint. The Order operation locks Order then Shipment,
+refuses an active courier booking, releases eligible Order commitments exactly once, and records
+both states in one transaction. `return_to_sender` is an operational shipping state, not the Phase
+10 return/exchange workflow. Order and shipment status remain distinct.
 
 Dispatch is the stock boundary. In one transaction it locks order then shipment, calls
 `orders.services.fulfil_order_stock()` and only then records `dispatched`. That existing service
@@ -74,7 +77,10 @@ references and tracking fields are accepted only after a successful provider res
 `POST /api/couriers/callbacks/<provider>/tracking/` is the only anonymous fulfillment endpoint.
 The configured adapter verifies authenticity before domain lookup. The callback log deduplicates
 provider event ids, keeps a SHA-256 body digest instead of raw payload, rejects unknown references,
-and records stale/illegal outcomes without changing shipment history. A callback cannot perform the
+and records stale/illegal outcomes without changing shipment history. Callback insertion, locked
+booking/shipment revalidation, tracking transition and outcome recording commit atomically. An
+unexpected failure rolls back the event id and any transition so a provider retry can recover;
+concurrent copies still apply at most one tracking event. A callback cannot perform the
 staff-controlled dispatch transition or stock deduction.
 
 No real adapter is configured. Production rejects `tests.*`; `FakeCourierProvider` exists only for

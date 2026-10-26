@@ -8,7 +8,13 @@ from rest_framework.test import APIClient
 
 from commerce.core.domain import ConflictError
 from commerce.fulfillment import services
-from commerce.fulfillment.models import CourierBooking, CourierCodRecord, Shipment
+from commerce.fulfillment.models import (
+    CourierBooking,
+    CourierCallback,
+    CourierCodRecord,
+    Shipment,
+    TrackingEvent,
+)
 from commerce.fulfillment.providers import reset_provider_cache
 from commerce.inventory.models import StockLevel, StockMovement
 from commerce.orders import services as order_services
@@ -127,6 +133,45 @@ def test_concurrent_booking_retries_create_one_external_booking(
         assert CourierBooking.objects.count() == 1
         assert CourierBooking.objects.get().status == "booked"
     assert len(fakecourier.booked) == 1
+
+
+def test_concurrent_tracking_callbacks_apply_once(
+    deployment_tenant: Tenant,
+    store: Any,
+    fakecourier: type[FakeCourierProvider],
+) -> None:
+    staff, _variant, shipment_id = ready_shipment(store)
+    booked = staff.post(
+        f"/api/manage/fulfillment/shipments/{shipment_id}/courier-booking/",
+        {"idempotency_key": "concurrent-callback-booking"},
+        format="json",
+    )
+    assert move(staff, shipment_id, "dispatched").status_code == 200
+    raw, signature = fakecourier.signed(
+        {
+            "event_id": "concurrent-tracking-event",
+            "booking_reference": booked.data["provider_reference"],
+            "status": "in_transit",
+            "occurred_at": timezone.now().isoformat(),
+        }
+    )
+    results = run_concurrently(
+        deployment_tenant,
+        2,
+        lambda _index: services.process_tracking_callback(
+            provider_code="fakecourier",
+            body=raw,
+            headers={"X-Fake-Courier-Signature": signature},
+        ),
+    )
+
+    assert sorted(results) == ["applied", "duplicate"]
+    with tenant_context(deployment_tenant):
+        assert Shipment.objects.get(pk=shipment_id).status == "in_transit"
+        assert CourierCallback.objects.filter(event_id="concurrent-tracking-event").count() == 1
+        assert (
+            TrackingEvent.objects.filter(provider_event_id="concurrent-tracking-event").count() == 1
+        )
 
 
 def test_concurrent_different_remittances_record_one(deployment_tenant: Tenant, store: Any) -> None:

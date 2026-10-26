@@ -67,12 +67,10 @@ class InvalidShipmentTransition(ConflictError):
 
 
 TRANSITIONS: dict[str, frozenset[str]] = {
-    ShipmentStatus.READY: frozenset({ShipmentStatus.PICKING, ShipmentStatus.CANCELLED}),
-    ShipmentStatus.PICKING: frozenset({ShipmentStatus.PACKED, ShipmentStatus.CANCELLED}),
-    ShipmentStatus.PACKED: frozenset({ShipmentStatus.READY_FOR_DISPATCH, ShipmentStatus.CANCELLED}),
-    ShipmentStatus.READY_FOR_DISPATCH: frozenset(
-        {ShipmentStatus.DISPATCHED, ShipmentStatus.CANCELLED}
-    ),
+    ShipmentStatus.READY: frozenset({ShipmentStatus.PICKING}),
+    ShipmentStatus.PICKING: frozenset({ShipmentStatus.PACKED}),
+    ShipmentStatus.PACKED: frozenset({ShipmentStatus.READY_FOR_DISPATCH}),
+    ShipmentStatus.READY_FOR_DISPATCH: frozenset({ShipmentStatus.DISPATCHED}),
     ShipmentStatus.DISPATCHED: frozenset(
         {
             ShipmentStatus.IN_TRANSIT,
@@ -391,6 +389,15 @@ def transition_shipment(
         raise DomainError("Tracking time cannot be in the future.", "invalid_tracking_time")
     with transaction.atomic():
         order, shipment = _shipment_locks(shipment_id)
+        if to_status == ShipmentStatus.CANCELLED:
+            if (
+                shipment.status == ShipmentStatus.CANCELLED
+                and order.status == OrderStatus.CANCELLED
+            ):
+                return shipment
+            raise ConflictError(
+                "Cancel the order to release its inventory commitments.", "cancel_order_instead"
+            )
         if shipment.status == to_status:
             return shipment
         if to_status not in TRANSITIONS.get(shipment.status, frozenset()):
@@ -421,13 +428,6 @@ def transition_shipment(
             shipment.failed_at = at
         elif to_status == ShipmentStatus.RETURN_TO_SENDER:
             shipment.returned_at = at
-        elif to_status == ShipmentStatus.CANCELLED:
-            if CourierBooking.objects.filter(
-                shipment=shipment,
-                status__in=(BookingStatus.PENDING, BookingStatus.BOOKED, BookingStatus.CANCELLING),
-            ).exists():
-                raise ConflictError("Cancel the courier booking first.", "courier_booking_active")
-            shipment.cancelled_at = at
         before = shipment.status
         shipment.status = to_status
         shipment.save()
@@ -701,53 +701,74 @@ def process_tracking_callback(
         update = provider.authenticate_tracking(body, headers)
     except InvalidCallback as exc:
         raise PermissionDenied("The courier callback could not be verified.") from exc
-    callback = CourierCallback(
-        provider=provider.code,
-        event_id=update.event_id[:120],
-        booking_reference=update.booking_reference[:120],
-        body_sha256=hashlib.sha256(body).hexdigest(),
-    )
-    try:
-        with transaction.atomic():
-            callback.save()
-    except IntegrityError:
-        return "duplicate"
-    booking = CourierBooking.objects.filter(
-        provider=provider.code,
-        provider_reference=update.booking_reference,
-        status=BookingStatus.BOOKED,
-    ).first()
-    if booking is None:
-        callback.outcome = "unknown_reference"
-        callback.save(update_fields=["outcome"])
-        return callback.outcome
-    latest = (
-        TrackingEvent.objects.filter(shipment=booking.shipment)
-        .order_by("-occurred_at", "-pk")
-        .values_list("occurred_at", flat=True)
-        .first()
-    )
-    if latest is not None and update.occurred_at < latest:
-        callback.outcome = "stale"
-        callback.save(update_fields=["outcome"])
-        return callback.outcome
-    try:
-        transition_shipment(
-            shipment_id=booking.shipment_id,
-            to_status=update.status,
-            actor=None,
-            source=TrackingSource.PROVIDER,
-            occurred_at=update.occurred_at,
-            note=update.note,
-            provider_event_id=update.event_id,
-            body_sha256=callback.body_sha256,
+    with transaction.atomic():
+        callback = CourierCallback(
+            provider=provider.code,
+            event_id=update.event_id[:120],
+            booking_reference=update.booking_reference[:120],
+            body_sha256=hashlib.sha256(body).hexdigest(),
         )
-    except InvalidShipmentTransition:
-        callback.outcome = "invalid_transition"
-    else:
-        callback.outcome = "applied"
-    callback.save(update_fields=["outcome"])
-    return callback.outcome
+        try:
+            with transaction.atomic():
+                callback.save()
+        except IntegrityError as exc:
+            diag = getattr(exc.__cause__, "diag", None)
+            if getattr(diag, "constraint_name", None) != "fulfil_callback_event_unique":
+                raise
+            return "duplicate"
+
+        booking_row = (
+            CourierBooking.objects.filter(
+                provider=provider.code,
+                provider_reference=update.booking_reference,
+                status=BookingStatus.BOOKED,
+            )
+            .values("pk", "shipment_id")
+            .first()
+        )
+        if booking_row is None:
+            callback.outcome = "unknown_reference"
+        else:
+            _order, shipment = _shipment_locks(booking_row["shipment_id"])
+            booking = (
+                CourierBooking.objects.select_for_update()
+                .filter(
+                    pk=booking_row["pk"],
+                    provider=provider.code,
+                    provider_reference=update.booking_reference,
+                    status=BookingStatus.BOOKED,
+                )
+                .first()
+            )
+            if booking is None:
+                callback.outcome = "unknown_reference"
+            else:
+                latest = (
+                    TrackingEvent.objects.filter(shipment=shipment)
+                    .order_by("-occurred_at", "-pk")
+                    .values_list("occurred_at", flat=True)
+                    .first()
+                )
+                if latest is not None and update.occurred_at < latest:
+                    callback.outcome = "stale"
+                else:
+                    try:
+                        transition_shipment(
+                            shipment_id=shipment.pk,
+                            to_status=update.status,
+                            actor=None,
+                            source=TrackingSource.PROVIDER,
+                            occurred_at=update.occurred_at,
+                            note=update.note,
+                            provider_event_id=update.event_id,
+                            body_sha256=callback.body_sha256,
+                        )
+                    except InvalidShipmentTransition:
+                        callback.outcome = "invalid_transition"
+                    else:
+                        callback.outcome = "applied"
+        callback.save(update_fields=["outcome"])
+        return callback.outcome
 
 
 def record_cod_collection(

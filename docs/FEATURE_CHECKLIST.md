@@ -200,7 +200,19 @@ Update the status in the same change that completes a feature.
 - [x] Same-key replay succeeds only with the original payment method; otherwise `409 idempotency_conflict`
 - [x] Zero-total orders and gateway overpayment reconciliation documented as limits (no implementation change)
 
-## Fulfillment and courier (Phase 09; implemented locally, acceptance pending)
+## Shipment and courier integrity corrections (Phase 09.1; implemented locally, acceptance pending)
+
+- [x] Direct shipment cancellation requires the existing full Order cancellation lifecycle
+- [x] Order and Shipment cancellation, commitment release, history and audit commit atomically
+- [x] Active courier bookings and dispatched goods still block Order cancellation
+- [x] Callback deduplication, locked processing, shipment transition and outcome commit atomically
+- [x] Unexpected callback failures roll back the event ID and remain retryable
+- [x] Concurrent duplicates apply one tracking event; stale, invalid and unknown outcomes stay safe
+- [x] Five focused regressions plus existing cancellation, dispatch and FEFO coverage pass
+- [x] Final local gates pass: 1,072 tests, builds, lint/types, schema, health and Compose validation
+- [ ] Owner commit/push, GitHub CI and independent acceptance
+
+## Fulfillment and courier (Phase 09; implemented and pushed, correction 09.1 pending)
 
 - [x] One controlled physical shipment per order; digital-only orders never create shipments
 - [x] Ready, picking, packed, ready-to-dispatch, dispatched, transit, delivered, failed and return states

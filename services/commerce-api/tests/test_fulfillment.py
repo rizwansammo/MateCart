@@ -1,4 +1,5 @@
 import uuid
+from datetime import timedelta
 from decimal import Decimal
 from typing import Any
 
@@ -8,6 +9,7 @@ from django.utils import timezone
 from pytest_django.fixtures import Settings
 from rest_framework.test import APIClient
 
+from commerce.fulfillment import services as fulfillment_services
 from commerce.fulfillment.models import (
     CourierBooking,
     CourierCallback,
@@ -21,7 +23,7 @@ from commerce.fulfillment.models import (
 )
 from commerce.fulfillment.providers import reset_provider_cache
 from commerce.inventory.models import StockLevel, StockMovement
-from commerce.orders.models import Order, PaymentIntent, PaymentTransaction
+from commerce.orders.models import Order, OrderAllocation, PaymentIntent, PaymentTransaction
 from commerce.orders.providers import reset_provider_cache as reset_payment_provider_cache
 from commerce.stores.modules import set_module
 from commerce.tenancy.context import tenant_context
@@ -166,6 +168,61 @@ def test_cancelled_and_digital_orders_do_not_create_shipments(
         assert Shipment.objects.count() == 0
 
 
+def test_shipment_cancellation_requires_full_order_cancellation_and_releases_once(
+    store: Any,
+) -> None:
+    _customer, staff, variant, placed = confirmed_order(store)
+    shipment = prepare(staff, placed.data["id"])
+
+    standalone = move(staff, shipment.data["id"], "cancelled")
+    assert standalone.status_code == 409
+    assert standalone.data["error"]["code"] == "cancel_order_instead"
+    with tenant_context(store.tenant):
+        assert Order.objects.get(pk=placed.data["id"]).status == "confirmed"
+        assert Shipment.objects.get(pk=shipment.data["id"]).status == "ready"
+        assert StockLevel.objects.get(variant=variant).reserved == Decimal(1)
+        assert not StockMovement.objects.filter(movement_type="released").exists()
+
+    order_url = f"/api/manage/orders/{placed.data['id']}/transition/"
+    cancelled = staff.post(order_url, {"status": "cancelled"}, format="json")
+    replay = staff.post(order_url, {"status": "cancelled"}, format="json")
+
+    assert cancelled.status_code == replay.status_code == 200
+    with tenant_context(store.tenant):
+        assert Order.objects.get(pk=placed.data["id"]).status == "cancelled"
+        assert Shipment.objects.get(pk=shipment.data["id"]).status == "cancelled"
+        assert StockLevel.objects.get(variant=variant).reserved == 0
+        assert OrderAllocation.objects.get(order_id=placed.data["id"]).status == "released"
+        assert StockMovement.objects.filter(movement_type="released").count() == 1
+        assert TrackingEvent.objects.filter(status="cancelled").count() == 1
+
+
+def test_order_cancellation_failure_rolls_back_shipment_and_reservation(
+    store: Any, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _customer, staff, variant, placed = confirmed_order(store)
+    shipment = prepare(staff, placed.data["id"])
+
+    def fail_tracking(*_args: Any, **_kwargs: Any) -> Any:
+        raise RuntimeError("injected tracking failure")
+
+    with monkeypatch.context() as patch:
+        patch.setattr(fulfillment_services, "_tracking_event", fail_tracking)
+        with pytest.raises(RuntimeError, match="injected tracking failure"):
+            staff.post(
+                f"/api/manage/orders/{placed.data['id']}/transition/",
+                {"status": "cancelled"},
+                format="json",
+            )
+
+    with tenant_context(store.tenant):
+        assert Order.objects.get(pk=placed.data["id"]).status == "confirmed"
+        assert Shipment.objects.get(pk=shipment.data["id"]).status == "ready"
+        assert StockLevel.objects.get(variant=variant).reserved == Decimal(1)
+        assert OrderAllocation.objects.get(order_id=placed.data["id"]).status == "allocated"
+        assert not StockMovement.objects.filter(movement_type="released").exists()
+
+
 def test_mixed_order_ships_only_physical_items(
     store: Any, fakepay: type[FakePaymentProvider]
 ) -> None:
@@ -282,6 +339,119 @@ def test_courier_booking_and_signed_tracking_callback_are_idempotent(
         assert TrackingEvent.objects.filter(status="in_transit").count() == 1
 
 
+def test_tracking_callback_failure_rolls_back_deduplication_and_retries(
+    store: Any,
+    fakecourier: type[FakeCourierProvider],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _customer, staff, _variant, placed = confirmed_order(store)
+    shipment = prepare(staff, placed.data["id"])
+    booked = staff.post(
+        f"/api/manage/fulfillment/shipments/{shipment.data['id']}/courier-booking/",
+        {"idempotency_key": "callback-rollback-booking"},
+        format="json",
+    )
+    for target in ("picking", "packed", "ready_for_dispatch", "dispatched"):
+        assert move(staff, shipment.data["id"], target).status_code == 200
+    payload = {
+        "event_id": "tracking-event-retryable",
+        "booking_reference": booked.data["provider_reference"],
+        "status": "in_transit",
+        "occurred_at": timezone.now().isoformat(),
+        "note": "Retry after injected failure",
+    }
+    raw, signature = fakecourier.signed(payload)
+    headers = {"X-Fake-Courier-Signature": signature}
+
+    def fail_transition(**_kwargs: Any) -> Any:
+        raise RuntimeError("injected callback failure")
+
+    with tenant_context(store.tenant):
+        with monkeypatch.context() as patch:
+            patch.setattr(fulfillment_services, "transition_shipment", fail_transition)
+            with pytest.raises(RuntimeError, match="injected callback failure"):
+                fulfillment_services.process_tracking_callback(
+                    provider_code="fakecourier", body=raw, headers=headers
+                )
+        assert not CourierCallback.objects.filter(event_id=payload["event_id"]).exists()
+        assert Shipment.objects.get(pk=shipment.data["id"]).status == "dispatched"
+
+        assert (
+            fulfillment_services.process_tracking_callback(
+                provider_code="fakecourier", body=raw, headers=headers
+            )
+            == "applied"
+        )
+        assert CourierCallback.objects.get(event_id=payload["event_id"]).outcome == "applied"
+        assert Shipment.objects.get(pk=shipment.data["id"]).status == "in_transit"
+        assert TrackingEvent.objects.filter(provider_event_id=payload["event_id"]).count() == 1
+
+
+def test_tracking_callback_records_stale_invalid_and_unknown_outcomes(
+    store: Any, fakecourier: type[FakeCourierProvider]
+) -> None:
+    _customer, staff, _variant, placed = confirmed_order(store)
+    shipment = prepare(staff, placed.data["id"])
+    booked = staff.post(
+        f"/api/manage/fulfillment/shipments/{shipment.data['id']}/courier-booking/",
+        {"idempotency_key": "callback-outcomes-booking"},
+        format="json",
+    )
+    for target in ("picking", "packed", "ready_for_dispatch", "dispatched"):
+        assert move(staff, shipment.data["id"], target).status_code == 200
+
+    def callback(event_id: str, reference: str, status: str, occurred_at: Any) -> str:
+        raw, signature = fakecourier.signed(
+            {
+                "event_id": event_id,
+                "booking_reference": reference,
+                "status": status,
+                "occurred_at": occurred_at.isoformat(),
+            }
+        )
+        with tenant_context(store.tenant):
+            return fulfillment_services.process_tracking_callback(
+                provider_code="fakecourier",
+                body=raw,
+                headers={"X-Fake-Courier-Signature": signature},
+            )
+
+    now = timezone.now()
+    assert (
+        callback(
+            "tracking-stale",
+            booked.data["provider_reference"],
+            "in_transit",
+            now - timedelta(days=1),
+        )
+        == "stale"
+    )
+    assert (
+        callback("tracking-delivered", booked.data["provider_reference"], "delivered", now)
+        == "applied"
+    )
+    assert (
+        callback(
+            "tracking-invalid",
+            booked.data["provider_reference"],
+            "in_transit",
+            now + timedelta(seconds=1),
+        )
+        == "invalid_transition"
+    )
+    assert (
+        callback("tracking-unknown", "missing-reference", "in_transit", now) == "unknown_reference"
+    )
+    with tenant_context(store.tenant):
+        assert Shipment.objects.get(pk=shipment.data["id"]).status == "delivered"
+        assert set(CourierCallback.objects.values_list("outcome", flat=True)) == {
+            "stale",
+            "applied",
+            "invalid_transition",
+            "unknown_reference",
+        }
+
+
 def test_courier_failure_never_claims_booking_and_safe_retry_recovers(
     store: Any, fakecourier: type[FakeCourierProvider]
 ) -> None:
@@ -316,11 +486,18 @@ def test_booked_courier_can_be_cancelled_before_dispatch(
         {"idempotency_key": "booking-to-cancel"},
         format="json",
     )
+    blocked_order = staff.post(
+        f"/api/manage/orders/{placed.data['id']}/transition/",
+        {"status": "cancelled"},
+        format="json",
+    )
     cancelled = staff.post(f"{base}/courier-booking/cancel/", {}, format="json")
     replay = staff.post(f"{base}/courier-booking/cancel/", {}, format="json")
     details = staff.get(f"{base}/")
 
     assert booked.data["status"] == "booked"
+    assert blocked_order.status_code == 409
+    assert blocked_order.data["error"]["code"] == "courier_booking_active"
     assert cancelled.data["status"] == "cancelled"
     assert replay.data["id"] == cancelled.data["id"]
     assert details.data["courier_name"] == ""
