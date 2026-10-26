@@ -315,6 +315,8 @@ Delivery requirements:
 
 ## Customer accounts and after sales (Phase 10)
 
+Implementation CI: run 40417354396, 4/4 jobs, 1,080 tests. Interactive owner acceptance pending.
+
 - [~] Customer order history, saved address management and account integration
 - [~] Verified-purchase reviews and merchant moderation
 - [~] Customer return and exchange cases with merchant-controlled transitions

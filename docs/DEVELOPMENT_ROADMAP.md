@@ -13,9 +13,9 @@
 | 05  | Presets, Themes & Branding                  | B — Commerce Application      | **Accepted and closed**, including 05.1 (`613cd49`, CI 40301529264: 4/4, 827 tests).      |
 | 06  | Customer Storefront                         | B — Commerce Application      | **Accepted and closed**, including 06.2 (`cd4ca91`, CI 40322387368: 4/4, 960 tests).      |
 | 07  | Cart & Checkout                             | B — Commerce Application      | **Accepted and closed**, including 07.1 (`12f2d5b`, CI 40366676323: 4/4, 1,007 tests).    |
-| 08  | Orders, Payments & Invoices                 | B — Commerce Application      | **Implemented locally — acceptance pending** (no live payment gateway configured)         |
-| 09  | Fulfillment & Courier                       | B — Commerce Application      | Pending                                                                                   |
-| 10  | Customer Accounts & After-sales             | B — Commerce Application      | Pending                                                                                   |
+| 08  | Orders, Payments & Invoices                 | B — Commerce Application      | **Accepted and closed**, including 08.1 (`b2eb55f`, CI passed 4/4)                        |
+| 09  | Fulfillment & Courier                       | B — Commerce Application      | **Accepted and closed**, including 09.1 (`1ffdf36`, CI passed 4/4)                        |
+| 10  | Customer Accounts & After-sales             | B — Commerce Application      | **Implemented, CI verified**, PR #1; owner review pending (1,080 tests)                   |
 | 11  | Merchant Management Dashboard               | B — Commerce Application      | Pending                                                                                   |
 | 12  | Marketing, SEO & Analytics                  | C — Growth & Integrations     | Pending                                                                                   |
 | 13  | Mail & Notification Engine                  | C — Growth & Integrations     | Pending                                                                                   |
