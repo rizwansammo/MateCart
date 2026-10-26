@@ -131,7 +131,7 @@ def library(customer: User) -> list[dict[str, Any]]:
                 "state": state,
                 "entitlement_id": str(entitlement.pk) if entitlement is not None else None,
                 "remaining_downloads": max(entitlement.download_limit - entitlement.access_count, 0)
-                if available
+                if available and entitlement is not None
                 else 0,
             }
         )

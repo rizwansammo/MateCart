@@ -36,7 +36,7 @@ export function AfterSalesManage() {
     }
   }, []);
   useEffect(() => {
-    void reload();
+    void Promise.resolve().then(reload);
   }, [reload]);
 
   async function changeCase(id: string) {

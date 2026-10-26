@@ -1,5 +1,6 @@
 """Strict request and response contracts for customer after sales actions."""
 
+from decimal import Decimal
 from typing import Any
 
 from rest_framework import serializers
@@ -39,7 +40,7 @@ class CaseInputSerializer(serializers.Serializer[Any]):
         max_digits=12,
         decimal_places=3,
         min_value=1,
-        default=1,
+        default=Decimal("1"),
     )
     subject = serializers.CharField(min_length=3, max_length=150)
     reason = serializers.CharField(min_length=3, max_length=2000)

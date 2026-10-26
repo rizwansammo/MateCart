@@ -4,7 +4,7 @@ from typing import Any, cast
 
 from drf_spectacular.utils import extend_schema
 from rest_framework import status
-from rest_framework.permissions import AllowAny, IsAuthenticated
+from rest_framework.permissions import AllowAny, BasePermission, IsAuthenticated
 from rest_framework.request import Request
 from rest_framework.response import Response
 
@@ -41,7 +41,7 @@ def _data(serializer: Any) -> dict[str, Any]:
 
 class StorefrontAPIView(CsrfProtectedAPIView):
     authentication_classes = (CustomerSessionAuthentication,)
-    permission_classes = (AllowAny,)
+    permission_classes: tuple[type[BasePermission], ...] = (AllowAny,)
 
     def cart_access(self, request: Request) -> services.CartAccess:
         return services.cart_for_request(

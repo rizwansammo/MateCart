@@ -148,6 +148,46 @@ paths:
       responses:
         '302':
           description: Redirect to Google
+  /api/account/library/:
+    get:
+      operationId: buyer_digital_library
+      description: Base for every cookie-authenticated or sign-in endpoint.
+      tags:
+      - digital-library
+      security:
+      - customerSession: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/LibraryItem'
+          description: ''
+  /api/account/library/{entitlement_id}/download/:
+    get:
+      operationId: buyer_digital_download
+      description: Base for every cookie-authenticated or sign-in endpoint.
+      parameters:
+      - in: path
+        name: entitlement_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - digital-library
+      security:
+      - customerSession: []
+      responses:
+        '200':
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+          description: ''
   /api/account/link/email/start/:
     post:
       operationId: account_link_email_start
@@ -628,6 +668,90 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Cart'
+          description: ''
+  /api/cases/:
+    get:
+      operationId: customer_cases
+      description: Base for every cookie-authenticated or sign-in endpoint.
+      tags:
+      - aftersales
+      security:
+      - customerSession: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AfterSalesCasePage'
+          description: ''
+    post:
+      operationId: customer_case_submit
+      description: Base for every cookie-authenticated or sign-in endpoint.
+      tags:
+      - aftersales
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CaseInputRequest'
+        required: true
+      security:
+      - customerSession: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AfterSalesCase'
+          description: ''
+  /api/cases/{case_id}/:
+    get:
+      operationId: customer_case_detail
+      description: Base for every cookie-authenticated or sign-in endpoint.
+      parameters:
+      - in: path
+        name: case_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - aftersales
+      security:
+      - customerSession: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AfterSalesCase'
+          description: ''
+    post:
+      operationId: customer_case_reply
+      description: Base for every cookie-authenticated or sign-in endpoint.
+      parameters:
+      - in: path
+        name: case_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - aftersales
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CaseMessageInputRequest'
+        required: true
+      security:
+      - customerSession: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CaseMessage'
           description: ''
   /api/catalog/categories/:
     get:
@@ -1245,6 +1369,139 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/SecurityStatus'
+          description: ''
+  /api/manage/aftersales/cases/:
+    get:
+      operationId: manage_cases
+      description: Base for every cookie-authenticated or sign-in endpoint.
+      tags:
+      - manage-aftersales
+      security:
+      - staffSession: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AfterSalesCasePage'
+          description: ''
+  /api/manage/aftersales/cases/{case_id}/:
+    get:
+      operationId: manage_case_detail
+      description: Base for every cookie-authenticated or sign-in endpoint.
+      parameters:
+      - in: path
+        name: case_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - manage-aftersales
+      security:
+      - staffSession: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AfterSalesCase'
+          description: ''
+    post:
+      operationId: manage_case_reply
+      description: Base for every cookie-authenticated or sign-in endpoint.
+      parameters:
+      - in: path
+        name: case_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - manage-aftersales
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CaseMessageInputRequest'
+        required: true
+      security:
+      - staffSession: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CaseMessage'
+          description: ''
+    patch:
+      operationId: manage_case_transition
+      description: Base for every cookie-authenticated or sign-in endpoint.
+      parameters:
+      - in: path
+        name: case_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - manage-aftersales
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedCaseTransitionRequest'
+      security:
+      - staffSession: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AfterSalesCase'
+          description: ''
+  /api/manage/aftersales/reviews/:
+    get:
+      operationId: manage_reviews
+      description: Base for every cookie-authenticated or sign-in endpoint.
+      tags:
+      - manage-aftersales
+      security:
+      - staffSession: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProductReviewPage'
+          description: ''
+  /api/manage/aftersales/reviews/{review_id}/:
+    post:
+      operationId: manage_review_decision
+      description: Base for every cookie-authenticated or sign-in endpoint.
+      parameters:
+      - in: path
+        name: review_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - manage-aftersales
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReviewDecisionRequest'
+        required: true
+      security:
+      - staffSession: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProductReview'
           description: ''
   /api/manage/auth/login/:
     post:
@@ -2742,6 +2999,27 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/Section'
+          description: ''
+  /api/manage/digital/assets/:
+    post:
+      operationId: manage_digital_asset_assign
+      description: Base for every cookie-authenticated or sign-in endpoint.
+      tags:
+      - manage-digital
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DigitalAssetInputRequest'
+        required: true
+      security:
+      - staffSession: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DigitalAsset'
           description: ''
   /api/manage/fulfillment/cod-records/{record_id}/remittance/:
     post:
@@ -4249,6 +4527,22 @@ paths:
               schema:
                 $ref: '#/components/schemas/Member'
           description: ''
+  /api/orders/:
+    get:
+      operationId: customer_order_list
+      description: Only orders bound to the signed-in customer; guest tokens cannot
+        list orders.
+      tags:
+      - orders
+      security:
+      - customerSession: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderSummaryPage'
+          description: ''
   /api/orders/{order_id}/:
     get:
       operationId: order_get
@@ -4363,6 +4657,63 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/CallbackResult'
+          description: ''
+  /api/products/{product_id}/reviews/:
+    get:
+      operationId: public_product_reviews
+      description: Base for every cookie-authenticated or sign-in endpoint.
+      parameters:
+      - in: path
+        name: product_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - aftersales
+      security:
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicReviewPage'
+          description: ''
+  /api/reviews/:
+    get:
+      operationId: customer_reviews
+      description: Base for every cookie-authenticated or sign-in endpoint.
+      tags:
+      - aftersales
+      security:
+      - customerSession: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProductReviewPage'
+          description: ''
+    post:
+      operationId: customer_review_submit
+      description: Base for every cookie-authenticated or sign-in endpoint.
+      tags:
+      - aftersales
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReviewInputRequest'
+        required: true
+      security:
+      - customerSession: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProductReview'
           description: ''
   /api/storefront/config/:
     get:
@@ -4588,6 +4939,129 @@ components:
       - quantity
       - reason
       - variant
+    AfterSalesCase:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        kind:
+          allOf:
+          - $ref: '#/components/schemas/AfterSalesCaseKindEnum'
+          readOnly: true
+        status:
+          allOf:
+          - $ref: '#/components/schemas/AfterSalesCaseStatusEnum'
+          readOnly: true
+        order_item:
+          type: string
+          format: uuid
+          readOnly: true
+          nullable: true
+        quantity:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,9}(?:\.\d{0,3})?$
+          readOnly: true
+        subject:
+          type: string
+          readOnly: true
+        reason:
+          type: string
+          readOnly: true
+        decision_reason:
+          type: string
+          readOnly: true
+        refund:
+          type: string
+          format: uuid
+          readOnly: true
+          nullable: true
+        replacement_order:
+          type: string
+          format: uuid
+          readOnly: true
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+        messages:
+          type: array
+          items:
+            $ref: '#/components/schemas/CaseMessage'
+          readOnly: true
+      required:
+      - created_at
+      - decision_reason
+      - id
+      - kind
+      - messages
+      - order_item
+      - quantity
+      - reason
+      - refund
+      - replacement_order
+      - status
+      - subject
+      - updated_at
+    AfterSalesCaseKindEnum:
+      enum:
+      - return
+      - exchange
+      - warranty
+      - support
+      type: string
+      description: |-
+        * `return` - Return
+        * `exchange` - Exchange
+        * `warranty` - Warranty
+        * `support` - Support
+    AfterSalesCasePage:
+      type: object
+      properties:
+        count:
+          type: integer
+        page:
+          type: integer
+        page_size:
+          type: integer
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/AfterSalesCase'
+      required:
+      - count
+      - page
+      - page_size
+      - results
+    AfterSalesCaseStatusEnum:
+      enum:
+      - requested
+      - approved
+      - rejected
+      - received
+      - inspected
+      - awaiting_refund
+      - replacement_pending
+      - resolved
+      - closed
+      type: string
+      description: |-
+        * `requested` - Requested
+        * `approved` - Approved
+        * `rejected` - Rejected
+        * `received` - Goods received
+        * `inspected` - Inspected
+        * `awaiting_refund` - Awaiting verified refund
+        * `replacement_pending` - Replacement pending
+        * `resolved` - Resolved
+        * `closed` - Closed
     ApparelDetails:
       type: object
       properties:
@@ -5239,6 +5713,69 @@ components:
       - unit_price
       - variant
       - variant_title
+    CaseInputRequest:
+      type: object
+      properties:
+        kind:
+          $ref: '#/components/schemas/AfterSalesCaseKindEnum'
+        order_item:
+          type: string
+          format: uuid
+          nullable: true
+        quantity:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,9}(?:\.\d{0,3})?$
+          default: '1.000'
+        subject:
+          type: string
+          minLength: 3
+          maxLength: 150
+        reason:
+          type: string
+          minLength: 3
+          maxLength: 2000
+        idempotency_key:
+          type: string
+          minLength: 8
+          maxLength: 100
+      required:
+      - idempotency_key
+      - kind
+      - reason
+      - subject
+    CaseMessage:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        author:
+          type: string
+          format: uuid
+          readOnly: true
+        body:
+          type: string
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - author
+      - body
+      - created_at
+      - id
+    CaseMessageInputRequest:
+      type: object
+      properties:
+        body:
+          type: string
+          minLength: 1
+          maxLength: 2000
+      required:
+      - body
     Category:
       type: object
       properties:
@@ -5962,6 +6499,50 @@ components:
       - id
       - phone
       - phone_verified
+    DigitalAsset:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        variant:
+          type: string
+          format: uuid
+          readOnly: true
+        asset:
+          type: string
+          format: uuid
+          readOnly: true
+        enabled:
+          type: boolean
+          readOnly: true
+        download_limit:
+          type: integer
+          readOnly: true
+      required:
+      - asset
+      - download_limit
+      - enabled
+      - id
+      - variant
+    DigitalAssetInputRequest:
+      type: object
+      properties:
+        variant:
+          type: string
+          format: uuid
+        asset:
+          type: string
+          format: uuid
+        download_limit:
+          type: integer
+          maximum: 100
+          minimum: 1
+          default: 10
+      required:
+      - asset
+      - variant
     DigitalFormatEnum:
       enum:
       - epub
@@ -6397,6 +6978,38 @@ components:
       - seller
       - shipping_total
       - tax_total
+    LibraryItem:
+      type: object
+      properties:
+        order_item:
+          type: string
+          format: uuid
+        order_number:
+          type: string
+        product_name:
+          type: string
+        variant_title:
+          type: string
+        purchased_at:
+          type: string
+          format: date-time
+        state:
+          $ref: '#/components/schemas/StateEnum'
+        entitlement_id:
+          type: string
+          format: uuid
+          nullable: true
+        remaining_downloads:
+          type: integer
+      required:
+      - entitlement_id
+      - order_item
+      - order_number
+      - product_name
+      - purchased_at
+      - remaining_downloads
+      - state
+      - variant_title
     Liveness:
       type: object
       properties:
@@ -7812,6 +8425,23 @@ components:
             maxLength: 0
         is_active:
           type: boolean
+    PatchedCaseTransitionRequest:
+      type: object
+      properties:
+        status:
+          $ref: '#/components/schemas/AfterSalesCaseStatusEnum'
+        reason:
+          type: string
+          default: ''
+          maxLength: 300
+        refund:
+          type: string
+          format: uuid
+          nullable: true
+        replacement_order:
+          type: string
+          format: uuid
+          nullable: true
     PatchedCategoryWriteRequest:
       type: object
       properties:
@@ -8868,6 +9498,60 @@ components:
           maxItems: 3
       required:
       - options
+    ProductReview:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        order_item:
+          type: string
+          format: uuid
+          readOnly: true
+        rating:
+          type: integer
+          readOnly: true
+        body:
+          type: string
+          readOnly: true
+        status:
+          allOf:
+          - $ref: '#/components/schemas/PurchaseReviewStatusEnum'
+          readOnly: true
+        decision_reason:
+          type: string
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - body
+      - created_at
+      - decision_reason
+      - id
+      - order_item
+      - rating
+      - status
+    ProductReviewPage:
+      type: object
+      properties:
+        count:
+          type: integer
+        page:
+          type: integer
+        page_size:
+          type: integer
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/ProductReview'
+      required:
+      - count
+      - page
+      - page_size
+      - results
     ProductStatusEnum:
       enum:
       - draft
@@ -9311,6 +9995,46 @@ components:
       - page
       - page_size
       - results
+    PublicReview:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        rating:
+          type: integer
+          readOnly: true
+        body:
+          type: string
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - body
+      - created_at
+      - id
+      - rating
+    PublicReviewPage:
+      type: object
+      properties:
+        count:
+          type: integer
+        page:
+          type: integer
+        page_size:
+          type: integer
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/PublicReview'
+      required:
+      - count
+      - page
+      - page_size
+      - results
     PublicSection:
       type: object
       properties:
@@ -9429,6 +10153,16 @@ components:
       - name
       - provider
       - terms
+    PurchaseReviewStatusEnum:
+      enum:
+      - pending
+      - published
+      - rejected
+      type: string
+      description: |-
+        * `pending` - Pending moderation
+        * `published` - Published
+        * `rejected` - Rejected
     Readiness:
       type: object
       properties:
@@ -9663,6 +10397,43 @@ components:
           pattern: ^[A-Za-z0-9._:-]{8,100}$
       required:
       - reason
+    ReviewDecisionRequest:
+      type: object
+      properties:
+        status:
+          $ref: '#/components/schemas/ReviewDecisionStatusEnum'
+        reason:
+          type: string
+          default: ''
+          maxLength: 300
+      required:
+      - status
+    ReviewDecisionStatusEnum:
+      enum:
+      - published
+      - rejected
+      type: string
+      description: |-
+        * `published` - published
+        * `rejected` - rejected
+    ReviewInputRequest:
+      type: object
+      properties:
+        order_item:
+          type: string
+          format: uuid
+        rating:
+          type: integer
+          maximum: 5
+          minimum: 1
+        body:
+          type: string
+          minLength: 3
+          maxLength: 2000
+      required:
+      - body
+      - order_item
+      - rating
     Role:
       type: object
       properties:
@@ -10115,6 +10886,18 @@ components:
       - email
       - full_name
       - id
+    StateEnum:
+      enum:
+      - ready
+      - payment_required
+      - awaiting_resource
+      - unavailable
+      type: string
+      description: |-
+        * `ready` - ready
+        * `payment_required` - payment_required
+        * `awaiting_resource` - awaiting_resource
+        * `unavailable` - unavailable
     StockLevel:
       type: object
       properties:

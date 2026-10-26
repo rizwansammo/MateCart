@@ -10,6 +10,7 @@ from commerce.media.models import MediaAsset, MediaKind
 from commerce.orders.models import PaymentIntent
 from commerce.tenancy.context import tenant_context
 
+from .test_checkout import product
 from .test_orders import (
     callback,
     customer_client,
@@ -17,7 +18,6 @@ from .test_orders import (
     digital_checkout,
     merchant,
     place,
-    product,
     reviewed,
     stock,
 )

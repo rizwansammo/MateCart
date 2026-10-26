@@ -101,7 +101,7 @@ export function CustomerCommerceAccount() {
     }
   }, []);
   useEffect(() => {
-    void refresh();
+    void Promise.resolve().then(refresh);
   }, [refresh]);
 
   async function selectOrder(id: string) {
