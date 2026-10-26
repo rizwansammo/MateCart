@@ -160,6 +160,7 @@ export interface PublicVariant {
   title: string;
   options: { attribute: string; option: string; value: string }[];
   kind: 'physical' | 'digital';
+  inventory_unit: string;
   digital_format: string;
   net_quantity: string | null;
   net_unit: string;
@@ -179,6 +180,7 @@ export function publicVariant(value: unknown): PublicVariant {
       return { attribute: string(e.attribute), option: string(e.option), value: string(e.value) };
     }),
     kind: oneOf(['physical', 'digital'] as const)(o.kind),
+    inventory_unit: string(o.inventory_unit),
     digital_format: string(o.digital_format),
     net_quantity: nullable(decimal)(o.net_quantity),
     net_unit: string(o.net_unit),

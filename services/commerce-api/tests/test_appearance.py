@@ -212,8 +212,7 @@ def test_module_overrides_and_their_limits(manager: Api) -> None:
     assert manager.put(f"{MODULES}size_guides/", {"enabled": True}).json()["enabled"] is True
     assert manager.put(f"{MODULES}size_guides/", {"enabled": None}).json()["enabled"] is False
     refusals = {
-        "cart_checkout": "module_unavailable",
-        "delivery_slots": "module_unavailable",
+        "product_comparison": "module_unavailable",
         "catalog": "module_core",
         "nonexistent": "module_unknown",
     }
@@ -221,7 +220,8 @@ def test_module_overrides_and_their_limits(manager: Api) -> None:
         response = manager.put(f"{MODULES}{key}/", {"enabled": True})
         assert response.json()["error"]["code"] == code, key
     rows = {row["key"]: row for row in manager.get(MODULES).json()}
-    assert rows["cart_checkout"]["available"] is False
+    assert rows["cart_checkout"]["available"] is True
+    assert rows["cart_checkout"]["enabled"] is True
     assert rows["emi"]["enabled"] is False
 
 

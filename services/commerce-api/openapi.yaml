@@ -4,6 +4,86 @@ info:
   version: 0.1.0
   description: Storefront, checkout and merchant API for a single MateCart store deployment.
 paths:
+  /api/account/addresses/:
+    get:
+      operationId: address_list
+      description: Base for every cookie-authenticated or sign-in endpoint.
+      tags:
+      - checkout
+      security:
+      - customerSession: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Address'
+          description: ''
+    post:
+      operationId: address_create
+      description: Base for every cookie-authenticated or sign-in endpoint.
+      tags:
+      - checkout
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AddressInputRequest'
+      security:
+      - customerSession: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Address'
+          description: ''
+  /api/account/addresses/{address_id}/:
+    patch:
+      operationId: address_update
+      description: Base for every cookie-authenticated or sign-in endpoint.
+      parameters:
+      - in: path
+        name: address_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - checkout
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedAddressInputRequest'
+      security:
+      - customerSession: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Address'
+          description: ''
+    delete:
+      operationId: address_delete
+      description: Base for every cookie-authenticated or sign-in endpoint.
+      parameters:
+      - in: path
+        name: address_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - checkout
+      security:
+      - customerSession: []
+      responses:
+        '204':
+          description: No response body
   /api/account/code/resend/:
     post:
       operationId: account_code_resend
@@ -461,6 +541,94 @@ paths:
               schema:
                 $ref: '#/components/schemas/CustomerAccount'
           description: ''
+  /api/cart/:
+    get:
+      operationId: cart_get
+      description: Base for every cookie-authenticated or sign-in endpoint.
+      tags:
+      - cart
+      security:
+      - customerSession: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Cart'
+          description: ''
+  /api/cart/items/:
+    post:
+      operationId: cart_item_add
+      description: Base for every cookie-authenticated or sign-in endpoint.
+      tags:
+      - cart
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AddCartItemRequest'
+        required: true
+      security:
+      - customerSession: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Cart'
+          description: ''
+  /api/cart/items/{item_id}/:
+    patch:
+      operationId: cart_item_update
+      description: Base for every cookie-authenticated or sign-in endpoint.
+      parameters:
+      - in: path
+        name: item_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - cart
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedUpdateCartItemRequest'
+      security:
+      - customerSession: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Cart'
+          description: ''
+    delete:
+      operationId: cart_item_remove
+      description: Base for every cookie-authenticated or sign-in endpoint.
+      parameters:
+      - in: path
+        name: item_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - cart
+      security:
+      - customerSession: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Cart'
+          description: ''
   /api/catalog/categories/:
     get:
       operationId: catalog_categories
@@ -675,6 +843,124 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/PublicProductDetail'
+          description: ''
+  /api/checkout/:
+    post:
+      operationId: checkout_create
+      description: Base for every cookie-authenticated or sign-in endpoint.
+      tags:
+      - checkout
+      security:
+      - customerSession: []
+      - {}
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Checkout'
+          description: ''
+  /api/checkout/{session_id}/:
+    get:
+      operationId: checkout_get
+      description: Base for every cookie-authenticated or sign-in endpoint.
+      parameters:
+      - in: path
+        name: session_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - checkout
+      security:
+      - customerSession: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Checkout'
+          description: ''
+    patch:
+      operationId: checkout_update
+      description: Base for every cookie-authenticated or sign-in endpoint.
+      parameters:
+      - in: path
+        name: session_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - checkout
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedCheckoutUpdateRequest'
+      security:
+      - customerSession: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Checkout'
+          description: ''
+  /api/checkout/{session_id}/release/:
+    post:
+      operationId: checkout_release
+      description: Base for every cookie-authenticated or sign-in endpoint.
+      parameters:
+      - in: path
+        name: session_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - checkout
+      security:
+      - customerSession: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Checkout'
+          description: ''
+  /api/checkout/{session_id}/review/:
+    post:
+      operationId: checkout_review
+      description: Base for every cookie-authenticated or sign-in endpoint.
+      parameters:
+      - in: path
+        name: session_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - checkout
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CheckoutReviewInputRequest'
+        required: true
+      security:
+      - customerSession: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Checkout'
           description: ''
   /api/csrf/:
     get:
@@ -3567,6 +3853,100 @@ components:
         * `electronics-spec-first` - electronics-spec-first
         * `general-marketplace` - general-marketplace
         * `books-literary` - books-literary
+    AddCartItemRequest:
+      type: object
+      properties:
+        variant:
+          type: string
+          format: uuid
+        quantity:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,11}(?:\.\d{0,3})?$
+      required:
+      - quantity
+      - variant
+    Address:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        label:
+          type: string
+          maxLength: 50
+        recipient_name:
+          type: string
+          maxLength: 150
+        phone:
+          type: string
+          pattern: ^\+[1-9][0-9]{6,14}$
+          maxLength: 16
+        address_line_1:
+          type: string
+          maxLength: 200
+        address_line_2:
+          type: string
+          maxLength: 200
+        city:
+          type: string
+          maxLength: 100
+        region:
+          type: string
+          maxLength: 100
+        postal_code:
+          type: string
+          maxLength: 32
+        country:
+          type: string
+          maxLength: 2
+        is_default:
+          type: boolean
+      required:
+      - address_line_1
+      - city
+      - country
+      - id
+      - phone
+      - recipient_name
+    AddressInputRequest:
+      type: object
+      properties:
+        address_name:
+          type: string
+          maxLength: 50
+        recipient_name:
+          type: string
+          minLength: 1
+          maxLength: 150
+        phone:
+          type: string
+          minLength: 1
+          maxLength: 40
+        address_line_1:
+          type: string
+          minLength: 1
+          maxLength: 200
+        address_line_2:
+          type: string
+          maxLength: 200
+        city:
+          type: string
+          minLength: 1
+          maxLength: 100
+        region:
+          type: string
+          maxLength: 100
+        postal_code:
+          type: string
+          maxLength: 32
+        country:
+          type: string
+          minLength: 1
+          maxLength: 2
+        is_default:
+          type: boolean
     AdjustmentMovementTypeEnum:
       enum:
       - adjustment
@@ -4168,6 +4548,89 @@ components:
           type: boolean
       required:
       - name
+    Cart:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        lines:
+          type: array
+          items:
+            $ref: '#/components/schemas/CartLine'
+        subtotal:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,15}(?:\.\d{0,4})?$
+        currency:
+          type: string
+        item_count:
+          type: integer
+        valid:
+          type: boolean
+      required:
+      - currency
+      - item_count
+      - lines
+      - subtotal
+      - valid
+    CartLine:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        variant:
+          type: string
+          format: uuid
+        product_slug:
+          type: string
+        product_name:
+          type: string
+        variant_title:
+          type: string
+        sku:
+          type: string
+        kind:
+          type: string
+        quantity:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,11}(?:\.\d{0,3})?$
+        unit_price:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,15}(?:\.\d{0,4})?$
+          nullable: true
+        currency:
+          type: string
+          nullable: true
+        subtotal:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,15}(?:\.\d{0,4})?$
+          nullable: true
+        available_quantity:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,11}(?:\.\d{0,3})?$
+          nullable: true
+        issue:
+          type: string
+      required:
+      - available_quantity
+      - currency
+      - id
+      - issue
+      - kind
+      - product_name
+      - product_slug
+      - quantity
+      - sku
+      - subtotal
+      - unit_price
+      - variant
+      - variant_title
     Category:
       type: object
       properties:
@@ -4375,6 +4838,166 @@ components:
       description: |-
         * `ok` - ok
         * `error` - error
+    Checkout:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        status:
+          type: string
+        expires_at:
+          type: string
+          format: date-time
+        contact_email:
+          oneOf:
+          - type: string
+            format: email
+          - type: string
+            maxLength: 0
+        contact_phone:
+          type: string
+        recipient_name:
+          type: string
+        address_line_1:
+          type: string
+        address_line_2:
+          type: string
+        city:
+          type: string
+        region:
+          type: string
+        postal_code:
+          type: string
+        country:
+          type: string
+        delivery_notes:
+          type: string
+        coupon_code:
+          type: string
+        requires_shipping:
+          type: boolean
+        currency:
+          type: string
+        item_subtotal:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,15}(?:\.\d{0,4})?$
+        discount_total:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,15}(?:\.\d{0,4})?$
+        shipping_total:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,15}(?:\.\d{0,4})?$
+        tax_total:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,15}(?:\.\d{0,4})?$
+        grand_total:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,15}(?:\.\d{0,4})?$
+        lines:
+          type: array
+          items:
+            $ref: '#/components/schemas/CheckoutLine'
+        shipping_methods:
+          type: array
+          items:
+            type: object
+            additionalProperties: {}
+          readOnly: true
+        delivery_slots:
+          type: array
+          items:
+            type: object
+            additionalProperties: {}
+          readOnly: true
+        selected_shipping_method:
+          type: string
+          format: uuid
+          nullable: true
+        selected_delivery_slot:
+          type: string
+          format: uuid
+          nullable: true
+        order_creation_available:
+          type: boolean
+          readOnly: true
+      required:
+      - address_line_1
+      - address_line_2
+      - city
+      - contact_email
+      - contact_phone
+      - country
+      - coupon_code
+      - currency
+      - delivery_notes
+      - delivery_slots
+      - discount_total
+      - expires_at
+      - grand_total
+      - id
+      - item_subtotal
+      - lines
+      - order_creation_available
+      - postal_code
+      - recipient_name
+      - region
+      - requires_shipping
+      - selected_delivery_slot
+      - selected_shipping_method
+      - shipping_methods
+      - shipping_total
+      - status
+      - tax_total
+    CheckoutLine:
+      type: object
+      properties:
+        variant:
+          type: string
+          format: uuid
+        product_name:
+          type: string
+        variant_title:
+          type: string
+        sku:
+          type: string
+        kind:
+          type: string
+        quantity:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,11}(?:\.\d{0,3})?$
+        unit_price:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,15}(?:\.\d{0,4})?$
+        line_subtotal:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,15}(?:\.\d{0,4})?$
+      required:
+      - kind
+      - line_subtotal
+      - product_name
+      - quantity
+      - sku
+      - unit_price
+      - variant
+      - variant_title
+    CheckoutReviewInputRequest:
+      type: object
+      properties:
+        idempotency_key:
+          type: string
+          minLength: 8
+          maxLength: 100
+      required:
+      - idempotency_key
     Collection:
       type: object
       properties:
@@ -5519,6 +6142,43 @@ components:
       required:
       - password
       - token
+    PatchedAddressInputRequest:
+      type: object
+      properties:
+        address_name:
+          type: string
+          maxLength: 50
+        recipient_name:
+          type: string
+          minLength: 1
+          maxLength: 150
+        phone:
+          type: string
+          minLength: 1
+          maxLength: 40
+        address_line_1:
+          type: string
+          minLength: 1
+          maxLength: 200
+        address_line_2:
+          type: string
+          maxLength: 200
+        city:
+          type: string
+          minLength: 1
+          maxLength: 100
+        region:
+          type: string
+          maxLength: 100
+        postal_code:
+          type: string
+          maxLength: 32
+        country:
+          type: string
+          minLength: 1
+          maxLength: 2
+        is_default:
+          type: boolean
     PatchedAppearanceWriteRequest:
       type: object
       properties:
@@ -5634,6 +6294,53 @@ components:
         translations:
           description: 'Additional languages only: {"bn": {"name": "...", "description":
             "..."}}.'
+    PatchedCheckoutUpdateRequest:
+      type: object
+      properties:
+        contact_email:
+          oneOf:
+          - type: string
+            format: email
+          - type: string
+            maxLength: 0
+        contact_phone:
+          type: string
+          maxLength: 40
+        recipient_name:
+          type: string
+          maxLength: 150
+        address_line_1:
+          type: string
+          maxLength: 200
+        address_line_2:
+          type: string
+          maxLength: 200
+        city:
+          type: string
+          maxLength: 100
+        region:
+          type: string
+          maxLength: 100
+        postal_code:
+          type: string
+          maxLength: 32
+        country:
+          type: string
+          maxLength: 2
+        delivery_notes:
+          type: string
+          maxLength: 500
+        coupon_code:
+          type: string
+          maxLength: 32
+        shipping_method:
+          type: string
+          format: uuid
+          nullable: true
+        delivery_slot:
+          type: string
+          format: uuid
+          nullable: true
     PatchedCollectionWriteRequest:
       type: object
       properties:
@@ -5875,6 +6582,13 @@ components:
           type: string
           maxLength: 200
         translations: {}
+    PatchedUpdateCartItemRequest:
+      type: object
+      properties:
+        quantity:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,11}(?:\.\d{0,3})?$
     PatchedVariantUpdateRequest:
       type: object
       properties:
@@ -7060,6 +7774,8 @@ components:
             $ref: '#/components/schemas/PublicVariantOption'
         kind:
           $ref: '#/components/schemas/VariantKindEnum'
+        inventory_unit:
+          type: string
         digital_format:
           type: string
         net_quantity:
@@ -7088,6 +7804,7 @@ components:
       - digital_format
       - id
       - in_stock
+      - inventory_unit
       - isbn
       - kind
       - net_quantity

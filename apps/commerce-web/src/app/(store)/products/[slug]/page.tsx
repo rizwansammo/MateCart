@@ -117,6 +117,7 @@ export default async function ProductPage({ params, searchParams }: Props) {
         requestedVariant={requested}
         header={<ProductHeader product={product} ctx={ctx} />}
         highlights={<ProductHighlights product={product} ctx={ctx} />}
+        cartEnabled={ctx.config.modules.includes('cart_checkout')}
       />
       {tabs.length > 0 && <Tabs label={name} tabs={tabs} />}
       {related.length > 0 && (

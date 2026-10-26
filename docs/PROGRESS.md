@@ -1,10 +1,11 @@
 # Progress and handoff
 
 Updated: 2026-10-26 (Asia/Dhaka). **Phase 06.2 — Multi Theme Architecture Readiness is
-implemented and locally verified, ready for the owner's commit, push, GitHub CI and
-independent review; it is not yet accepted.** Phases 01–06 (with 02.1, 02.2, 03.1, 04.1, 05.1
-and 06.1) are accepted and closed. Phase 07 and the managed theme marketplace have not started
-and need explicit authorization.
+accepted and closed at `cd4ca9112b7c8b525869d14ef97c7406f0ba5365` (GitHub Actions
+40322387368: 4/4 jobs, 960 tests). Phase 07 — Cart & Checkout is implemented and locally
+verified; owner commit, CI and independent acceptance are pending.**
+Phases 01–06 (with 02.1, 02.2, 03.1, 04.1, 05.1, 06.1 and 06.2) are accepted and closed.
+The managed theme marketplace remains deferred.
 
 ## Accepted baseline and boundaries
 
@@ -22,11 +23,45 @@ and need explicit authorization.
 | Correction 05.1 | Accepted and Phase 05 closed: `613cd49edee5c16b31e3beb34d0b84b74f6dce72`, run 40301529264, 4/4 jobs, 827 tests (678 commerce, 57 control, 34 contracts, 55 UI, 3 Node).                                                                                   |
 | Phase 06        | Implemented and pushed (GitHub-verified): `46c2e1af3078a46e1531c6783304f3430dacfbf0`, run 40311886344, SUCCESS 4/4 jobs, 894 tests (679 commerce, 57 control, 39 contracts, 55 UI, 61 web, 3 Node). Review requested the 06.1 corrections.                |
 | Correction 06.1 | Accepted and Phase 06 closed: `df0490f65a80f7b0a883bdfb9278808302d21fa2`, run 40315255063, 4/4 jobs, 913 tests (682 commerce, 57 control, 40 contracts, 55 UI, 76 web, 3 Node).                                                                           |
-| Phase 06.2      | **Implemented and verified locally, not committed.** Supplementary architecture subphase before Phase 07; baseline `df0490f` on `main`; no commit, push or PR was created by the assistant. CI and independent review pending.                            |
+| Phase 06.2      | **Accepted and closed:** `cd4ca9112b7c8b525869d14ef97c7406f0ba5365`, run 40322387368, 4/4 jobs, 960 tests. Supplementary architecture subphase before Phase 07; no additional main phase.                                                                 |
 | Architecture    | Dedicated single-tenant deployment, tenant-aware modular monolith, future hybrid only if approved; commerce/control independent.                                                                                                                          |
 | Product         | Private beta, manual onboarding. Public commercial signup/subscriptions/billing deferred. Public customer registration is authorized.                                                                                                                     |
 | Prototype       | MateCart-UI strictly read-only; no edits/build/install (HEAD `9ff1361`, clean).                                                                                                                                                                           |
 | Roadmap         | All 19 main phases preserved; 02.1/02.2/03.1 are corrective subphases, not additional main phases.                                                                                                                                                        |
+
+## Phase 07 cart and checkout (implemented locally; acceptance pending)
+
+- **Cart and ownership.** New `commerce.checkout` app with persistent guest/customer carts,
+  opaque hashed guest credentials, 30-day expiry, sign-in association/merge, unique lines,
+  quantity/line limits and current catalogue, price and sellable-stock checks. Storefront product
+  pages add the selected variant and quantity; every enabled preset header has a live cart count;
+  `/cart` supports quantity changes, removal, totals and checkout entry.
+- **Checkout.** Server-owned checkout sessions snapshot current lines/prices, collect international
+  contact and address data, support physical, digital and mixed carts, calculate basic coupons,
+  eligible shipping, regional tax and grand total, and expose Grocery slots where enabled. The
+  shared responsive `/checkout/<id>` interface has English/Bangla copy and preserves theme tokens.
+- **Inventory and transition safety.** Review locks variants in stable order, requotes and checks
+  unexpired sellable stock, then reserves through the existing append-only inventory service for
+  15 minutes. Idempotency rejects a different replay; a tenant-aware Celery task and explicit
+  release safely return abandoned holds. The reviewed state explicitly creates no order or payment;
+  Phase 08 owns both plus final allocation and coupon redemption (D-070).
+- **Schema and APIs.** Additive `checkout.0001` creates Cart, CartItem, Address, ShippingMethod,
+  TaxRate, Coupon, DeliverySlot, CheckoutSession, CheckoutLine and CheckoutReservation with tenant
+  composite FKs and integrity constraints. Cart, checkout/review/release and customer-address APIs
+  are in the validated OpenAPI schema; runtime-checked TypeScript contracts keep Decimal values as
+  strings. `cart_checkout`, Grocery `delivery_slots` and Books/General `preorders` are implemented.
+- **Verification.** `pnpm check`, `pnpm build`, `pnpm api:lint`, `pnpm api:test`,
+  `pnpm api:schema`, `pnpm health` and `docker compose config --quiet` passed. The suites contain
+  990 tests: commerce API 720, control API 57, shared contracts 46, shared UI 76, commerce-web 86
+  and Node 5. The temporary-database workflow passed forward migration, checkout reversal,
+  reapplication, drift and system checks for both APIs; the development migration was applied
+  additively. Celery round-trip passed. A live guest HTTP smoke added physical and digital variants,
+  rejected incomplete delivery details (400), offered one eligible method, calculated BDT 700.0000,
+  reviewed and replayed idempotently, created no order, then released the hold. All six health checks
+  pass. The first local build was blocked by restricted Google Fonts DNS and then passed with network
+  permission; stale pre-existing Next dev processes were restarted after an initial port conflict.
+  No manual browser visual pass was performed; responsive/theme behavior is covered by component
+  tests and the live pages are running for owner review.
 
 Phase 03/03.1 history (accepted): realm-separated customer, merchant and console
 authentication; optional merchant and mandatory console MFA; owner provisioning
@@ -35,7 +70,7 @@ narrow Google provider failure handling (D-039 to D-049, AUTHENTICATION.md,
 SECURITY.md). External Google, SMS and SMTP acceptance remains outstanding until
 genuine providers are configured.
 
-## Phase 06.2 multi-theme architecture readiness (supplementary subphase, not accepted)
+## Phase 06.2 multi-theme architecture readiness (supplementary subphase, accepted)
 
 Decision D-069. Architecture readiness only: no new theme, layout, marketplace, showcase,
 licensing, console UI or merchant theme control. Rule: one commerce engine, shared functional
@@ -87,7 +122,7 @@ catalogue checks. Existing tests were migrated to the new shapes without weakeni
 | Visual parity | 25 headless-Chrome captures (5 presets × home, listing and product at 1440/390 px) before and after: 24 byte-identical; the one difference (22 pixels in product images) also appears between two captures of the unchanged code, so it is capture noise. Theme tokens equal a baseline frozen before the change.                                              |
 | Live          | Dev store migrated additively (`stores.0004`); it resolves `general-marketplace`; storefront, merchant and console routes respond; `pnpm health` and `docker compose config` passed.                                                                                                                                                                           |
 | Not verified  | No Central Console integration exists to test (Phases 16-17). No screen-reader or real-device run.                                                                                                                                                                                                                                                             |
-| GitHub CI     | Phase 06.2 not run (uncommitted). Last CI: run 40315255063 (Phase 06.1), 4/4, 913 tests.                                                                                                                                                                                                                                                                       |
+| GitHub CI     | Accepted commit `cd4ca9112b7c8b525869d14ef97c7406f0ba5365`, run 40322387368, SUCCESS 4/4 jobs, 960 tests.                                                                                                                                                                                                                                                      |
 
 ## Phase 06.1 corrections (accepted)
 
@@ -480,10 +515,9 @@ contract tests. Plus 7 live catalogue and 12 live authentication smoke checks.
 
 ## Remaining scope, limits and next step
 
-- **Next step:** owner reviews the uncommitted Phase 06.2 diff, commits and pushes it,
-  verifies GitHub CI and requests independent review. Phase 07 and the managed theme
-  marketplace (showcase, licensing, console assignment UI) start only after explicit
-  authorization.
+- **Next step:** owner review at the local URLs, then commit/push, CI and independent acceptance.
+  Do not enter Phase 08 before that acceptance. The managed theme marketplace (showcase, licensing,
+  console assignment UI) remains deferred.
 - Phase 06.2 limits (documented, not defects): the theme catalogue is kept in three places by
   design (API validation, shared identities, visual definitions), guarded by tests; assignment
   is a NetaMate command in the store's container until the console and deployment agent exist
@@ -496,8 +530,8 @@ contract tests. Plus 7 live catalogue and 12 live authentication smoke checks.
   duplicate D-060 in SQL); Grocery cards do not show pack sizes (product pages do); images are served as uploaded (no resizing or `srcset`); HTML is not cached by shared
   caches, only media; the `<html>` element stays `lang="en"` while the store frame carries
   the customer's language.
-- Phase 05 limits: module states are configuration only. Contact address and social links
-  are not modelled yet.
+- Phase 05 limits carried forward: social links are not modelled yet. Module states now gate
+  implemented Phase 07 cart, checkout, slots and pre-order behavior.
 - Phase 04.1 limits (documented, not defects): reservations are not batch-assigned, so
   sellable batch stock subtracts the location's whole reservation; batches expiring
   after a reservation can leave it uncovered until Phase 08 allocation; pre-04.1 keys
@@ -505,8 +539,8 @@ contract tests. Plus 7 live catalogue and 12 live authentication smoke checks.
   `available` (on-hand minus reserved), the public catalogue shows sellable stock.
 - Known limits: no public catalogue rate limits/CDN, no image resizing or malware
   scanning (only images and PDFs accepted; PDFs download), public media may stay in
-  shared caches for five minutes after unpublishing, reservations not yet exposed
-  (07/08), FEFO is listing only (allocation 08), no merchant catalogue UI (11).
+  shared caches for five minutes after unpublishing, checkout reservations are temporary and
+  location-level while final FEFO batch allocation remains Phase 08, no merchant catalogue UI (11).
 - Carried forward: live Google/SMS/SMTP acceptance; production DB roles and proxy
   hardening (17); final security, load and recovery audit (18); font (Q1) and Redis
   licence (Q2) questions.

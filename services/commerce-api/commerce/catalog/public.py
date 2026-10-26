@@ -144,6 +144,7 @@ class PublicVariantSerializer(serializers.Serializer[Any]):
     title = serializers.CharField()
     options = PublicVariantOptionSerializer(source="option_values.all", many=True)
     kind = serializers.ChoiceField(choices=VariantKind.choices)
+    inventory_unit = serializers.CharField()
     digital_format = serializers.CharField()
     net_quantity = serializers.DecimalField(max_digits=12, decimal_places=3, allow_null=True)
     net_unit = serializers.CharField()

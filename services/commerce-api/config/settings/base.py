@@ -41,6 +41,8 @@ INSTALLED_APPS = [
     "commerce.catalog",
     "commerce.pricing",
     "commerce.inventory",
+    # Phase 07: customer/guest carts and server-owned checkout sessions.
+    "commerce.checkout",
     # Phase 05: store content (pages, homepage sections). Theme and modules live in stores.
     "commerce.content",
 ]
@@ -238,6 +240,9 @@ SPECTACULAR_SETTINGS = {
         "PageStatusEnum": "commerce.content.models.PageStatus",
         "PageTypeEnum": "commerce.content.models.PageType",
         "SectionTypeEnum": "commerce.content.models.SectionType",
+        "CartStatusEnum": "commerce.checkout.models.CartStatus",
+        "CheckoutStatusEnum": "commerce.checkout.models.CheckoutStatus",
+        "CouponDiscountTypeEnum": "commerce.checkout.models.CouponDiscountType",
     },
 }
 API_SCHEMA_ENABLED = env.bool("DJANGO_API_SCHEMA_ENABLED", default=False)

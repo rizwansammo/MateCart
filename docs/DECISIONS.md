@@ -721,6 +721,37 @@ idempotency_conflict`. The free-text reason, actor and a batch's supplier
   licence, price or purchase records. The showcase (themes.matecart.pro) and marketplace are
   later work.
 
+### D-070 · Server-owned cart, checkout quote and temporary reservation boundary (2026-10-26, Phase 07)
+
+- **Ownership.** A cart belongs to exactly one customer or one guest credential. Guest credentials
+  are 256-bit opaque values kept only in an HttpOnly, SameSite=Lax, secure-in-production cookie;
+  only their SHA-256 digest is stored. Customer sign-in atomically associates or merges the guest
+  cart without accepting an owner from request data. Active carts expire after 30 days.
+- **Authoritative checkout.** The API derives every line and amount from the current catalogue,
+  `pricing.services.quote()` and inventory. A checkout stores product/variant/price snapshots,
+  contact and delivery snapshots and Decimal totals. Drafts expire after 30 minutes. Changed
+  prices or cart contents refresh the snapshot and require review again rather than silently
+  proceeding. Purely digital checkouts require no delivery address or method.
+- **Review and stock.** Review takes a client-generated idempotency key, locks variants in stable
+  order, revalidates the snapshot and uses the existing inventory reservation ledger. A reviewed
+  checkout holds tracked physical stock for 15 minutes; an idempotent Celery expiry task releases
+  abandoned holds. Adding to a cart never reserves stock. Phase 08 consumes a reviewed checkout,
+  revalidates it and owns the irreversible order, allocation and payment transitions.
+- **Calculation.** One service calculates item subtotal, a basic fixed or percentage coupon,
+  shipping, configured regional tax and grand total, rounding at ISO 4217 minor units. Shipping
+  methods use store-owned prices, currency, country eligibility, minimum subtotal and optional
+  free threshold. Grocery delivery slots are capacity- and time-filtered when that module is on.
+- **D-053 reconciliation.** Phase 07 implements only coupon validation and quote calculation.
+  Redemption is not recorded until Phase 08 creates an order. Campaigns, stacking, scheduling,
+  flash sales, loyalty, analytics and promotion administration remain Phase 12. This narrows, but
+  does not reverse, D-053's deferral of the broader promotion engine.
+- **Configuration and independence.** `cart_checkout` is implemented and on by default for all
+  presets; `delivery_slots` is Grocery-only and `preorders` is Books/General. All follow the
+  existing module rules. Checkout is one theme-independent engine and never calls control-api,
+  a carrier, tax provider or payment provider. The zero-cost “Standard delivery” row is a safe
+  bootstrap default a merchant can replace with store-owned configuration; it makes no carrier or
+  country-specific claim.
+
 ## Open questions for the owner
 
 | #   | Question                                                                                                                                   | Status                                                                                                    | Needed by |

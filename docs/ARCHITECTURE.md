@@ -132,7 +132,7 @@ Outside the database: cache keys use `tenant_cache_key(...)` (`tenant:<id>:...`)
   PostgreSQL; reversals compensate. Optional idempotency keys make retries safe;
   each key is bound to the request's fingerprint, so a different request with a
   reused key is refused (D-059). Reservations (`reserve`/`release`/`fulfil`) are
-  ready for checkout and orders (07/08) but not exposed yet.
+  are consumed by checkout temporary holds (07) and remain the basis for order allocation (08).
 - **Sellable stock (D-060).** `sellable_quantities()` is the one definition used by
   the public catalogue, `is_purchasable()` and `reserve()`: available stock at active
   locations, and for batch-tracked variants only unexpired batch stock (store
@@ -165,6 +165,21 @@ Outside the database: cache keys use `tenant_cache_key(...)` (`tenant:<id>:...`)
   against a code registry, D-062) and the `content` app (pages, homepage sections, D-063).
   APIs: `/api/manage/store/`, `/api/manage/content/` (staff realm) and the public
   `/api/storefront/` (D-064). Merchant screens: `/manage/appearance`, `/manage/content`.
+
+### Cart and checkout (Phase 07)
+
+- **One domain service.** `commerce.checkout` owns carts, saved addresses, checkout snapshots,
+  basic coupons, shipping methods, tax rates, delivery slots and temporary reservations. Browser
+  APIs live at `/api/cart/`, `/api/checkout/` and `/api/account/addresses/`; they use the existing
+  customer cookie realm and CSRF policy and also permit an opaque guest-cart cookie.
+- **Trust boundary.** The browser supplies variant ids, quantities, contact/delivery fields and
+  choices, never prices or totals. Review locks the checkout and variants, quotes current prices,
+  checks sellable stock and reserves through `commerce.inventory.services`. Expiry releases via an
+  idempotent tenant-aware Celery task. Contact and address values are excluded from audit changes.
+- **Phase boundary.** A reviewed checkout is not an order. It carries a short-lived validated
+  snapshot and stock hold for Phase 08. No order, payment, invoice, fulfilment or coupon redemption
+  is created in Phase 07. Storefront components and APIs resolve everything locally without the
+  Central Console, and enabled modules follow the preset rather than the visual theme (D-070).
 
 ### Independence from the Central Console
 

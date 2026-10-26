@@ -1,9 +1,11 @@
 'use client';
 
 import type { PublicImage, PublicProductDetail, PublicVariant } from '@matecart/shared-contracts';
-import type { PresentationVariant } from '@matecart/shared-ui';
+import { errorMessage, type PresentationVariant } from '@matecart/shared-ui';
+import Link from 'next/link';
 import { useState, type ReactNode } from 'react';
 
+import { addToCart } from '@/lib/checkout-client';
 import { formatDate, messages } from '@/lib/i18n';
 import { formatMoney, saving } from '@/lib/money';
 import {
@@ -19,7 +21,7 @@ import { FOCUS, StoreImage } from './ui';
 
 /**
  * The interactive part of a product page: gallery, option choice, price, stock and the
- * (not yet active) purchase box, all following the selected variant. The selected variant is
+ * purchase box, all following the selected variant. The selected variant is
  * kept in the URL (?variant=…) so a shared link opens on the same choice. Server-rendered
  * product texts are passed in as `header` and `highlights`.
  */
@@ -286,23 +288,73 @@ function PriceAndStock({
   );
 }
 
-function PurchaseBox({ lang }: { lang: string }) {
+function PurchaseBox({
+  lang,
+  variant,
+  cartEnabled = true,
+}: {
+  lang: string;
+  variant: PublicVariant | null;
+  cartEnabled?: boolean;
+}) {
   const t = messages(lang);
-  // Ordering arrives with the cart and checkout (Phase 07); until then the button says so
-  // instead of pretending to add anything.
+  const [quantity, setQuantity] = useState('1');
+  const [busy, setBusy] = useState(false);
+  const [feedback, setFeedback] = useState<{ ok: boolean; text: string } | null>(null);
+  const available = cartEnabled && variant !== null && isPurchasable(variant);
+
+  async function add() {
+    if (!variant || !available || busy) return;
+    setBusy(true);
+    setFeedback(null);
+    try {
+      await addToCart(variant.id, quantity);
+      setFeedback({ ok: true, text: t.addedToCart });
+    } catch (error) {
+      setFeedback({ ok: false, text: errorMessage(error) });
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
-    <div className="flex flex-col gap-2">
-      <button
-        type="button"
-        disabled
-        aria-describedby="ordering-note"
-        className="h-12 cursor-not-allowed rounded-base bg-store-action text-[14.5px] font-semibold text-store-on-action opacity-45"
-      >
-        {t.addToCart}
-      </button>
-      <p id="ordering-note" className="m-0 text-[13px] text-store-muted">
-        {t.orderingSoon}
-      </p>
+    <div className="flex flex-col gap-3">
+      <div className="flex gap-2">
+        <label className="flex w-24 flex-col gap-1 text-xs font-semibold text-store-muted">
+          {t.quantity}
+          <input
+            type="number"
+            min="0.001"
+            max="999.999"
+            step={variant?.inventory_unit === 'each' ? '1' : '0.001'}
+            value={quantity}
+            onChange={(event) => setQuantity(event.target.value)}
+            disabled={!available || busy}
+            className={`h-12 rounded-base border border-store-line bg-store-surface px-3 text-base text-store-ink ${FOCUS}`}
+          />
+        </label>
+        <button
+          type="button"
+          disabled={!available || busy || !quantity}
+          onClick={() => void add()}
+          className={`mt-[17px] h-12 flex-1 rounded-base bg-store-action text-[14.5px] font-semibold text-store-on-action disabled:cursor-not-allowed disabled:opacity-45 ${FOCUS}`}
+        >
+          {busy ? t.addingToCart : t.addToCart}
+        </button>
+      </div>
+      {feedback && (
+        <p
+          role="status"
+          className={`m-0 text-[13px] ${feedback.ok ? 'text-success-fg' : 'text-danger-fg'}`}
+        >
+          {feedback.text}{' '}
+          {feedback.ok && (
+            <Link href="/cart" className={`font-semibold underline ${FOCUS}`}>
+              {t.viewCart}
+            </Link>
+          )}
+        </p>
+      )}
     </div>
   );
 }
@@ -315,6 +367,7 @@ export function ProductExperience({
   requestedVariant,
   header,
   highlights,
+  cartEnabled = true,
 }: {
   product: PublicProductDetail;
   look: PresentationVariant;
@@ -325,6 +378,7 @@ export function ProductExperience({
   requestedVariant: string | null;
   header: ReactNode;
   highlights: ReactNode;
+  cartEnabled?: boolean;
 }) {
   const [variant, setVariant] = useState<PublicVariant | null>(() =>
     initialVariant(product, requestedVariant),
@@ -354,7 +408,7 @@ export function ProductExperience({
         <PriceAndStock variant={variant} lang={lang} today={today} look={look} />
         {variant && <Options product={product} variant={variant} lang={lang} onChange={choose} />}
         {highlights}
-        <PurchaseBox lang={lang} />
+        <PurchaseBox lang={lang} variant={variant} cartEnabled={cartEnabled} />
       </div>
     </div>
   );

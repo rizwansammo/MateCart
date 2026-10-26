@@ -148,6 +148,7 @@ function storefront(ctx: StoreContext) {
         requestedVariant={null}
         header={null}
         highlights={null}
+        cartEnabled
       />
     </StoreShell>,
   );
@@ -230,7 +231,7 @@ describe('functional parity between themes of one preset (D-069)', () => {
         '/products/gitanjali',
       ]),
     );
-    expect(firstCapabilities.purchase.every((disabled) => disabled)).toBe(true);
+    expect(firstCapabilities.purchase).toEqual([false]);
   });
 
   it('keeps business wording on the preset, whatever the header variant', () => {

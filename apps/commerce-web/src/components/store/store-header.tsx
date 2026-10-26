@@ -8,6 +8,7 @@ import { localize } from '@/lib/i18n';
 import type { StoreContext } from '@/lib/store-context';
 
 import { LanguageSwitcher } from './language-switcher';
+import { CartLink } from './cart-link';
 import { MenuDrawer } from './mobile-menu';
 import { NavLinks, type NavItem } from './nav-links';
 import { CONTAINER, ChevronRight, FOCUS, MenuIcon, SearchIcon, UserIcon } from './ui';
@@ -349,6 +350,7 @@ export function StoreHeader({
             </Link>
           )}
           <AccountLink ctx={ctx} className={iconButton} showLabel={false} />
+          {ctx.config.modules.includes('cart_checkout') && <CartLink label={t.cart} compact />}
         </div>
         {(header === 'quickshop' || header === 'marketplace' || header === 'spec') && (
           <div className="px-3 pb-3">
@@ -381,6 +383,9 @@ export function StoreHeader({
                   className={`${iconButton} ${header === 'literary' ? 'w-auto! px-2.5 text-[13.5px]' : ''}`}
                   showLabel={header === 'literary'}
                 />
+                {ctx.config.modules.includes('cart_checkout') && (
+                  <CartLink label={t.cart} compact={header === 'editorial'} />
+                )}
               </div>
             </div>
             {header === 'literary' && nav(`border-t border-store-line ${CONTAINER}`)}
@@ -419,6 +424,9 @@ export function StoreHeader({
                     : 'h-[42px] rounded-base border border-store-line bg-store-surface px-3 text-[13.5px] font-semibold'
                 }
               />
+              {ctx.config.modules.includes('cart_checkout') && (
+                <CartLink label={t.cart} compact={dark} />
+              )}
             </div>
             {header === 'spec' ? (
               <div className="border-t border-store-header-line">

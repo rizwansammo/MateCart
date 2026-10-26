@@ -6,3 +6,4 @@ export * from './auth';
 export * from './catalog';
 export * from './appearance';
 export * from './themes';
+export * from './checkout';

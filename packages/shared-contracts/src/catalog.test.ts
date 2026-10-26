@@ -66,6 +66,7 @@ describe('catalogue response boundaries', () => {
           title: 'M',
           options: [{ attribute: 'size', option: 'm', value: 'M' }],
           kind: 'physical',
+          inventory_unit: 'each',
           digital_format: '',
           net_quantity: null,
           net_unit: '',

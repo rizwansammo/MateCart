@@ -24,6 +24,8 @@ urlpatterns: list[URLPattern | URLResolver] = [
     path("api/catalog/", include("commerce.catalog.public_urls")),
     # Public, read-only store configuration, homepage and published pages.
     path("api/storefront/", include("commerce.content.public_urls")),
+    # Phase 07 customer/guest cart, checkout sessions and customer addresses.
+    path("api/", include("commerce.checkout.urls")),
 ]
 
 if settings.API_SCHEMA_ENABLED:

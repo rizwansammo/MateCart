@@ -17,7 +17,13 @@ import { StoreShell } from './store-shell';
 import { Tabs } from './tabs';
 
 const router = vi.hoisted(() => ({ push: vi.fn(), refresh: vi.fn(), replace: vi.fn() }));
+const checkout = vi.hoisted(() => ({
+  addToCart: vi.fn(),
+  getCart: vi.fn(),
+  CART_UPDATED_EVENT: 'matecart:cart-updated',
+}));
 vi.mock('next/navigation', () => ({ useRouter: () => router, usePathname: () => '/shop' }));
+vi.mock('@/lib/checkout-client', () => checkout);
 vi.mock('next/form', () => ({
   default: ({ action, children, ...rest }: { action: string; children: ReactNode }) => (
     <form action={action} {...rest}>
@@ -29,6 +35,9 @@ vi.mock('next/form', () => ({
 beforeEach(() => {
   router.push.mockReset();
   router.refresh.mockReset();
+  checkout.addToCart.mockReset();
+  checkout.addToCart.mockResolvedValue(undefined);
+  checkout.getCart.mockResolvedValue({ item_count: 0 });
 });
 
 const categories = [
@@ -449,13 +458,23 @@ describe('product page', () => {
     await userEvent.click(screen.getByRole('button', { name: /^S/ }));
     expect(screen.getByText('Out of stock')).toBeInTheDocument();
   });
-  it('marks sold-out options and never offers a working purchase yet', () => {
+  it('keeps the purchase action disabled for a sold-out selection', () => {
     view('s');
     expect(screen.getByRole('button', { name: /^S/ })).toHaveAttribute('aria-pressed', 'true');
     expect(screen.getByText('Out of stock')).toBeInTheDocument();
     const add = screen.getByRole('button', { name: 'Add to cart' });
     expect(add).toBeDisabled();
-    expect(add).toHaveAccessibleDescription('Online ordering is not available yet.');
+  });
+  it('adds the selected variant and quantity to the cart', async () => {
+    const user = userEvent.setup();
+    view();
+    await user.click(screen.getByRole('button', { name: 'L' }));
+    const quantity = screen.getByRole('spinbutton', { name: 'Quantity' });
+    await user.clear(quantity);
+    await user.type(quantity, '2');
+    await user.click(screen.getByRole('button', { name: 'Add to cart' }));
+    expect(checkout.addToCart).toHaveBeenCalledWith('l', '2');
+    expect(await screen.findByText('Added to your cart.')).toBeInTheDocument();
   });
   it('labels pre-orders, digital formats and missing prices', () => {
     const special = productWith([

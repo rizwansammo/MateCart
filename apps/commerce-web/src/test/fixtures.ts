@@ -26,6 +26,7 @@ export function variant(
       value: option.toUpperCase(),
     })),
     kind: 'physical',
+    inventory_unit: 'each',
     digital_format: '',
     net_quantity: null,
     net_unit: '',
@@ -111,7 +112,7 @@ export function storeConfig(extra: Partial<StorefrontConfig['store']> = {}): Sto
       favicon_url: null,
       show_name_with_logo: true,
     },
-    modules: [],
+    modules: ['cart_checkout'],
     footer_pages: [
       {
         slug: 'shipping',

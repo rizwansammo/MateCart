@@ -119,7 +119,7 @@ Update the status in the same change that completes a feature.
 - [x] Published information and policy pages; store 404 and error pages
 - [x] English and Bangla interface and content with fallback; language kept in a first-party cookie
 - [x] Page titles, descriptions, sharing basics; development stores not indexable
-- [x] Honest purchase state: "Add to cart" disabled until Phase 07
+- [x] Phase 07 replaces the honest disabled state with selected-variant Add to Cart
 - [x] Storefront tests (commerce-web Vitest), five-preset desktop and mobile smoke, review seed data
 - [x] Phase 06 commit `46c2e1a` and GitHub CI run 40311886344 (4/4, 894 tests)
 - [x] Search finds products by translated names in the store's languages (06.1)
@@ -137,13 +137,28 @@ Update the status in the same change that completes a feature.
 - [x] Trusted, audited theme assignment (`assign_store_theme`); merchants and customers cannot assign
 - [x] Preset change clears an incompatible theme assignment
 - [x] Functional parity tests between two themes of one preset; five storefronts visually unchanged
-- [ ] Owner commit, GitHub CI and independent review of Phase 06.2
+- [x] Owner commit `cd4ca91`, GitHub CI 40322387368 (4/4, 960 tests) and independent review
 - [ ] Later (not scheduled here): theme showcase (themes.matecart.pro), premium licences, console assignment UI (16), deployment operations (17)
 - [ ] Deferred from Phase 06: "in stock only" filter and facet lists (brand, author, publisher, format); pack sizes on Grocery cards; responsive image sizes and shared HTML caching (12/17)
 
-## Carried into Phases 07 and 08 (from Phase 04.1, not implemented yet)
+## Cart and checkout (Phase 07; acceptance pending)
 
-- [ ] Phase 07: validate batch expiry when checkout reserves stock
+- [x] Server-authoritative guest and customer carts; opaque cookie ownership, expiry and sign-in association
+- [x] Selected-variant Add to Cart, quantity validation, removal, cart count and responsive cart page
+- [x] Physical, digital and mixed checkout details with international address and contact validation
+- [x] Checkout snapshots, changed-price/cart review, Decimal totals and ISO currency rounding
+- [x] Basic fixed/percentage coupons without premature redemption or Phase 12 promotion scope
+- [x] Store-owned shipping methods, country eligibility, regional tax and Grocery delivery slots
+- [x] Idempotent checkout review, short-lived inventory holds, Celery expiry and explicit release
+- [x] Current sellable-stock and expired-batch checks; concurrent inventory reservation prevents overselling
+- [x] Tenant/customer/guest isolation, composite tenant FKs, CSRF and no personal data in audit changes
+- [x] English/Bangla shared UI and theme-independent capability across all five presets
+- [x] Explicit Phase 08 boundary: reviewed checkout creates no order, payment, invoice or redemption
+- [x] Additive migration and validated OpenAPI/shared contracts; all local gates passed (990 tests)
+
+## Carried into Phases 07 and 08 (from Phase 04.1)
+
+- [x] Phase 07: validate batch expiry when cart eligibility and checkout reservation are checked
 - [ ] Phase 08: revalidate batch expiry before order allocation and fulfilment
 - [ ] Phase 08: prefer an eligible unexpired batch when reserved stock becomes unusable
 - [ ] Phase 08: handle insufficient replacement stock through an explicit order resolution state
@@ -159,8 +174,8 @@ Update the status in the same change that completes a feature.
 - [~] Preset-specific attributes (data in 04, storefront presentation in 06; delivery slots, comparison and EMI remain): fashion variants and size guides; grocery weight, expiry, batch, delivery slots; electronics specs, warranty, serial numbers, comparison, EMI; bookstore ISBN, author, publisher, language, edition, genre, format, pages, series, pre-orders, digital editions (04, 05)
 - [x] Five presets with distinct visual identities; white-label branding; theming (05; storefront rendering 06)
 - [x] Storefront: discovery, search, filters, product detail, responsive, bilingual EN/BN (06; acceptance pending)
-- [ ] Cart, guest checkout, addresses, coupons, shipping, taxes, delivery options, price calculation, batch-expiry check at reservation (07)
-- [ ] Order state machine, stock reservation, expiry-safe batch allocation, payments, COD, refunds, callbacks, invoices (08)
+- [x] Cart, guest checkout, addresses, basic coupons, shipping, taxes, delivery options, price calculation, batch-expiry check and temporary checkout reservation (07; acceptance pending)
+- [ ] Order state machine, final stock allocation, expiry-safe batch allocation, payments, COD, refunds, callbacks, invoices (08)
 - [ ] Courier integrations, tracking, COD reconciliation (09)
 - [ ] Accounts, order history, reviews, returns, exchanges, warranties, support (10)
 - [ ] Merchant dashboard: operations, products, orders, inventory, customers, reports, staff, settings (11)
@@ -172,7 +187,7 @@ Update the status in the same change that completes a feature.
 - [x] Authentication rate-limiting foundation (03)
 - [ ] General bot protection and edge limits (12, 17, 18)
 - [~] CDN compatibility (06: per-request HTML, cacheable public media; shared HTML caching 17)
-- [ ] Checkout and inventory protection against duplicate operations and overselling (07, 08)
+- [x] Checkout duplicate-submission and temporary-reservation overselling protection (07); final order/allocation protection remains 08
 - [ ] Resource-based scaling decisions; client-owned VPS limits respected (17, 18)
 - [ ] Distinguish rolling 24-hour visitors from concurrent active users (12, 16)
 
