@@ -19,6 +19,7 @@ from commerce.checkout.models import (
     Coupon,
     CouponDiscountType,
     DeliverySlot,
+    ShippingMethod,
 )
 from commerce.checkout.tasks import expire_checkout
 from commerce.core.domain import ConflictError
@@ -836,3 +837,92 @@ def test_invoice_numbers_are_sequential_per_store(store: Any) -> None:
         ("ORD-000002", "INV-000002"),
         ("ORD-000003", "INV-000003"),
     ]
+
+
+# --- Phase 08.1 corrections -----------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("change", ["disabled", "country", "currency", "minimum"])
+def test_placement_rechecks_the_reviewed_shipping_method(
+    store: Any, api_client: APIClient, change: str
+) -> None:
+    set_preset(store.tenant, "grocery")
+    variant = product(store.tenant, tracked=True)
+    stock(store.tenant, variant, 2)
+    with tenant_context(store.tenant):
+        Coupon.objects.create(code="SHIP5", discount_type=CouponDiscountType.PERCENT, value=5)
+        slot = DeliverySlot.objects.create(
+            label="Morning",
+            starts_at=timezone.now() + timedelta(hours=3),
+            ends_at=timezone.now() + timedelta(hours=5),
+            capacity=1,
+        )
+    checkout_id = reviewed(api_client, variant, coupon_code="SHIP5", delivery_slot=slot)
+    reviewed_total = api_client.get(f"/api/checkout/{checkout_id}/").data["grand_total"]
+    with tenant_context(store.tenant):
+        methods = ShippingMethod.objects.all()
+        {
+            "disabled": lambda: methods.update(is_active=False),
+            "country": lambda: methods.update(supported_countries=["IN"]),
+            "currency": lambda: methods.update(currency="USD"),
+            "minimum": lambda: methods.update(minimum_subtotal=Decimal("100000")),
+        }[change]()
+
+    blocked = place(api_client, checkout_id)
+
+    assert blocked.status_code == 409
+    assert blocked.data["error"]["code"] == "shipping_unavailable"
+    assert level(store.tenant, variant).reserved == Decimal(0)
+    with tenant_context(store.tenant):
+        assert not Order.objects.exists()
+        assert not Invoice.objects.exists()
+        assert not PaymentIntent.objects.exists()
+        assert not CouponRedemption.objects.exists()
+        assert Coupon.objects.get(code="SHIP5").times_redeemed == 0
+        slot.refresh_from_db()
+        assert slot.bookings == 0
+        session = CheckoutSession.objects.get(pk=checkout_id)
+        assert session.status == CheckoutStatus.RELEASED
+        assert str(session.grand_total) == reviewed_total
+
+
+def test_same_key_replay_is_bound_to_the_payment_method(
+    store: Any, api_client: APIClient, fakepay: type[FakePaymentProvider]
+) -> None:
+    variant = product(store.tenant, tracked=True)
+    stock(store.tenant, variant, 2)
+    cod_checkout = reviewed(api_client, variant)
+    placed = place(api_client, cod_checkout, "cod", "same-key-cod-01")
+    replay = place(api_client, cod_checkout, "cod", "same-key-cod-01")
+    switched = place(api_client, cod_checkout, "online", "same-key-cod-01")
+    other_key = place(api_client, cod_checkout, "cod", "other-key-cod-01")
+
+    assert placed.status_code == 201
+    assert replay.status_code == 200
+    assert replay.data["id"] == placed.data["id"]
+    assert switched.status_code == 409
+    assert switched.data["error"]["code"] == "idempotency_conflict"
+    assert other_key.status_code == 409
+    assert other_key.data["error"]["code"] == "checkout_completed"
+
+    buyer = APIClient()
+    online_checkout = reviewed(buyer, variant)
+    online = place(buyer, online_checkout, "online", "same-key-online-01")
+    reverse = place(buyer, online_checkout, "cod", "same-key-online-01")
+    online_replay = place(buyer, online_checkout, "online", "same-key-online-01")
+
+    assert online.status_code == 201
+    assert reverse.status_code == 409
+    assert reverse.data["error"]["code"] == "idempotency_conflict"
+    assert online_replay.status_code == 200
+    assert online_replay.data["id"] == online.data["id"]
+    with tenant_context(store.tenant):
+        assert list(Order.objects.order_by("number").values_list("payment_method", flat=True)) == [
+            "cod",
+            "online",
+        ]
+        assert Invoice.objects.count() == 2
+        assert PaymentIntent.objects.count() == 1
+        assert StockMovement.objects.filter(movement_type=MovementType.RESERVED).count() == 2
+        assert StockMovement.objects.filter(reference_type="order").count() == 0
+    assert level(store.tenant, variant).reserved == Decimal(2)

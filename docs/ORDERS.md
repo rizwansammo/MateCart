@@ -9,7 +9,13 @@ and D-073 (refunds and invoices).
 1. `/checkout/<id>` reviews the checkout and reserves stock for 15 minutes (Phase 07).
 2. The reviewed checkout lists the payment methods that can really complete it. The customer picks
    one and presses **Place order**, which calls `POST /api/checkout/<id>/order/` with
-   `payment_method` and an `idempotency_key`. A retry with the same key returns the same order.
+   `payment_method` and an `idempotency_key`. A retry with the same key and the same payment
+   method returns the same order; the same key with a different method is `409
+idempotency_conflict`, and another key on a converted checkout is `409 checkout_completed`.
+   Placement rechecks the reviewed delivery method with the checkout's own eligibility rules
+   (active, currency, country, minimum subtotal). If it no longer qualifies, placement answers `409
+shipping_unavailable`, creates nothing and releases the hold so the customer reviews again; no
+   other method is substituted and the reviewed totals are never changed (Phase 08.1).
 3. `/orders/<id>` shows the order number, status, payment status, delivery details, items and
    totals. It can cancel an unpaid order, start or retry an online payment and open the invoice.
 4. `/orders/<id>/invoice` is a printable invoice (browser print or save as PDF).
@@ -71,6 +77,15 @@ authenticates every request. A callback changes money only when its reference, a
 match the payment attempt. Duplicate event ids and duplicate transaction references have no effect.
 Unpaid online orders are cancelled when the window passes. A payment that arrives late is recorded
 as paid on the cancelled order so the merchant can refund it.
+
+Every verified provider payment is recorded as received money, including a late payment or a
+second payment for the same order. Overpayment reconciliation (detecting and returning money taken
+twice) is not automated; it must be verified against the chosen gateway's behaviour before online
+payment is activated in production.
+
+**Zero-total orders are not supported.** No payment method is offered when the grand total is
+zero (a free product or a 100% discount), so such a checkout cannot be placed. Supporting free
+orders needs a separate business decision.
 
 ## Refunds
 

@@ -171,7 +171,7 @@ Update the status in the same change that completes a feature.
 - [x] Focused checks and 39 checkout tests passed; all final gates passed (1,007 tests total)
 - [x] Accepted: `12f2d5b`, GitHub Actions 40366676323, 4/4 jobs, 1,007 tests; Phase 07 closed
 
-## Orders, payments and invoices (Phase 08; implemented locally, acceptance pending)
+## Orders, payments and invoices (Phase 08; pushed `a806bac`, CI 40376575339: 4/4, 1,045 tests; acceptance pending)
 
 - [x] Order, OrderItem, OrderStatusEvent (append-only, trigger), OrderAllocation, DocumentSequence; migrations `orders.0001`/`0002`
 - [x] One order per reviewed checkout (DB unique), idempotent placement key, concurrent submissions create one order
@@ -191,6 +191,14 @@ Update the status in the same change that completes a feature.
 - [x] Checkout payment-method choice, Place order, order confirmation, pay/retry/cancel, invoice page; English and Bangla
 - [x] Released/expired checkouts no longer display as reviewed (Phase 07 review note)
 - [ ] Real online gateway: no provider selected or configured; online payment stays unavailable (owner decision)
+- [ ] Owner commit/push, GitHub CI and independent acceptance
+
+## Order placement integrity corrections (Phase 08.1; implemented locally, acceptance pending)
+
+- [x] Recheck the reviewed delivery method at placement with the checkout eligibility rules (active, currency, country, minimum subtotal); `409 shipping_unavailable`, no records, hold released
+- [x] Digital-only placement unaffected; reviewed totals never changed and no method substituted
+- [x] Same-key replay succeeds only with the original payment method; otherwise `409 idempotency_conflict`
+- [x] Zero-total orders and gateway overpayment reconciliation documented as limits (no implementation change)
 - [ ] Owner commit/push, GitHub CI and independent acceptance
 
 ## Carried into Phases 07 and 08 (from Phase 04.1)

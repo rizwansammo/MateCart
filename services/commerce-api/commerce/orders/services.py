@@ -101,6 +101,11 @@ class ItemUnavailable(PlacementBlocked):
     default_detail = "An item is no longer available. Review your cart."
 
 
+class ShippingUnavailable(PlacementBlocked):
+    default_code = "shipping_unavailable"
+    default_detail = "The delivery method is no longer available. Review your checkout again."
+
+
 class InvalidTransition(ConflictError):
     default_code = "invalid_transition"
     default_detail = "The order cannot move to that status."
@@ -221,6 +226,16 @@ def _convert_reservations(
         )
 
 
+def _check_shipping(session: CheckoutSession) -> None:
+    """The reviewed delivery method must still pass the checkout's own eligibility rules (active,
+    currency, country, minimum subtotal). Its reviewed price is kept, like item prices."""
+    if not session.requires_shipping:
+        return
+    method = session.shipping_method
+    if method is None or method not in checkout.available_shipping_methods(session):
+        raise ShippingUnavailable()
+
+
 def _redeem_coupon(session: CheckoutSession, order: Order) -> None:
     if session.coupon_id is None:
         return
@@ -328,6 +343,12 @@ def _place(
         order = Order.objects.get(checkout=target)
         if order.placement_key_hash != digest:
             raise ConflictError("This checkout has already become an order.", "checkout_completed")
+        if order.payment_method != method:
+            # A replay must be the same request: the key is bound to the original payment method.
+            raise ConflictError(
+                "This request was already used with a different payment method.",
+                "idempotency_conflict",
+            )
         return order, True
     if target.status == CheckoutStatus.DRAFT and target.expires_at > timezone.now():
         raise ConflictError(
@@ -337,6 +358,7 @@ def _place(
         raise checkout.CheckoutExpired()
     if method not in available_payment_methods(target):
         raise ValidationError({"payment_method": ["This payment method is not available."]})
+    _check_shipping(target)
     lines = _lock_and_check_items(target)
     online = method == PaymentMethod.ONLINE
     order = Order(

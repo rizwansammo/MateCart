@@ -2,8 +2,9 @@
 
 Updated: 2026-10-27 (Asia/Dhaka). **Phase 07 — Cart & Checkout is accepted and closed with
 Correction 07.1 at `12f2d5b14c7a744126764c86e116d02d69f56abe` (GitHub Actions 40366676323: 4/4
-jobs, 1,007 tests, 0 failures). Phase 08 — Orders, Payments & Invoices is implemented locally by
-Claude Code; owner commit, CI and independent acceptance are pending. No real online payment
+jobs, 1,007 tests, 0 failures). Phase 08 — Orders, Payments & Invoices was pushed at `a806bac` (GitHub
+Actions 40376575339: 4/4 jobs, 1,045 tests); the Phase 08.1 placement integrity corrections are
+implemented locally, with owner commit, CI and independent acceptance pending. No real online payment
 gateway is configured.** Phases 01–07 (with 02.1, 02.2, 03.1, 04.1, 05.1, 06.1, 06.2 and 07.1) are
 accepted and closed.
 The managed theme marketplace remains deferred.
@@ -27,13 +28,46 @@ The managed theme marketplace remains deferred.
 | Phase 06.2      | **Accepted and closed:** `cd4ca9112b7c8b525869d14ef97c7406f0ba5365`, run 40322387368, 4/4 jobs, 960 tests. Supplementary architecture subphase before Phase 07; no additional main phase.                                                                 |
 | Phase 07        | Implemented and pushed: `9e5a7343d9dbe1e647286b7a2ddcadb14f32d11e`, run 40359693463, 4/4 jobs, 990 tests. Review requested the 07.1 corrections.                                                                                                          |
 | Correction 07.1 | **Accepted and Phase 07 closed:** `12f2d5b14c7a744126764c86e116d02d69f56abe`, run 40366676323, 4/4 jobs, 1,007 tests, 0 failures.                                                                                                                         |
-| Phase 08        | Implemented locally (this session); owner commit, CI and independent acceptance pending.                                                                                                                                                                  |
+| Phase 08        | Implemented and pushed: `a806baced20b7f39547b4bed7c92a4f1afb1809a`, run 40376575339, 4/4 jobs, 1,045 tests. Review requested the 08.1 corrections.                                                                                                        |
+| Correction 08.1 | Implemented locally (1,050 tests passing); owner commit, CI and independent acceptance pending.                                                                                                                                                           |
 | Architecture    | Dedicated single-tenant deployment, tenant-aware modular monolith, future hybrid only if approved; commerce/control independent.                                                                                                                          |
 | Product         | Private beta, manual onboarding. Public commercial signup/subscriptions/billing deferred. Public customer registration is authorized.                                                                                                                     |
 | Prototype       | MateCart-UI strictly read-only; no edits/build/install (HEAD `9ff1361`, clean).                                                                                                                                                                           |
 | Roadmap         | All 19 main phases preserved; 02.1/02.2/03.1 are corrective subphases, not additional main phases.                                                                                                                                                        |
 
-## Phase 08 orders, payments and invoices (implemented locally; acceptance pending)
+## Phase 08.1 order placement integrity corrections (implemented locally; acceptance pending)
+
+Corrective subphase after the independent review of `a806bac` (GitHub Actions 40376575339, 4/4
+jobs, 1,045 tests). Not a new main phase; no model, migration, API schema, contract, dependency or
+UI change.
+
+- **Shipping eligibility at placement.** `_place()` used the method chosen at review without
+  checking it again, so a method disabled or restricted after review could still produce an order.
+  Placement now calls `_check_shipping()`, which reuses `checkout.available_shipping_methods()`
+  (active, currency, country, minimum subtotal) for physical and mixed checkouts. An ineligible
+  method raises `409 shipping_unavailable` (a `PlacementBlocked` rule). No order, invoice, intent,
+  coupon redemption or slot booking is created, and the hold is released so the customer reviews
+  again. No method is substituted and the reviewed totals are not changed. Digital-only checkouts
+  skip the check.
+- **Payment-method-bound replay.** A completed checkout's same-key replay returned the order
+  whatever `payment_method` was sent. The replay now also requires the stored
+  `Order.payment_method`; a mismatch is `409 idempotency_conflict` and changes nothing (the guest
+  credential is not re-issued). A different key keeps `409 checkout_completed`.
+- **Documented, unchanged:** zero-total orders cannot be placed (no payment method is offered at a
+  zero total); every verified provider payment, late or additional, is recorded as received, and
+  overpayment reconciliation must be verified against the chosen gateway before production
+  (ORDERS.md).
+- **Files.** `services/commerce-api/commerce/orders/services.py`, `tests/test_orders.py`,
+  `docs/ORDERS.md`, `docs/FEATURE_CHECKLIST.md`, this file.
+- **Verification.** The 5 new regression tests (4 shipping-change cases and the replay matrix in
+  both directions) failed before the fix and pass after it. The order and concurrency suites passed
+  (30 tests). Final gates passed: `pnpm check`, `pnpm build`, `pnpm api:lint`, `pnpm api:test`,
+  `pnpm api:schema` (no warnings, `openapi.yaml` unchanged), `pnpm health` (all six) and
+  `docker compose config --quiet`. Suites: **1,050 tests, 0 failures**: commerce API 767, control
+  API 57, shared contracts 50, shared UI 76, commerce-web 95, Node 5. The migration workflow was not
+  repeated because there is no schema change.
+
+## Phase 08 orders, payments and invoices (pushed; acceptance pending with 08.1)
 
 Decisions D-071 to D-073; full description in [ORDERS.md](ORDERS.md).
 
@@ -616,9 +650,10 @@ contract tests. Plus 7 live catalogue and 12 live authentication smoke checks.
 
 ## Remaining scope, limits and next step
 
-- **Next step:** owner review of the Phase 08 diff and the local URLs (place a COD order from
-  `/checkout/<id>`, then open `/orders/<id>` and its invoice), then commit/push, GitHub CI and
-  independent acceptance. Do not start Phase 09 or mark Phase 08 accepted before that.
+- **Next step:** owner review of the Phase 08.1 diff, then commit/push, GitHub CI and independent
+  acceptance of Phase 08 with 08.1. The local URLs remain available for review (place a COD order
+  from `/checkout/<id>`, then open `/orders/<id>` and its invoice). Do not start Phase 09 or mark
+  Phase 08 accepted before that acceptance.
 - **Owner decision needed for online payment:** choose a gateway (none is selected). Its adapter,
   secrets and real sandbox testing are the remaining provider-dependent Phase 08 acceptance items;
   until then online payment, provider refunds and EMI stay unavailable.
