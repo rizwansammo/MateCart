@@ -35,6 +35,8 @@ urlpatterns: list[URLPattern | URLResolver] = [
     # Phase 10 customer and merchant after sales workflows.
     path("api/", include("commerce.aftersales.urls")),
     path("api/manage/aftersales/", include("commerce.aftersales.manage_urls")),
+    path("api/", include("commerce.aftersales.digital_urls")),
+    path("api/manage/digital/", include("commerce.aftersales.digital_manage_urls")),
 ]
 
 if settings.API_SCHEMA_ENABLED:
