@@ -17,8 +17,13 @@ urlpatterns: list[URLPattern | URLResolver] = [
     path("api/manage/pricing/", include("commerce.pricing.urls")),
     path("api/manage/inventory/", include("commerce.inventory.urls")),
     path("api/manage/media/", include("commerce.media.urls")),
+    # Phase 05 store appearance, modules and content (staff realm).
+    path("api/manage/store/", include("commerce.stores.urls")),
+    path("api/manage/content/", include("commerce.content.urls")),
     # Public, read-only catalogue for the storefront: active products only.
     path("api/catalog/", include("commerce.catalog.public_urls")),
+    # Public, read-only store configuration, homepage and published pages.
+    path("api/storefront/", include("commerce.content.public_urls")),
 ]
 
 if settings.API_SCHEMA_ENABLED:

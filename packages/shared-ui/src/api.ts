@@ -66,12 +66,16 @@ export interface ApiClientOptions {
   fetchImpl?: typeof fetch;
 }
 
-type Method = 'GET' | 'POST' | 'PATCH';
+type Method = 'GET' | 'POST' | 'PATCH' | 'PUT' | 'DELETE';
 
 export interface ApiClient {
   get<T>(path: string): Promise<T>;
   post<T>(path: string, body?: unknown): Promise<T>;
   patch<T>(path: string, body: unknown): Promise<T>;
+  put<T>(path: string, body: unknown): Promise<T>;
+  delete<T>(path: string): Promise<T>;
+  /** multipart/form-data upload (the browser sets the boundary). */
+  upload<T>(path: string, form: FormData): Promise<T>;
 }
 
 export function createApiClient({
@@ -100,7 +104,8 @@ export function createApiClient({
     retry = true,
   ): Promise<T> {
     const headers: Record<string, string> = { Accept: 'application/json' };
-    if (body !== undefined) headers['Content-Type'] = 'application/json';
+    const multipart = body instanceof FormData;
+    if (body !== undefined && !multipart) headers['Content-Type'] = 'application/json';
 
     let response: Response;
     try {
@@ -108,7 +113,7 @@ export function createApiClient({
       response = await doFetch(path, {
         method,
         headers,
-        body: body === undefined ? undefined : JSON.stringify(body),
+        body: body === undefined ? undefined : multipart ? body : JSON.stringify(body),
         credentials: 'same-origin',
         cache: 'no-store',
       });
@@ -135,5 +140,8 @@ export function createApiClient({
     get: (path) => request('GET', path),
     post: (path, body) => request('POST', path, body ?? {}),
     patch: (path, body) => request('PATCH', path, body),
+    put: (path, body) => request('PUT', path, body),
+    delete: (path) => request('DELETE', path),
+    upload: (path, form) => request('POST', path, form),
   };
 }

@@ -12,6 +12,8 @@ export default async function ManagePage({ params }: { params: Promise<{ path?: 
       'invitation',
       'team',
       'account/security',
+      'appearance',
+      'content',
     ].includes(path)
   )
     notFound();

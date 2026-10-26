@@ -2,7 +2,7 @@
 
 White-label e-commerce platform by **NetaMate Solutions**. Each client gets an independently deployed, branded online store with a storefront and a merchant dashboard. NetaMate operates the fleet through the internal Central Platform Console.
 
-> **Status:** Phases 01–03 (including corrective subphases 02.1, 02.2 and 03.1) accepted and closed. Phase 04 (Product & Inventory Engine) is implemented and pushed (`1bd61be`, CI 4/4); its corrective subphase 04.1 is verified locally and awaiting owner commit, CI and acceptance. See [docs/PROGRESS.md](docs/PROGRESS.md).
+> **Status:** Phases 01–04 (including corrective subphases 02.1, 02.2, 03.1 and 04.1) accepted and closed. Phase 05 (Presets, Themes & Branding) is complete locally and awaiting owner commit, CI and acceptance. See [docs/PROGRESS.md](docs/PROGRESS.md).
 
 ## Repository
 

@@ -2128,6 +2128,268 @@ paths:
       responses:
         '204':
           description: No response body
+  /api/manage/content/pages/:
+    get:
+      operationId: manage_content_pages
+      description: 'Store appearance and content: ``content.manage`` (Owner, Manager,
+        Content editor).'
+      tags:
+      - manage-content
+      security:
+      - staffSession: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Page'
+          description: ''
+    post:
+      operationId: manage_content_page_create
+      description: 'Store appearance and content: ``content.manage`` (Owner, Manager,
+        Content editor).'
+      tags:
+      - manage-content
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PageWriteRequest'
+        required: true
+      security:
+      - staffSession: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Page'
+          description: ''
+  /api/manage/content/pages/{page_id}/:
+    get:
+      operationId: manage_content_page
+      description: 'Store appearance and content: ``content.manage`` (Owner, Manager,
+        Content editor).'
+      parameters:
+      - in: path
+        name: page_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - manage-content
+      security:
+      - staffSession: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Page'
+          description: ''
+    patch:
+      operationId: manage_content_page_update
+      description: 'Store appearance and content: ``content.manage`` (Owner, Manager,
+        Content editor).'
+      parameters:
+      - in: path
+        name: page_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - manage-content
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedPageWriteRequest'
+      security:
+      - staffSession: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Page'
+          description: ''
+    delete:
+      operationId: manage_content_page_delete
+      description: 'Store appearance and content: ``content.manage`` (Owner, Manager,
+        Content editor).'
+      parameters:
+      - in: path
+        name: page_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - manage-content
+      security:
+      - staffSession: []
+      responses:
+        '204':
+          description: No response body
+  /api/manage/content/pages/{page_id}/status/:
+    post:
+      operationId: manage_content_page_status
+      description: 'Store appearance and content: ``content.manage`` (Owner, Manager,
+        Content editor).'
+      parameters:
+      - in: path
+        name: page_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - manage-content
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PageStatusRequest'
+        required: true
+      security:
+      - staffSession: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Page'
+          description: ''
+  /api/manage/content/sections/:
+    get:
+      operationId: manage_home_sections
+      description: 'Store appearance and content: ``content.manage`` (Owner, Manager,
+        Content editor).'
+      tags:
+      - manage-content
+      security:
+      - staffSession: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Section'
+          description: ''
+    post:
+      operationId: manage_home_section_create
+      description: 'Store appearance and content: ``content.manage`` (Owner, Manager,
+        Content editor).'
+      tags:
+      - manage-content
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SectionWriteRequest'
+        required: true
+      security:
+      - staffSession: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Section'
+          description: ''
+  /api/manage/content/sections/{section_id}/:
+    patch:
+      operationId: manage_home_section_update
+      description: 'Store appearance and content: ``content.manage`` (Owner, Manager,
+        Content editor).'
+      parameters:
+      - in: path
+        name: section_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - manage-content
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedSectionWriteRequest'
+      security:
+      - staffSession: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Section'
+          description: ''
+    delete:
+      operationId: manage_home_section_delete
+      description: 'Store appearance and content: ``content.manage`` (Owner, Manager,
+        Content editor).'
+      parameters:
+      - in: path
+        name: section_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - manage-content
+      security:
+      - staffSession: []
+      responses:
+        '204':
+          description: No response body
+  /api/manage/content/sections/defaults/:
+    post:
+      operationId: manage_home_sections_defaults
+      description: Create the preset's suggested homepage sections (only while empty).
+      tags:
+      - manage-content
+      security:
+      - staffSession: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Section'
+          description: ''
+  /api/manage/content/sections/order/:
+    put:
+      operationId: manage_home_sections_order
+      description: 'Store appearance and content: ``content.manage`` (Owner, Manager,
+        Content editor).'
+      tags:
+      - manage-content
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SectionOrderRequest'
+        required: true
+      security:
+      - staffSession: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Section'
+          description: ''
   /api/manage/inventory/adjustments/:
     post:
       operationId: manage_inventory_adjust
@@ -2978,6 +3240,104 @@ paths:
       responses:
         '204':
           description: No response body
+  /api/manage/store/appearance/:
+    get:
+      operationId: manage_appearance
+      description: 'Store appearance and content: ``content.manage`` (Owner, Manager,
+        Content editor).'
+      tags:
+      - manage-appearance
+      security:
+      - staffSession: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Appearance'
+          description: ''
+    patch:
+      operationId: manage_appearance_update
+      description: 'Store appearance and content: ``content.manage`` (Owner, Manager,
+        Content editor).'
+      tags:
+      - manage-appearance
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedAppearanceWriteRequest'
+      security:
+      - staffSession: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Appearance'
+          description: ''
+  /api/manage/store/appearance/reset/:
+    post:
+      operationId: manage_appearance_reset
+      description: Return brand colours to the preset palette; logos and texts are
+        kept.
+      tags:
+      - manage-appearance
+      security:
+      - staffSession: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Appearance'
+          description: ''
+  /api/manage/store/modules/:
+    get:
+      operationId: manage_modules
+      description: 'Store configuration such as modules: ``store.settings`` (Owner,
+        Manager).'
+      tags:
+      - manage-appearance
+      security:
+      - staffSession: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Module'
+          description: ''
+  /api/manage/store/modules/{key}/:
+    put:
+      operationId: manage_module_update
+      description: 'Store configuration such as modules: ``store.settings`` (Owner,
+        Manager).'
+      parameters:
+      - in: path
+        name: key
+        schema:
+          type: string
+        required: true
+      tags:
+      - manage-appearance
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ModuleWriteRequest'
+        required: true
+      security:
+      - staffSession: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Module'
+          description: ''
   /api/manage/team/:
     get:
       operationId: manage_team
@@ -3126,6 +3486,59 @@ paths:
               schema:
                 $ref: '#/components/schemas/Member'
           description: ''
+  /api/storefront/config/:
+    get:
+      operationId: storefront_config
+      description: Base for every cookie-authenticated or sign-in endpoint.
+      tags:
+      - storefront
+      security:
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StorefrontConfig'
+          description: ''
+  /api/storefront/home/:
+    get:
+      operationId: storefront_home
+      description: Base for every cookie-authenticated or sign-in endpoint.
+      tags:
+      - storefront
+      security:
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/PublicSection'
+          description: ''
+  /api/storefront/pages/{slug}/:
+    get:
+      operationId: storefront_page
+      description: Base for every cookie-authenticated or sign-in endpoint.
+      parameters:
+      - in: path
+        name: slug
+        schema:
+          type: string
+        required: true
+      tags:
+      - storefront
+      security:
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicPage'
+          description: ''
 components:
   schemas:
     AdjustmentMovementTypeEnum:
@@ -3243,6 +3656,93 @@ components:
         size_guide_notes:
           type: string
           maxLength: 2000
+    Appearance:
+      type: object
+      properties:
+        preset:
+          type: string
+        preset_label:
+          type: string
+        store_name:
+          type: string
+        can_rename:
+          type: boolean
+        default_language:
+          type: string
+        languages:
+          type: array
+          items:
+            type: string
+        primary_color:
+          type: string
+        accent_color:
+          type: string
+        logo:
+          allOf:
+          - $ref: '#/components/schemas/AssetRef'
+          nullable: true
+        logo_dark:
+          allOf:
+          - $ref: '#/components/schemas/AssetRef'
+          nullable: true
+        favicon:
+          allOf:
+          - $ref: '#/components/schemas/AssetRef'
+          nullable: true
+        tagline:
+          type: string
+        description:
+          type: string
+        announcement:
+          type: string
+        footer_text:
+          type: string
+        show_name_with_logo:
+          type: boolean
+        translations: {}
+        updated_at:
+          type: string
+          format: date-time
+          nullable: true
+      required:
+      - accent_color
+      - announcement
+      - can_rename
+      - default_language
+      - description
+      - favicon
+      - footer_text
+      - languages
+      - logo
+      - logo_dark
+      - preset
+      - preset_label
+      - primary_color
+      - show_name_with_logo
+      - store_name
+      - tagline
+      - translations
+      - updated_at
+    AssetRef:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        url:
+          type: string
+          readOnly: true
+        width:
+          type: integer
+          nullable: true
+        height:
+          type: integer
+          nullable: true
+      required:
+      - height
+      - id
+      - url
+      - width
     AssignableRoleEnum:
       enum:
       - manager
@@ -3935,6 +4435,20 @@ components:
           maxItems: 1000
       required:
       - products
+    CollectionRef:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        slug:
+          type: string
+      required:
+      - id
+      - name
+      - slug
     CollectionWriteRequest:
       type: object
       properties:
@@ -4085,6 +4599,19 @@ components:
           maxLength: 254
       required:
       - email
+    FooterPage:
+      type: object
+      properties:
+        slug:
+          type: string
+        title:
+          type: string
+        page_type:
+          $ref: '#/components/schemas/PageTypeEnum'
+      required:
+      - page_type
+      - slug
+      - title
     GoogleStart:
       type: object
       properties:
@@ -4551,6 +5078,60 @@ components:
       required:
       - code
       - method
+    Module:
+      type: object
+      properties:
+        key:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+        phase:
+          type: string
+        available:
+          type: boolean
+        core:
+          type: boolean
+        requires:
+          type: array
+          items:
+            type: string
+        applicable:
+          type: boolean
+        default_enabled:
+          type: boolean
+        configured:
+          type: boolean
+          nullable: true
+        enabled:
+          type: boolean
+        blocked_by:
+          type: array
+          items:
+            type: string
+      required:
+      - applicable
+      - available
+      - blocked_by
+      - configured
+      - core
+      - default_enabled
+      - description
+      - enabled
+      - key
+      - name
+      - phase
+      - requires
+    ModuleWriteRequest:
+      type: object
+      properties:
+        enabled:
+          type: boolean
+          nullable: true
+          description: true or false, or null to follow the preset default.
+      required:
+      - enabled
     Movement:
       type: object
       properties:
@@ -4757,6 +5338,110 @@ components:
           minimum: 0
       required:
       - value
+    Page:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        slug:
+          type: string
+          readOnly: true
+        title:
+          type: string
+          readOnly: true
+        body:
+          type: string
+          readOnly: true
+        page_type:
+          allOf:
+          - $ref: '#/components/schemas/PageTypeEnum'
+          readOnly: true
+        status:
+          allOf:
+          - $ref: '#/components/schemas/PageStatusEnum'
+          readOnly: true
+        published_at:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+        show_in_footer:
+          type: boolean
+          readOnly: true
+        position:
+          type: integer
+          readOnly: true
+        translations:
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - body
+      - id
+      - page_type
+      - position
+      - published_at
+      - show_in_footer
+      - slug
+      - status
+      - title
+      - translations
+      - updated_at
+    PageStatusEnum:
+      enum:
+      - draft
+      - published
+      type: string
+      description: |-
+        * `draft` - Draft
+        * `published` - Published
+    PageStatusRequest:
+      type: object
+      properties:
+        status:
+          $ref: '#/components/schemas/PageStatusEnum'
+      required:
+      - status
+    PageTypeEnum:
+      enum:
+      - page
+      - policy
+      type: string
+      description: |-
+        * `page` - Information page
+        * `policy` - Policy
+    PageWriteRequest:
+      type: object
+      properties:
+        title:
+          type: string
+          minLength: 1
+          maxLength: 160
+        slug:
+          oneOf:
+          - type: string
+            maxLength: 80
+            pattern: ^[a-z0-9]+(?:-[a-z0-9]+)*$
+          - type: string
+            maxLength: 0
+        body:
+          type: string
+          maxLength: 20000
+        page_type:
+          $ref: '#/components/schemas/PageTypeEnum'
+        show_in_footer:
+          type: boolean
+        position:
+          type: integer
+          maximum: 1000
+          minimum: 0
+        translations: {}
+      required:
+      - title
     PasswordChangeRequest:
       type: object
       properties:
@@ -4797,6 +5482,46 @@ components:
       required:
       - password
       - token
+    PatchedAppearanceWriteRequest:
+      type: object
+      properties:
+        store_name:
+          type: string
+          minLength: 1
+          maxLength: 120
+        primary_color:
+          type: string
+          maxLength: 7
+        accent_color:
+          type: string
+          maxLength: 7
+        logo:
+          type: string
+          format: uuid
+          nullable: true
+        logo_dark:
+          type: string
+          format: uuid
+          nullable: true
+        favicon:
+          type: string
+          format: uuid
+          nullable: true
+        tagline:
+          type: string
+          maxLength: 160
+        description:
+          type: string
+          maxLength: 500
+        announcement:
+          type: string
+          maxLength: 160
+        footer_text:
+          type: string
+          maxLength: 300
+        show_name_with_logo:
+          type: boolean
+        translations: {}
     PatchedAttributeWriteRequest:
       type: object
       properties:
@@ -4963,6 +5688,32 @@ components:
           type: integer
           maximum: 1000000
           minimum: 0
+    PatchedPageWriteRequest:
+      type: object
+      properties:
+        title:
+          type: string
+          minLength: 1
+          maxLength: 160
+        slug:
+          oneOf:
+          - type: string
+            maxLength: 80
+            pattern: ^[a-z0-9]+(?:-[a-z0-9]+)*$
+          - type: string
+            maxLength: 0
+        body:
+          type: string
+          maxLength: 20000
+        page_type:
+          $ref: '#/components/schemas/PageTypeEnum'
+        show_in_footer:
+          type: boolean
+        position:
+          type: integer
+          maximum: 1000
+          minimum: 0
+        translations: {}
     PatchedPriceListWriteRequest:
       type: object
       properties:
@@ -5056,6 +5807,37 @@ components:
           type: string
           minLength: 1
           maxLength: 150
+    PatchedSectionWriteRequest:
+      type: object
+      properties:
+        section_type:
+          $ref: '#/components/schemas/SectionTypeEnum'
+        is_enabled:
+          type: boolean
+        title:
+          type: string
+          maxLength: 120
+        subtitle:
+          type: string
+          maxLength: 200
+        body:
+          type: string
+          maxLength: 1000
+        image:
+          type: string
+          format: uuid
+          nullable: true
+        collection:
+          type: string
+          format: uuid
+          nullable: true
+        cta_label:
+          type: string
+          maxLength: 40
+        cta_url:
+          type: string
+          maxLength: 200
+        translations: {}
     PatchedVariantUpdateRequest:
       type: object
       properties:
@@ -5949,6 +6731,28 @@ components:
       - code
       - swatch
       - value
+    PublicPage:
+      type: object
+      properties:
+        slug:
+          type: string
+        title:
+          type: string
+        body:
+          type: string
+        page_type:
+          $ref: '#/components/schemas/PageTypeEnum'
+        published_at:
+          type: string
+          format: date-time
+        translations: {}
+      required:
+      - body
+      - page_type
+      - published_at
+      - slug
+      - title
+      - translations
     PublicPrice:
       type: object
       properties:
@@ -6158,6 +6962,39 @@ components:
       - page
       - page_size
       - results
+    PublicSection:
+      type: object
+      properties:
+        section_type:
+          $ref: '#/components/schemas/SectionTypeEnum'
+        title:
+          type: string
+        subtitle:
+          type: string
+        body:
+          type: string
+        image_url:
+          type: string
+          nullable: true
+        collection:
+          type: object
+          additionalProperties: {}
+          nullable: true
+        cta_label:
+          type: string
+        cta_url:
+          type: string
+        translations: {}
+      required:
+      - body
+      - collection
+      - cta_label
+      - cta_url
+      - image_url
+      - section_type
+      - subtitle
+      - title
+      - translations
     PublicVariant:
       type: object
       properties:
@@ -6413,6 +7250,108 @@ components:
           $ref: '#/components/schemas/AssignableRoleEnum'
       required:
       - role
+    Section:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        section_type:
+          $ref: '#/components/schemas/SectionTypeEnum'
+        position:
+          type: integer
+        is_enabled:
+          type: boolean
+        title:
+          type: string
+        subtitle:
+          type: string
+        body:
+          type: string
+        image:
+          allOf:
+          - $ref: '#/components/schemas/AssetRef'
+          nullable: true
+        collection:
+          allOf:
+          - $ref: '#/components/schemas/CollectionRef'
+          nullable: true
+        cta_label:
+          type: string
+        cta_url:
+          type: string
+        translations: {}
+      required:
+      - body
+      - collection
+      - cta_label
+      - cta_url
+      - id
+      - image
+      - is_enabled
+      - position
+      - section_type
+      - subtitle
+      - title
+      - translations
+    SectionOrderRequest:
+      type: object
+      properties:
+        sections:
+          type: array
+          items:
+            type: string
+            format: uuid
+          maxItems: 20
+      required:
+      - sections
+    SectionTypeEnum:
+      enum:
+      - hero
+      - category_showcase
+      - collection_highlight
+      - brand_story
+      - trust_strip
+      type: string
+      description: |-
+        * `hero` - Hero banner
+        * `category_showcase` - Category showcase
+        * `collection_highlight` - Collection highlight
+        * `brand_story` - Brand story
+        * `trust_strip` - Trust strip
+    SectionWriteRequest:
+      type: object
+      properties:
+        section_type:
+          $ref: '#/components/schemas/SectionTypeEnum'
+        is_enabled:
+          type: boolean
+        title:
+          type: string
+          maxLength: 120
+        subtitle:
+          type: string
+          maxLength: 200
+        body:
+          type: string
+          maxLength: 1000
+        image:
+          type: string
+          format: uuid
+          nullable: true
+        collection:
+          type: string
+          format: uuid
+          nullable: true
+        cta_label:
+          type: string
+          maxLength: 40
+        cta_url:
+          type: string
+          maxLength: 200
+        translations: {}
+      required:
+      - section_type
     SecurityStatus:
       type: object
       properties:
@@ -6703,6 +7642,67 @@ components:
       - available
       - on_hand
       - reserved
+    StoreInfo:
+      type: object
+      properties:
+        name:
+          type: string
+        tagline:
+          type: string
+        description:
+          type: string
+        announcement:
+          type: string
+        footer_text:
+          type: string
+        contact_email:
+          type: string
+        contact_phone:
+          type: string
+        currency:
+          type: string
+        default_language:
+          type: string
+        languages:
+          type: array
+          items:
+            type: string
+      required:
+      - announcement
+      - contact_email
+      - contact_phone
+      - currency
+      - default_language
+      - description
+      - footer_text
+      - languages
+      - name
+      - tagline
+    StorefrontConfig:
+      type: object
+      properties:
+        store:
+          $ref: '#/components/schemas/StoreInfo'
+        preset:
+          type: string
+        theme:
+          $ref: '#/components/schemas/Theme'
+        modules:
+          type: array
+          items:
+            type: string
+        footer_pages:
+          type: array
+          items:
+            $ref: '#/components/schemas/FooterPage'
+        translations: {}
+      required:
+      - footer_pages
+      - modules
+      - preset
+      - store
+      - theme
+      - translations
     Team:
       type: object
       properties:
@@ -6722,6 +7722,33 @@ components:
       - invitations
       - members
       - roles
+    Theme:
+      type: object
+      properties:
+        primary_color:
+          type: string
+          nullable: true
+        accent_color:
+          type: string
+          nullable: true
+        logo_url:
+          type: string
+          nullable: true
+        logo_dark_url:
+          type: string
+          nullable: true
+        favicon_url:
+          type: string
+          nullable: true
+        show_name_with_logo:
+          type: boolean
+      required:
+      - accent_color
+      - favicon_url
+      - logo_dark_url
+      - logo_url
+      - primary_color
+      - show_name_with_logo
     TotpConfirmRequest:
       type: object
       properties:

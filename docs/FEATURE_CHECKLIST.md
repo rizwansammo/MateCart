@@ -87,19 +87,41 @@ Update the status in the same change that completes a feature.
 - [x] Phase 04 owner commit `1bd61be` and GitHub CI run 40246230098 (4/4, 701 tests)
 - [x] Idempotency keys bound to a durable request fingerprint; historical keys verified from the ledger (04.1)
 - [x] Expired batch stock excluded from sellable stock, purchasability and reservations (04.1)
-- [~] Phase 04.1 verified locally; owner commit, CI and independent final acceptance pending
+- [x] Phase 04.1 commit `8290fe4` and GitHub CI run 40249765179 (4/4, 735 tests); Phase 04 accepted and closed
+
+## Presets, themes and branding (Phase 05)
+
+- [x] Typed definitions of the five preset identities (palette, typography, layout preferences)
+- [x] Scoped `store-*` theme tokens, server-renderable theme scope, General fallback
+- [x] Instrument Serif and Newsreader self-hosted; Optimus still excluded pending licence (Q1)
+- [x] Store branding: colours with readable-text validation, logos and favicon via the media pipeline, brand texts, Bangla
+- [x] Store module registry and overrides; planned modules locked off; prerequisites enforced
+- [x] Plain-text pages (draft/published) and ordered homepage sections with preset defaults
+- [x] Merchant appearance and content screens; public storefront configuration API; contracts
+- [x] Controlled business preset change command (refuses incompatible products)
+- [x] Authentication smoke test closed (12/12, carried from Phase 04.1)
+- [ ] Owner commit, GitHub CI and independent acceptance of Phase 05
+
+## Carried into Phases 07 and 08 (from Phase 04.1, not implemented yet)
+
+- [ ] Phase 07: validate batch expiry when checkout reserves stock
+- [ ] Phase 08: revalidate batch expiry before order allocation and fulfilment
+- [ ] Phase 08: prefer an eligible unexpired batch when reserved stock becomes unusable
+- [ ] Phase 08: handle insufficient replacement stock through an explicit order resolution state
+- [ ] Phase 08: never fulfil expired goods
+- [ ] Phase 08: keep reservations, stock and orders consistent; prevent duplicate allocation and deduction
 
 ## Commerce core
 
-- [ ] Store modules, theme and branding; preset engine (05)
+- [x] Store modules, theme and branding; preset engine (05; acceptance pending)
 - [ ] Store domains and TLS (17)
 - [x] Customer, merchant-staff and central-admin sign-in foundations, tenant-scoped RBAC, MFA and sessions (03; provider limits above)
 - [x] Catalogue, categories, variants, SKUs, pricing, stock movements (04; acceptance pending)
 - [~] Preset-specific attributes (data foundations done in 04; storefront presentation, delivery slots, comparison and EMI remain): fashion variants and size guides; grocery weight, expiry, batch, delivery slots; electronics specs, warranty, serial numbers, comparison, EMI; bookstore ISBN, author, publisher, language, edition, genre, format, pages, series, pre-orders, digital editions (04, 05)
-- [ ] Five presets with distinct visual identities; white-label branding; theming (05)
+- [x] Five presets with distinct visual identities; white-label branding; theming (05; storefront rendering in 06)
 - [ ] Storefront: discovery, search, filters, product detail, responsive, bilingual EN/BN (06)
-- [ ] Cart, guest checkout, addresses, coupons, shipping, taxes, delivery options, price calculation (07)
-- [ ] Order state machine, stock reservation, payments, COD, refunds, callbacks, invoices (08)
+- [ ] Cart, guest checkout, addresses, coupons, shipping, taxes, delivery options, price calculation, batch-expiry check at reservation (07)
+- [ ] Order state machine, stock reservation, expiry-safe batch allocation, payments, COD, refunds, callbacks, invoices (08)
 - [ ] Courier integrations, tracking, COD reconciliation (09)
 - [ ] Accounts, order history, reviews, returns, exchanges, warranties, support (10)
 - [ ] Merchant dashboard: operations, products, orders, inventory, customers, reports, staff, settings (11)

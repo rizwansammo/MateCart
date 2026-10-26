@@ -19,6 +19,8 @@ import {
   errorMessage,
 } from '@matecart/shared-ui';
 import { authApi as api } from '@/lib/auth-client';
+import { AppearanceSettings } from './appearance-app';
+import { ContentSettings } from './content-app';
 
 function TeamSettings() {
   const [data, setData] = useState<Team | null>(null);
@@ -335,18 +337,43 @@ function ProtectedManagement({ path }: { path: string }) {
       <Loading>Checking your team access…</Loading>
     );
   const canManage = session.permissions.includes('staff.manage');
+  const canEditContent = session.permissions.includes('content.manage');
+  const canManageSettings = session.permissions.includes('store.settings');
+  const denied = (
+    <Alert>You do not have permission to change this. Ask your store owner for help.</Alert>
+  );
   return (
     <DashboardShell
       realm="staff"
       name={session.store_name}
       subtitle={`${session.user.full_name} · ${session.role_label}`}
       team={canManage}
+      links={
+        canEditContent
+          ? [
+              { href: '/manage/appearance', label: 'Appearance' },
+              { href: '/manage/content', label: 'Content' },
+            ]
+          : []
+      }
       onLogout={async () => {
         await api.post('/api/manage/auth/logout/');
         window.location.assign('/manage/sign-in');
       }}
     >
-      {path === 'account/security' ? (
+      {path === 'appearance' ? (
+        canEditContent ? (
+          <AppearanceSettings canManageSettings={canManageSettings} />
+        ) : (
+          denied
+        )
+      ) : path === 'content' ? (
+        canEditContent ? (
+          <ContentSettings />
+        ) : (
+          denied
+        )
+      ) : path === 'account/security' ? (
         <SecuritySettings api={api} base="/api/manage/account" />
       ) : path === 'team' ? (
         canManage ? (

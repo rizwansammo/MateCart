@@ -192,7 +192,7 @@ def test_tenant_owned_relations_use_guarded_through_models() -> None:
             assert not model._meta.many_to_many, model
 
 
-@pytest.mark.parametrize("area", ["catalog", "pricing", "inventory", "media"])
+@pytest.mark.parametrize("area", ["catalog", "pricing", "inventory", "media", "content", "stores"])
 def test_phase_04_code_cannot_opt_out_of_scoped_data_access(area: str) -> None:
     root = Path(__file__).resolve().parents[1] / "commerce" / area
     forbidden = {"raw", "extra", "cursor", "unscoped_access", "QuerySet", "RawSQL"}

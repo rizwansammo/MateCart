@@ -421,6 +421,7 @@ export function DashboardShell({
   name,
   subtitle,
   team = false,
+  links = [],
   onLogout,
 }: {
   children: ReactNode;
@@ -428,6 +429,8 @@ export function DashboardShell({
   name: string;
   subtitle: string;
   team?: boolean;
+  /** Extra sections the signed-in person may open (for example Appearance, Content). */
+  links?: { href: string; label: string }[];
   onLogout: () => Promise<void>;
 }) {
   const paths = authPaths(realm);
@@ -447,6 +450,15 @@ export function DashboardShell({
           >
             Overview
           </a>
+          {links.map((link) => (
+            <a
+              key={link.href}
+              className="rounded-base px-4 py-3 text-sm font-semibold hover:bg-canvas"
+              href={link.href}
+            >
+              {link.label}
+            </a>
+          ))}
           {team && (
             <a
               className="rounded-base px-4 py-3 text-sm font-semibold hover:bg-canvas"

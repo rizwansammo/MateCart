@@ -13,6 +13,7 @@ from commerce.core.standards import (
     validate_currency_code,
     validate_timezone,
 )
+from commerce.tenancy.constraints import TenantForeignKeyConstraint
 from commerce.tenancy.models import TenantOwnedModel
 
 
@@ -98,3 +99,80 @@ class StoreSettings(TenantOwnedModel, TimestampedModel):
             raise ValidationError(
                 {"default_language": "The default language must be one of the supported languages."}
             )
+
+
+BRAND_COLOR_PATTERN = r"^#[0-9A-F]{6}$"
+
+
+class StoreTheme(TenantOwnedModel, TimestampedModel):
+    """The store's appearance on top of its preset (D-061): optional brand colours, logos and
+    short brand texts. One row per store, created on first save; absent values fall back to the
+    preset. The business preset itself stays on StoreSettings and is not changed here.
+
+    Images reference Phase 04 media assets (validated from their bytes, tenant-namespaced). They
+    become publicly readable only while assigned here (``catalog.public.is_public_asset``).
+    """
+
+    primary_color = models.CharField(
+        max_length=7, blank=True, validators=[RegexValidator(BRAND_COLOR_PATTERN)]
+    )
+    accent_color = models.CharField(
+        max_length=7, blank=True, validators=[RegexValidator(BRAND_COLOR_PATTERN)]
+    )
+    logo = models.ForeignKey(
+        "media.MediaAsset", null=True, blank=True, on_delete=models.PROTECT, related_name="+"
+    )
+    logo_dark = models.ForeignKey(
+        "media.MediaAsset", null=True, blank=True, on_delete=models.PROTECT, related_name="+"
+    )
+    favicon = models.ForeignKey(
+        "media.MediaAsset", null=True, blank=True, on_delete=models.PROTECT, related_name="+"
+    )
+    tagline = models.CharField(max_length=160, blank=True)
+    description = models.CharField(max_length=500, blank=True)
+    announcement = models.CharField(max_length=160, blank=True)
+    footer_text = models.CharField(max_length=300, blank=True)
+    show_name_with_logo = models.BooleanField(default=True)
+    translations = models.JSONField(default=dict, blank=True)
+
+    class Meta(TenantOwnedModel.Meta):
+        constraints = [
+            *TenantOwnedModel.Meta.constraints,
+            TenantForeignKeyConstraint(field="logo", name="stores_storetheme_logo_same_tenant"),
+            TenantForeignKeyConstraint(
+                field="logo_dark", name="stores_storetheme_logo_dark_same_tenant"
+            ),
+            TenantForeignKeyConstraint(
+                field="favicon", name="stores_storetheme_favicon_same_tenant"
+            ),
+            models.UniqueConstraint(fields=["tenant"], name="stores_storetheme_one_per_tenant"),
+            models.CheckConstraint(
+                condition=Q(primary_color="") | Q(primary_color__regex=BRAND_COLOR_PATTERN),
+                name="stores_storetheme_primary_color_format",
+            ),
+            models.CheckConstraint(
+                condition=Q(accent_color="") | Q(accent_color__regex=BRAND_COLOR_PATTERN),
+                name="stores_storetheme_accent_color_format",
+            ),
+        ]
+
+
+MODULE_KEY_PATTERN = r"^[a-z][a-z0-9_]{1,48}$"
+
+
+class StoreModule(TenantOwnedModel):
+    """A store's explicit choice for one module of the code-owned registry
+    (``stores.modules``). No row means the preset default applies (D-062)."""
+
+    key = models.CharField(max_length=50, validators=[RegexValidator(MODULE_KEY_PATTERN)])
+    enabled = models.BooleanField()
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta(TenantOwnedModel.Meta):
+        constraints = [
+            *TenantOwnedModel.Meta.constraints,
+            models.UniqueConstraint(fields=["tenant", "key"], name="stores_storemodule_unique"),
+            models.CheckConstraint(
+                condition=Q(key__regex=MODULE_KEY_PATTERN), name="stores_storemodule_key_format"
+            ),
+        ]

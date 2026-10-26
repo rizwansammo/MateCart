@@ -2,8 +2,9 @@
  * MateCart core design tokens (Tailwind CSS v4 theme).
  *
  * Source of truth: the approved UI prototype, "Design system · v1.0" (MateCart-UI, read-only).
- * Only the shared core is defined here. Preset palettes and typography (Fashion, Grocery,
- * Electronics, General, Bookstore) belong to Phase 05 and must come from the same prototype.
+ * The core below styles MateCart's own interfaces (dashboard, console, sign-in). Store presets
+ * (Fashion, Grocery, Electronics, General, Bookstore) are the `store-*` tokens at the end: they read
+ * CSS variables set by a store theme scope (presets.ts, StoreThemeScope) and never affect the core.
  *
  * Font variables (--font-geist, --font-geist-mono, --font-hind-siliguri) are provided by each
  * app's root layout via next/font, so fonts are self-hosted and never fetched from Google at runtime.
@@ -55,4 +56,35 @@
   /* Elevation */
   --shadow-card: 0 1px 2px rgb(13 15 14 / 0.06);
   --shadow-overlay: 0 24px 60px -20px rgb(13 15 14 / 0.35);
+}
+
+/*
+ * Store preset tokens (Phase 05, D-061). `inline` makes each utility read the variable where it is
+ * used, so a StoreThemeScope element (server-rendered with its preset's values) themes only its
+ * own subtree. The fallbacks are the General preset, so an unscoped use still renders sensibly.
+ * Semantic status colours (success, warning, danger, info) above are never re-themed.
+ */
+@theme inline {
+  --color-store-canvas: var(--store-canvas, #fafaf9);
+  --color-store-surface: var(--store-surface, #ffffff);
+  --color-store-ink: var(--store-ink, #0d0f0e);
+  --color-store-muted: var(--store-muted, #5e6662);
+  --color-store-line: var(--store-line, #e4e7e5);
+  --color-store-primary: var(--store-primary, #0d0f0e);
+  --color-store-on-primary: var(--store-on-primary, #ffffff);
+  --color-store-accent: var(--store-accent, #c8312b);
+  --color-store-on-accent: var(--store-on-accent, #ffffff);
+  --color-store-action: var(--store-action, #0d0f0e);
+  --color-store-on-action: var(--store-on-action, #ffffff);
+  --color-store-action-hover: var(--store-action-hover, #2a2e2c);
+  --color-store-focus: var(--store-focus, #0d0f0e);
+  --color-store-header: var(--store-header, #ffffff);
+  --color-store-on-header: var(--store-on-header, #0d0f0e);
+  --color-store-header-line: var(--store-header-line, #e4e7e5);
+
+  --font-store-display:
+    var(--store-font-display, var(--font-geist, system-ui)), system-ui, sans-serif;
+  --font-store-body: var(--store-font-body, var(--font-geist, system-ui)), system-ui, sans-serif;
+  --font-store-brand: var(--store-font-brand, var(--font-geist, system-ui)), system-ui, sans-serif;
+  --font-store-spec: var(--store-font-spec, var(--font-geist, system-ui)), system-ui, sans-serif;
 }

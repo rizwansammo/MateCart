@@ -67,6 +67,8 @@ TEAM_TAGS = ["manage-team"]
 SECURITY_TAGS = ["manage-security"]
 CanManageStaff = HasStaffPermission.of(Permission.STAFF_MANAGE)
 CanManageCatalog = HasStaffPermission.of(Permission.CATALOG_MANAGE)
+CanManageContent = HasStaffPermission.of(Permission.CONTENT_MANAGE)
+CanManageSettings = HasStaffPermission.of(Permission.STORE_SETTINGS)
 
 
 def _body(serializer_class: Any, request: Request) -> dict[str, Any]:
@@ -118,6 +120,22 @@ class CatalogStaffView(StaffView):
     @property
     def can_see_costs(self) -> bool:
         return Permission.CATALOG_COSTS in self.staff.permissions
+
+
+class ContentStaffView(StaffView):
+    """Store appearance and content: ``content.manage`` (Owner, Manager, Content editor)."""
+
+    permission_classes = (IsAuthenticated, CanManageContent)
+
+    @property
+    def can_manage_settings(self) -> bool:
+        return Permission.STORE_SETTINGS in self.staff.permissions
+
+
+class SettingsStaffView(StaffView):
+    """Store configuration such as modules: ``store.settings`` (Owner, Manager)."""
+
+    permission_classes = (IsAuthenticated, CanManageSettings)
 
 
 class SensitiveTeamMutationView(StaffView):

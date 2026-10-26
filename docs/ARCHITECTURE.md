@@ -34,7 +34,7 @@ MateCart/
 │   ├── commerce-web/          Next.js: storefront + merchant dashboard
 │   └── platform-console/      Next.js: NetaMate internal console
 ├── services/
-│   ├── commerce-api/          Django project "config" + apps commerce.{core,tenancy,stores,identity,staff,audit,media,catalog,pricing,inventory}
+│   ├── commerce-api/          Django project "config" + apps commerce.{core,tenancy,stores,identity,staff,audit,media,catalog,pricing,inventory,content}
 │   └── control-api/           Django project "config" + apps control.{core,accounts}
 ├── packages/
 │   ├── shared-ui/             theme.css tokens, Wordmark
@@ -145,6 +145,20 @@ Outside the database: cache keys use `tenant_cache_key(...)` (`tenant:<id>:...`)
   `pricing.services.quote()` (checkout price snapshot), `inventory.services.reserve()`
   /`release()`/`fulfil()`, `inventory.services.batches_by_expiry()` (FEFO) and
   `reconcile()` are the seams Phases 06–11 build on.
+
+### Presets, themes and branding (Phase 05)
+
+- **Split of concerns (D-061).** Visual preset definitions live in `@matecart/shared-ui`
+  (`presets.ts`); business defaults (product types, modules, homepage sections) live in
+  commerce-api. The public API sends the preset id and validated brand overrides; the
+  browser resolves the effective theme with a General fallback.
+- **Theme application.** `StoreThemeScope` sets `--store-*` CSS variables on an element and
+  the `store-*` Tailwind tokens (`@theme inline`) read them, so themes are scoped,
+  server-renderable and never touch the MateCart dashboard or console styling.
+- **Configuration.** `stores.StoreTheme` (branding), `stores.StoreModule` (module overrides
+  against a code registry, D-062) and the `content` app (pages, homepage sections, D-063).
+  APIs: `/api/manage/store/`, `/api/manage/content/` (staff realm) and the public
+  `/api/storefront/` (D-064). Merchant screens: `/manage/appearance`, `/manage/content`.
 
 ### Independence from the Central Console
 

@@ -1,27 +1,27 @@
 # Progress and handoff
 
-Updated: 2026-10-26 (Asia/Dhaka). **Phase 04.1 — Inventory Integrity and Security
-Closeout is implemented and locally verified, ready for the owner's commit, push,
-GitHub CI and independent final acceptance.** Phase 04 itself is committed and its CI
-passed, but it is not formally accepted until 04.1 is reviewed. Phases 01–03 (with
-02.1, 02.2 and 03.1) are accepted and closed. Phase 05 has not started.
+Updated: 2026-10-26 (Asia/Dhaka). **Phase 05 — Presets, Themes & Branding is
+implemented and locally verified, ready for the owner's commit, push, GitHub CI and
+independent acceptance.** Phases 01–04 (with 02.1, 02.2, 03.1 and 04.1) are accepted and
+closed. Phase 06 has not started and needs explicit authorization.
 
 ## Accepted baseline and boundaries
 
-| Item            | Recorded state                                                                                                                                                                                                                                                 |
-| --------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Phase 01        | Accepted: `8f3e34b2a2930a08084902d0d5beb9789d6eb4ca`; owner subsequently pushed and confirmed CI 4/4. Its earlier unrun-CI report was historically correct.                                                                                                    |
-| Phase 02        | Accepted: `72f277e154dab40c586a48dcf5d3852e691993fc`; CI 4/4, 179 tests.                                                                                                                                                                                       |
-| Correction 02.1 | Accepted: `ba513b5927cdfcadd7e8b98dcb08c71d834146f8`, run 40211394370, 4/4, 245 tests; forged-instance writes/deletes, audit sanitation, UUID policy and secret rotation.                                                                                      |
-| Correction 02.2 | Accepted and Phase 02 closed: `aceae6fa4ed6cc186ba6a77bdd1869e818f0dceb`, run 40213680998, 4/4, 260 tests; active-context refresh and scoped base/relation managers, state-only migrations.                                                                    |
-| Phase 03        | Implemented: `f2c18d0b533d1bf94b486e452c75cb2f4db63d89`; run 40230926210, 4/4, 449 automated tests. Independent review requested three 03.1 corrections.                                                                                                       |
-| Correction 03.1 | Accepted and Phase 03 closed (owner decision 2026-10-26): `5d6152ab98a0d01993845173b92370e75cffa936`, run 40237897132, 4/4 jobs, 463 tests (370 commerce, 57 control, 17 contracts, 16 UI, 3 Node); 12 local live smoke checks. Findings closed in scope.      |
-| Phase 04        | Implemented and pushed (GitHub-verified): `1bd61be0a49278e25cb8d201a809e171d32eaf38`, run 40246230098, SUCCESS 4/4 jobs, 701 tests (596 commerce, 57 control, 29 contracts, 16 UI, 3 Node). Post-push review requested the 04.1 corrections; not yet accepted. |
-| Correction 04.1 | **Implemented and verified locally, not committed.** Baseline `1bd61be` on `main`; changes are uncommitted for the owner. No commit, push or PR was created by the assistant. CI and independent final acceptance pending.                                     |
-| Architecture    | Dedicated single-tenant deployment, tenant-aware modular monolith, future hybrid only if approved; commerce/control independent.                                                                                                                               |
-| Product         | Private beta, manual onboarding. Public commercial signup/subscriptions/billing deferred. Public customer registration is authorized.                                                                                                                          |
-| Prototype       | MateCart-UI strictly read-only; no edits/build/install (HEAD `9ff1361`, clean).                                                                                                                                                                                |
-| Roadmap         | All 19 main phases preserved; 02.1/02.2/03.1 are corrective subphases, not additional main phases.                                                                                                                                                             |
+| Item            | Recorded state                                                                                                                                                                                                                                            |
+| --------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Phase 01        | Accepted: `8f3e34b2a2930a08084902d0d5beb9789d6eb4ca`; owner subsequently pushed and confirmed CI 4/4. Its earlier unrun-CI report was historically correct.                                                                                               |
+| Phase 02        | Accepted: `72f277e154dab40c586a48dcf5d3852e691993fc`; CI 4/4, 179 tests.                                                                                                                                                                                  |
+| Correction 02.1 | Accepted: `ba513b5927cdfcadd7e8b98dcb08c71d834146f8`, run 40211394370, 4/4, 245 tests; forged-instance writes/deletes, audit sanitation, UUID policy and secret rotation.                                                                                 |
+| Correction 02.2 | Accepted and Phase 02 closed: `aceae6fa4ed6cc186ba6a77bdd1869e818f0dceb`, run 40213680998, 4/4, 260 tests; active-context refresh and scoped base/relation managers, state-only migrations.                                                               |
+| Phase 03        | Implemented: `f2c18d0b533d1bf94b486e452c75cb2f4db63d89`; run 40230926210, 4/4, 449 automated tests. Independent review requested three 03.1 corrections.                                                                                                  |
+| Correction 03.1 | Accepted and Phase 03 closed (owner decision 2026-10-26): `5d6152ab98a0d01993845173b92370e75cffa936`, run 40237897132, 4/4 jobs, 463 tests (370 commerce, 57 control, 17 contracts, 16 UI, 3 Node); 12 local live smoke checks. Findings closed in scope. |
+| Phase 04        | Implemented and pushed (GitHub-verified): `1bd61be0a49278e25cb8d201a809e171d32eaf38`, run 40246230098, SUCCESS 4/4 jobs, 701 tests (596 commerce, 57 control, 29 contracts, 16 UI, 3 Node). Post-push review requested the 04.1 corrections.              |
+| Correction 04.1 | Accepted and Phase 04 closed: `8290fe424ea7729d46c392e2ab974fa646f2fcf6`, run 40249765179, 4/4 jobs, 735 tests (630 commerce, 57 control, 29 contracts, 16 UI, 3 Node).                                                                                   |
+| Phase 05        | **Implemented and verified locally, not committed.** Baseline `8290fe4` on `main`; no commit, push or PR was created by the assistant. CI and independent acceptance pending.                                                                             |
+| Architecture    | Dedicated single-tenant deployment, tenant-aware modular monolith, future hybrid only if approved; commerce/control independent.                                                                                                                          |
+| Product         | Private beta, manual onboarding. Public commercial signup/subscriptions/billing deferred. Public customer registration is authorized.                                                                                                                     |
+| Prototype       | MateCart-UI strictly read-only; no edits/build/install (HEAD `9ff1361`, clean).                                                                                                                                                                           |
+| Roadmap         | All 19 main phases preserved; 02.1/02.2/03.1 are corrective subphases, not additional main phases.                                                                                                                                                        |
 
 Phase 03/03.1 history (accepted): realm-separated customer, merchant and console
 authentication; optional merchant and mandatory console MFA; owner provisioning
@@ -30,7 +30,59 @@ narrow Google provider failure handling (D-039 to D-049, AUTHENTICATION.md,
 SECURITY.md). External Google, SMS and SMTP acceptance remains outstanding until
 genuine providers are configured.
 
-## Phase 04.1 corrections (local, uncommitted)
+## Phase 05 implemented scope
+
+Decisions D-061 to D-064. Schema: DATA_MODEL.md §2. Controls: SECURITY.md.
+
+- **Presets and themes:** typed definitions of the five approved identities in
+  `@matecart/shared-ui` (`presets.ts`: palette, typography, card aspect, density, columns,
+  quantity stepper, dark header, hero style), `resolveTheme` with validated overrides and a
+  General fallback, `themeVariables`, `StoreThemeScope` (server-renderable, scoped CSS
+  variables) and `ThemePreview`. `theme.css` gained `store-*` tokens via `@theme inline`;
+  core and status tokens are unchanged. Instrument Serif and Newsreader are self-hosted via
+  `next/font`; Optimus is still not bundled.
+- **Branding:** `stores.StoreTheme` (brand/accent colours with a 4.5:1 text rule, logo,
+  dark logo, favicon via the Phase 04 media pipeline, tagline, description, announcement,
+  footer text, Bangla translations). Store name stays on `StoreSettings` and needs
+  `store.settings` to change. Restore preset colours. Business preset changes only through
+  `manage.py change_store_preset`, refused while products would become incompatible.
+- **Modules:** code registry (implemented and planned modules, phases, presets, defaults,
+  prerequisites) plus `stores.StoreModule` overrides; planned modules can never be enabled.
+- **Content:** `content.ContentPage` (draft/published, plain text, footer links) and
+  `content.HomeSection` (typed sections, ordering, enabled flag, image, collection, internal
+  link); preset default homepage; all changes audited.
+- **APIs:** `/api/manage/store/appearance/` (+ `reset/`), `/api/manage/store/modules/`,
+  `/api/manage/content/pages|sections/` (staff realm, CSRF; `content.manage`, modules
+  `store.settings`), public `/api/storefront/config|home|pages/`. OpenAPI regenerated (146
+  operations); `shared-contracts` `appearance.ts` decoders; the shared API client gained
+  `put`, `delete` and multipart `upload`.
+- **Merchant UI:** `/manage/appearance` (preset, brand texts, colours with live contrast
+  feedback, logo/dark logo/icon upload, live preview, all five preset previews, store
+  features) and `/manage/content` (homepage sections and pages). Shown only to staff with
+  `content.manage`; the features panel only with `store.settings`.
+- **Deferred:** storefront pages that render the theme and content (06), full merchant
+  dashboard (11), console module provisioning (16), contact address/social links and SEO
+  fields (later phases).
+- **Phase 07/08 follow-up recorded (not implemented):** batch-expiry revalidation at
+  reservation, allocation and fulfilment, in FEATURE_CHECKLIST.md.
+
+## Verification record (Phase 05, observed locally)
+
+**807 automated tests passed, 0 failed** (667 commerce + 57 control + 34 contracts + 46
+shared UI + 3 Node): 37 new commerce tests (35 in `test_appearance.py`, 2 guard cases),
+30 new UI and 5 new contract tests.
+
+| Check        | Actual observation                                                                                                                                                                                        |
+| ------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Backend      | `pnpm api:test`: 667 + 57 passed. `pnpm api:lint`: Ruff, format, strict mypy (175 + 52 files). `pnpm api:schema`: valid, regenerated.                                                                     |
+| Frontend     | `pnpm check` passed (Prettier, ESLint, typecheck, 34 + 46 + 3 tests). `pnpm build` passed (Webpack, both apps, new fonts self-hosted).                                                                    |
+| Migrations   | `content.0001` and `stores.0003` (new tables only). `verify_auth_migrations.py` passed (now reversing them too). Dev: applied; tenants, users 16, audit 109, products 4, movements 8 unchanged; no drift. |
+| Live         | `/manage/appearance`, `/manage/content`, `/api/storefront/config/` and `/home/` respond through the Next.js proxy; anonymous mutation refused; `pnpm health` passed; `docker compose config` passed.      |
+| Auth smoke   | `node scripts/auth-smoke.mjs --local`, run once: **12/12 passed**, closing the item carried from Phase 04.1.                                                                                              |
+| Preservation | Other projects' containers, volumes and networks unchanged; prototype `9ff1361` clean; no env files, keys or the Optimus font in the change set.                                                          |
+| GitHub CI    | Phase 05 not run (uncommitted). Last CI: run 40249765179 (Phase 04.1), 4/4, 735 tests.                                                                                                                    |
+
+## Phase 04.1 corrections (accepted)
 
 Both review findings were reproduced first: new regression tests failed against the
 unchanged `1bd61be` code for the expected reasons (14 wrongful replays, HTTP 200
@@ -187,10 +239,12 @@ contract tests. Plus 7 live catalogue and 12 live authentication smoke checks.
 
 ## Remaining scope, limits and next step
 
-- **Next step:** owner reviews the uncommitted Phase 04.1 diff, commits and pushes
-  it, verifies GitHub CI, and requests the independent final review of Phase 04 and
-  04.1. Phase 04 is closed only after that acceptance; Phase 05 starts only after
+- **Next step:** owner reviews the uncommitted Phase 05 diff, commits and pushes it,
+  verifies GitHub CI, and requests independent acceptance. Phase 06 starts only after
   explicit authorization.
+- Phase 05 limits: themes are previewed in the dashboard; customer pages that render them
+  arrive in Phase 06. Module states are configuration only in Phase 05. Contact address
+  and social links are not modelled yet.
 - Phase 04.1 limits (documented, not defects): reservations are not batch-assigned, so
   sellable batch stock subtracts the location's whole reservation; batches expiring
   after a reservation can leave it uncovered until Phase 08 allocation; pre-04.1 keys

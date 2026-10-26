@@ -136,6 +136,22 @@ and keys, sharing only this local testing inbox.
   is never advertised, judged purchasable or reserved (D-060). Reconciliation proves
   levels equal the ledger.
 
+## Appearance and content (Phase 05)
+
+- Appearance and content need `content.manage`; renaming the store and module switches need
+  `store.settings`; customers and order handlers are refused. CSRF covers every mutation.
+- Brand colours are `#RRGGBB` only and must keep button text readable (4.5:1); the browser
+  ignores anything else, and theme values are generated from definitions, never merchant
+  CSS. Status colours cannot be re-themed.
+- Content is plain text: HTML-like input is refused (including translations), links are
+  internal paths only, and the storefront must render text escaped.
+- Logos, favicons and section images come only from the validated, tenant-namespaced media
+  pipeline (no SVG); they are public only while assigned to branding or an enabled section.
+- The public storefront API returns only render-ready data: no staff, drafts, module
+  overrides or audit history. Planned modules cannot be enabled before their phase.
+- Two-tenant tests cover the four new models, cross-tenant media references (API and
+  PostgreSQL composite keys) and isolation of module overrides.
+
 ## Limits and scheduled follow-up
 
 - Phase 04 public catalogue and media routes have no dedicated rate limits or CDN

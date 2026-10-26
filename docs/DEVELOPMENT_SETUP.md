@@ -49,27 +49,28 @@ API and database ports can be changed in `.env`. The Next.js ports live in `apps
 
 ## Command reference
 
-| Task                                            | Command                                                                         |
-| ----------------------------------------------- | ------------------------------------------------------------------------------- |
-| Install dependencies                            | `pnpm install`                                                                  |
-| Create local env files                          | `pnpm setup:env`                                                                |
-| Start the Docker stack                          | `pnpm stack:up`                                                                 |
-| Stop and remove MateCart containers (data kept) | `pnpm stack:down`                                                               |
-| Container status                                | `pnpm stack:ps`                                                                 |
-| Follow MateCart logs                            | `pnpm stack:logs` (or `docker compose logs -f commerce-api`)                    |
-| Rebuild MateCart images and restart             | `pnpm stack:rebuild`                                                            |
-| Run both web apps                               | `pnpm dev` (`pnpm dev:web`, `pnpm dev:console`)                                 |
-| Frontend checks                                 | `pnpm check` (format, lint, typecheck, unit tests)                              |
-| Frontend production builds                      | `pnpm build`                                                                    |
-| Backend tests                                   | `pnpm api:test` (`api:test:commerce`, `api:test:control`)                       |
-| Backend lint and types                          | `pnpm api:lint` (ruff, ruff format, mypy strict)                                |
-| Format backend code                             | `pnpm api:format`                                                               |
-| Regenerate OpenAPI schemas                      | `pnpm api:schema`                                                               |
-| Celery round-trip check                         | `pnpm api:celery-check`                                                         |
-| Provision the local dev store (idempotent)      | `pnpm api:provision`                                                            |
-| Health of everything                            | `pnpm health` (`pnpm health --skip-web` for the Docker stack only)              |
-| Inventory ledger reconciliation (read-only)     | `docker compose exec commerce-api python manage.py reconcile_inventory`         |
-| Live auth / catalogue smoke checks (local only) | `node scripts/auth-smoke.mjs --local`, `node scripts/catalog-smoke.mjs --local` |
+| Task                                            | Command                                                                                |
+| ----------------------------------------------- | -------------------------------------------------------------------------------------- |
+| Install dependencies                            | `pnpm install`                                                                         |
+| Create local env files                          | `pnpm setup:env`                                                                       |
+| Start the Docker stack                          | `pnpm stack:up`                                                                        |
+| Stop and remove MateCart containers (data kept) | `pnpm stack:down`                                                                      |
+| Container status                                | `pnpm stack:ps`                                                                        |
+| Follow MateCart logs                            | `pnpm stack:logs` (or `docker compose logs -f commerce-api`)                           |
+| Rebuild MateCart images and restart             | `pnpm stack:rebuild`                                                                   |
+| Run both web apps                               | `pnpm dev` (`pnpm dev:web`, `pnpm dev:console`)                                        |
+| Frontend checks                                 | `pnpm check` (format, lint, typecheck, unit tests)                                     |
+| Frontend production builds                      | `pnpm build`                                                                           |
+| Backend tests                                   | `pnpm api:test` (`api:test:commerce`, `api:test:control`)                              |
+| Backend lint and types                          | `pnpm api:lint` (ruff, ruff format, mypy strict)                                       |
+| Format backend code                             | `pnpm api:format`                                                                      |
+| Regenerate OpenAPI schemas                      | `pnpm api:schema`                                                                      |
+| Celery round-trip check                         | `pnpm api:celery-check`                                                                |
+| Provision the local dev store (idempotent)      | `pnpm api:provision`                                                                   |
+| Health of everything                            | `pnpm health` (`pnpm health --skip-web` for the Docker stack only)                     |
+| Change the store's business preset (NetaMate)   | `docker compose exec commerce-api python manage.py change_store_preset --preset books` |
+| Inventory ledger reconciliation (read-only)     | `docker compose exec commerce-api python manage.py reconcile_inventory`                |
+| Live auth / catalogue smoke checks (local only) | `node scripts/auth-smoke.mjs --local`, `node scripts/catalog-smoke.mjs --local`        |
 
 Every Docker command is scoped to the Compose project `matecart-dev`. None of them touch other projects.
 

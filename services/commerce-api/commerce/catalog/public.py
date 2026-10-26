@@ -18,6 +18,7 @@ from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from commerce.content.models import HomeSection
 from commerce.core.domain import found, found_in
 from commerce.core.pagination import PageQuerySerializer, paginate, paginated
 from commerce.identity.auth import CsrfProtectedAPIView
@@ -26,6 +27,7 @@ from commerce.media.models import MediaAsset
 from commerce.media.views import file_response
 from commerce.pricing.models import Price
 from commerce.pricing.services import find_default_price_list
+from commerce.stores.models import StoreTheme
 
 from . import services
 from .models import (
@@ -520,6 +522,9 @@ def is_public_asset(asset: MediaAsset) -> bool:
         or ApparelDetails.objects.filter(active, size_guide=asset).exists()
         or Category.objects.filter(image=asset, is_active=True).exists()
         or Collection.objects.filter(image=asset, is_active=True).exists()
+        # Phase 05: images assigned to the store's branding or an enabled homepage section.
+        or StoreTheme.objects.filter(Q(logo=asset) | Q(logo_dark=asset) | Q(favicon=asset)).exists()
+        or HomeSection.objects.filter(image=asset, is_enabled=True).exists()
     )
 
 

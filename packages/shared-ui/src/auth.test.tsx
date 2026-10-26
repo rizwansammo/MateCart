@@ -9,7 +9,14 @@ import { MfaChallengeForm, RecoveryCodesPanel, TotpSetupWizard } from './mfa-ui'
 import type { ApiClient } from './api';
 
 function client(): ApiClient {
-  return { get: vi.fn(), post: vi.fn(), patch: vi.fn() };
+  return {
+    get: vi.fn(),
+    post: vi.fn(),
+    patch: vi.fn(),
+    put: vi.fn(),
+    delete: vi.fn(),
+    upload: vi.fn(),
+  };
 }
 afterEach(() => vi.useRealTimers());
 

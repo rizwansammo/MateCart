@@ -1,7 +1,8 @@
 """Host-run migration round-trip against temporary databases in MateCart's own PostgreSQL.
 
-Covers the authentication migrations (Phase 03) and the product and inventory engine (Phase 04:
-media, catalog, pricing, inventory, including the append-only ledger trigger).
+Covers the authentication migrations (Phase 03), the product and inventory engine (Phase 04:
+media, catalog, pricing, inventory, including the append-only ledger trigger) and Phase 05 store
+appearance, modules and content.
 
 Never resets development data or reads passwords. Existing container environment supplies the
 credentials; only the database name is overridden in the temporary API process.
@@ -53,6 +54,8 @@ if __name__ == "__main__":
         "commerce-api",
         "matecart_commerce",
         [
+            ("content", "zero"),
+            ("stores", "0002"),
             ("inventory", "zero"),
             ("pricing", "zero"),
             ("catalog", "zero"),

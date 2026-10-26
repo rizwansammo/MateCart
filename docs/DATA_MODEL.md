@@ -148,6 +148,17 @@ control. See [SECURITY.md](SECURITY.md) for token storage and retention follow-u
 
 Phase 03 added no products, orders, payments, saved addresses or billing models.
 
+### Phase 05 store appearance and content schema
+
+| Model                 | Key fields and invariants                                                                                                                                                                                                                                            |
+| --------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `stores.StoreTheme`   | One per store. Optional brand/accent colour (`^#[0-9A-F]{6}$` CHECK, readable-text rule in the service), logo, dark logo, favicon (media assets, PROTECT, composite tenant FKs), tagline, description, announcement, footer text, name-with-logo flag, translations. |
+| `stores.StoreModule`  | UK `(tenant, key)`, key format CHECK, enabled flag. Absent row = preset default; keys validated against the code registry (D-062).                                                                                                                                   |
+| `content.ContentPage` | Slug UK per store (format CHECK), title, plain-text body, `page \| policy`, `draft \| published` (published needs a time), footer flag, position, translations.                                                                                                      |
+| `content.HomeSection` | Type CHECK (hero, category showcase, collection highlight, brand story, trust strip), position, enabled, short texts, image and collection (composite tenant FKs; collection only for highlights), internal link CHECK.                                              |
+
+Migrations `stores.0003` and `content.0001` add tables only.
+
 ### Phase 04 product and inventory schema
 
 Four apps, 27 tenant-owned models, 45 composite tenant foreign keys (every one

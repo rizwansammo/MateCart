@@ -4,3 +4,4 @@ export type { CheckState, LivenessStatus, ReadinessStatus, ServiceName } from '.
 export { isLivenessStatus, isReadinessStatus } from './health';
 export * from './auth';
 export * from './catalog';
+export * from './appearance';

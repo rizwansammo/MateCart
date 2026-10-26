@@ -573,6 +573,73 @@ idempotency_conflict`. The free-text reason, actor and a batch's supplier
   moved. Batches expiring after a reservation was made can leave it uncovered; the
   catalogue then shows zero sellable stock, and Phase 08 allocation must handle it.
 
+### D-061 · Preset themes, brand overrides and theme application (2026-10-26, Phase 05)
+
+- **One engine, five presentations.** The five visual identities are typed definitions in
+  `@matecart/shared-ui` `presets.ts` (palette, typography roles, card aspect, density,
+  columns, stepper, dark header, hero style), taken from the read-only prototype. Business
+  defaults stay in commerce-api: product types (D-051), modules (D-062) and homepage sections
+  (D-063). The public API returns the preset id; the browser resolves the visual theme.
+- **Swatches versus tokens.** Each preset keeps the approved identity triple as `swatches`.
+  Electronics' `#0B0F14` is its dark header and action colour; its page canvas follows the
+  prototype storefront (`#F3F5F8`). Grocery's call-to-action uses the deeper green
+  `#00843C` so white button text meets WCAG AA; `#00B050` remains its primary colour.
+- **Overrides.** `StoreTheme` (one per store, `stores` app) holds an optional brand and
+  accent colour (`#RRGGBB`), logo, dark-background logo, favicon (Phase 04 media assets,
+  shape-checked), tagline, description, announcement, footer text and Bangla translations.
+  A colour is accepted only if white or ink text on it reaches 4.5:1 (the same WCAG formula
+  runs in `stores/colors.py` and `presets.ts`); the browser ignores any value that fails.
+  A brand colour also becomes the action colour. "Restore preset colours" clears overrides.
+- **Application.** `StoreThemeScope` sets CSS custom properties on an element; Tailwind v4
+  `@theme inline` `store-*` tokens read them where used, so a server-rendered scope has the
+  right preset on first paint and nothing leaks into the MateCart dashboard or console.
+  Values are colours and font stacks from definitions, never merchant CSS. Status colours
+  are not themeable.
+- **Fonts.** Instrument Serif (Fashion) and Newsreader (Books) join Geist, Geist Mono and
+  Hind Siliguri through `next/font` (downloaded at build, served by the app). Optimus is
+  still not bundled (Q1).
+- **Business preset changes** are not an appearance setting: `manage.py change_store_preset`
+  refuses while any product uses a type the new preset does not offer, and audits the change.
+  There is no customer-facing or merchant-facing preset switcher.
+
+### D-062 · Store module registry (2026-10-26, Phase 05)
+
+- A code-owned registry (`stores/modules.py`) lists each module's key, name, description,
+  owning phase, applicable presets, preset defaults, prerequisites and whether it is
+  implemented. Core modules (catalogue, inventory, pages, customer accounts) are always on.
+- `StoreModule` rows store only explicit store choices; no row means the preset default.
+  A module is effective only when implemented, applicable to the preset, switched on and all
+  prerequisites are effective (blocked modules report `blocked_by`). Planned modules (cart,
+  delivery slots, COD, payments, EMI, couriers, reviews, comparison, chat, AI and others)
+  can never be switched on before their phase (`409 module_unavailable`).
+- Module states are configuration consumed by the storefront (06) and later phases; in Phase
+  05 they change no catalogue, pricing or inventory rule. Managing them needs `store.settings`.
+  The Central Console (16) can later push the same shape; stores keep working without it.
+
+### D-063 · Store content: pages and homepage sections (2026-10-26, Phase 05)
+
+- `ContentPage` (slug unique per store, title, body, page/policy type, draft/published,
+  footer link, position, Bangla translation) and `HomeSection` (hero, category showcase,
+  collection highlight, brand story, trust strip; position, enabled flag, short texts, image,
+  collection, internal call-to-action link, translations) in the `content` app.
+- Content is **plain text**: anything resembling an HTML tag is refused, call-to-action links
+  must be internal paths, images must be Phase 04 image assets of the same store, and
+  collection highlights need a collection while enabled. The storefront renders text escaped.
+- Publishing a page needs a body; reordering must name every section exactly once; the
+  preset's suggested homepage (from the prototype's Content screen) can be applied once,
+  while the homepage is empty. All changes are audited. No page builder, HTML editor, SEO
+  engine or campaigns.
+
+### D-064 · Public storefront configuration API (2026-10-26, Phase 05)
+
+- `/api/storefront/config/` (store name, brand texts, public contact details, currency,
+  languages, preset, brand colours, logo URLs, effective modules, published footer pages),
+  `/api/storefront/home/` (enabled sections; highlights of inactive collections are omitted)
+  and `/api/storefront/pages/<slug>/` (published pages) are anonymous GET-only.
+- They never return staff data, module overrides, drafts, audit history or unassigned media.
+  Branding images and enabled-section images are added to the public media gate only while
+  assigned; reassigning or disabling removes public access.
+
 ## Open questions for the owner
 
 | #   | Question                                                                                                                                   | Status                                                                                                    | Needed by |
