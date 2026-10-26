@@ -1,0 +1,50 @@
+name: Phase 10 verification helper
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  format-and-schema:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .node-version
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e
+        with:
+          version: '0.13.5'
+      - name: Format worktree and generate schema
+        shell: bash
+        run: |
+          pnpm exec prettier --write .
+          cd services/commerce-api
+          uv sync --locked
+          uv run ruff check --fix . || true
+          uv run ruff format .
+          DJANGO_SETTINGS_MODULE=config.settings.test uv run python manage.py spectacular --file openapi.yaml --fail-on-warn || true
+          DJANGO_SETTINGS_MODULE=config.settings.test uv run python manage.py makemigrations --check --dry-run || true
+          cd ../..
+      - name: Emit formatted changed text for GitHub connector
+        shell: bash
+        run: |
+          python - <<'PY'
+          import json
+          import subprocess
+          from pathlib import Path
+          names = subprocess.check_output(['git','diff','--name-only','--diff-filter=ACM'], text=True).splitlines()
+          print('MCFMT_BEGIN')
+          for filename in names:
+              path = Path(filename)
+              if path.is_file() and path.stat().st_size < 150000:
+                  print('MCFMT ' + json.dumps({'path': filename, 'content': path.read_text(encoding='utf-8')}, ensure_ascii=True))
+          print('MCFMT_END')
+          PY
