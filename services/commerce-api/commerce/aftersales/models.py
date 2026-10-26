@@ -7,6 +7,8 @@ from django.db.models import Q
 from commerce.core.models import TimestampedModel
 from commerce.identity.models import User
 from commerce.orders.models import OrderItem
+from commerce.catalog.models import ProductVariant
+from commerce.media.models import MediaAsset
 from commerce.tenancy.constraints import TenantForeignKeyConstraint
 from commerce.tenancy.models import TenantOwnedModel
 
@@ -93,4 +95,48 @@ class CaseMessage(TenantOwnedModel):
             *TenantOwnedModel.Meta.constraints,
             TenantForeignKeyConstraint(field="case", name="after_message_case_tenant"),
             TenantForeignKeyConstraint(field="author", name="after_message_author_tenant"),
+        ]
+
+
+class EntitlementStatus(models.TextChoices):
+    ACTIVE = "active", "Active"
+    REVOKED = "revoked", "Revoked"
+
+
+class DigitalProductAsset(TenantOwnedModel, TimestampedModel):
+    """Approved private document resource for a digital SKU. Its asset must be access gated."""
+
+    variant = models.OneToOneField(ProductVariant, on_delete=models.PROTECT, related_name="+")
+    asset = models.ForeignKey(MediaAsset, on_delete=models.PROTECT, related_name="+")
+    enabled = models.BooleanField(default=True)
+    download_limit = models.PositiveSmallIntegerField(default=10)
+
+    class Meta(TenantOwnedModel.Meta):
+        constraints = [
+            *TenantOwnedModel.Meta.constraints,
+            TenantForeignKeyConstraint(field="variant", name="after_digital_variant_tenant"),
+            TenantForeignKeyConstraint(field="asset", name="after_digital_asset_tenant"),
+            models.CheckConstraint(condition=Q(download_limit__gte=1, download_limit__lte=100), name="after_digital_limit_valid"),
+        ]
+
+
+class DigitalEntitlement(TenantOwnedModel, TimestampedModel):
+    """One immutable purchase binding; state/count can change, purchase and asset cannot."""
+
+    order_item = models.OneToOneField(OrderItem, on_delete=models.PROTECT, related_name="+")
+    customer = models.ForeignKey(User, on_delete=models.PROTECT, related_name="+")
+    asset = models.ForeignKey(MediaAsset, on_delete=models.PROTECT, related_name="+")
+    status = models.CharField(max_length=16, choices=EntitlementStatus.choices, default=EntitlementStatus.ACTIVE)
+    access_count = models.PositiveIntegerField(default=0)
+    download_limit = models.PositiveSmallIntegerField(default=10)
+    revoked_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta(TenantOwnedModel.Meta):
+        constraints = [
+            *TenantOwnedModel.Meta.constraints,
+            TenantForeignKeyConstraint(field="order_item", name="after_entitlement_item_tenant"),
+            TenantForeignKeyConstraint(field="customer", name="after_entitlement_customer_tenant"),
+            TenantForeignKeyConstraint(field="asset", name="after_entitlement_asset_tenant"),
+            models.CheckConstraint(condition=Q(status__in=EntitlementStatus.values), name="after_entitlement_status_valid"),
+            models.CheckConstraint(condition=Q(download_limit__gte=1, download_limit__lte=100), name="after_entitlement_limit_valid"),
         ]
