@@ -14,6 +14,7 @@ export default async function ManagePage({ params }: { params: Promise<{ path?: 
       'account/security',
       'appearance',
       'content',
+      'aftersales',
     ].includes(path)
   )
     notFound();
