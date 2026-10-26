@@ -1,7 +1,9 @@
 """Strict request and response contracts for customer after sales actions."""
 
 from typing import Any
+
 from rest_framework import serializers
+
 from .models import AfterSalesCase, CaseKind, CaseMessage, CaseStatus, ProductReview, ReviewStatus
 
 
@@ -34,7 +36,10 @@ class CaseInputSerializer(serializers.Serializer[Any]):
     kind = serializers.ChoiceField(choices=CaseKind.choices)
     order_item = serializers.UUIDField(required=False, allow_null=True)
     quantity = serializers.DecimalField(
-        max_digits=12, decimal_places=3, min_value=1, default=1,
+        max_digits=12,
+        decimal_places=3,
+        min_value=1,
+        default=1,
     )
     subject = serializers.CharField(min_length=3, max_length=150)
     reason = serializers.CharField(min_length=3, max_length=2000)
@@ -44,6 +49,8 @@ class CaseInputSerializer(serializers.Serializer[Any]):
 class CaseTransitionSerializer(serializers.Serializer[Any]):
     status = serializers.ChoiceField(choices=CaseStatus.choices)
     reason = serializers.CharField(max_length=300, required=False, allow_blank=True, default="")
+    refund = serializers.UUIDField(required=False, allow_null=True)
+    replacement_order = serializers.UUIDField(required=False, allow_null=True)
 
 
 class CaseMessageInputSerializer(serializers.Serializer[Any]):
@@ -63,7 +70,18 @@ class AfterSalesCaseSerializer(serializers.ModelSerializer[AfterSalesCase]):
     class Meta:
         model = AfterSalesCase
         fields = (
-            "id", "kind", "status", "order_item", "quantity", "subject", "reason",
-            "decision_reason", "created_at", "updated_at", "messages",
+            "id",
+            "kind",
+            "status",
+            "order_item",
+            "quantity",
+            "subject",
+            "reason",
+            "decision_reason",
+            "refund",
+            "replacement_order",
+            "created_at",
+            "updated_at",
+            "messages",
         )
         read_only_fields = fields

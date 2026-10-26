@@ -1,14 +1,13 @@
 """Purchase-linked reviews and controlled customer service cases."""
 
-from typing import Any
-
 from django.db import models
 from django.db.models import Q
+
+from commerce.catalog.models import ProductVariant
 from commerce.core.models import TimestampedModel
 from commerce.identity.models import User
-from commerce.orders.models import OrderItem
-from commerce.catalog.models import ProductVariant
 from commerce.media.models import MediaAsset
+from commerce.orders.models import OrderItem
 from commerce.tenancy.constraints import TenantForeignKeyConstraint
 from commerce.tenancy.models import TenantOwnedModel
 
@@ -24,7 +23,9 @@ class ProductReview(TenantOwnedModel, TimestampedModel):
     order_item = models.ForeignKey(OrderItem, on_delete=models.PROTECT, related_name="+")
     rating = models.PositiveSmallIntegerField()
     body = models.TextField(max_length=2000)
-    status = models.CharField(max_length=16, choices=ReviewStatus.choices, default=ReviewStatus.PENDING)
+    status = models.CharField(
+        max_length=16, choices=ReviewStatus.choices, default=ReviewStatus.PENDING
+    )
     decision_reason = models.CharField(max_length=300, blank=True)
 
     class Meta(TenantOwnedModel.Meta):
@@ -33,8 +34,12 @@ class ProductReview(TenantOwnedModel, TimestampedModel):
             TenantForeignKeyConstraint(field="customer", name="after_review_customer_tenant"),
             TenantForeignKeyConstraint(field="order_item", name="after_review_item_tenant"),
             models.UniqueConstraint(fields=["tenant", "order_item"], name="after_review_item_once"),
-            models.CheckConstraint(condition=Q(rating__gte=1, rating__lte=5), name="after_review_rating_valid"),
-            models.CheckConstraint(condition=Q(status__in=ReviewStatus.values), name="after_review_status_valid"),
+            models.CheckConstraint(
+                condition=Q(rating__gte=1, rating__lte=5), name="after_review_rating_valid"
+            ),
+            models.CheckConstraint(
+                condition=Q(status__in=ReviewStatus.values), name="after_review_status_valid"
+            ),
         ]
 
 
@@ -59,11 +64,21 @@ class CaseStatus(models.TextChoices):
 
 class AfterSalesCase(TenantOwnedModel, TimestampedModel):
     customer = models.ForeignKey(User, on_delete=models.PROTECT, related_name="+")
-    order_item = models.ForeignKey(OrderItem, on_delete=models.PROTECT, related_name="+", null=True, blank=True)
+    order_item = models.ForeignKey(
+        OrderItem, on_delete=models.PROTECT, related_name="+", null=True, blank=True
+    )
     kind = models.CharField(max_length=16, choices=CaseKind.choices)
-    status = models.CharField(max_length=24, choices=CaseStatus.choices, default=CaseStatus.REQUESTED)
+    status = models.CharField(
+        max_length=24, choices=CaseStatus.choices, default=CaseStatus.REQUESTED
+    )
     quantity = models.DecimalField(max_digits=12, decimal_places=3, default=1)
     request_key_hash = models.CharField(max_length=64)
+    refund = models.OneToOneField(
+        "orders.Refund", on_delete=models.PROTECT, related_name="+", null=True, blank=True
+    )
+    replacement_order = models.OneToOneField(
+        "orders.Order", on_delete=models.PROTECT, related_name="+", null=True, blank=True
+    )
     subject = models.CharField(max_length=150)
     reason = models.TextField(max_length=2000)
     decision_reason = models.CharField(max_length=300, blank=True)
@@ -73,10 +88,20 @@ class AfterSalesCase(TenantOwnedModel, TimestampedModel):
             *TenantOwnedModel.Meta.constraints,
             TenantForeignKeyConstraint(field="customer", name="after_case_customer_tenant"),
             TenantForeignKeyConstraint(field="order_item", name="after_case_item_tenant"),
-            models.UniqueConstraint(fields=["tenant", "customer", "request_key_hash"], name="after_case_key_unique"),
-            models.CheckConstraint(condition=Q(kind__in=CaseKind.values), name="after_case_kind_valid"),
-            models.CheckConstraint(condition=Q(status__in=CaseStatus.values), name="after_case_status_valid"),
-            models.CheckConstraint(condition=Q(quantity__gt=0), name="after_case_quantity_positive"),
+            TenantForeignKeyConstraint(field="refund", name="after_case_refund_tenant"),
+            TenantForeignKeyConstraint(field="replacement_order", name="after_case_replacement_tenant"),
+            models.UniqueConstraint(
+                fields=["tenant", "customer", "request_key_hash"], name="after_case_key_unique"
+            ),
+            models.CheckConstraint(
+                condition=Q(kind__in=CaseKind.values), name="after_case_kind_valid"
+            ),
+            models.CheckConstraint(
+                condition=Q(status__in=CaseStatus.values), name="after_case_status_valid"
+            ),
+            models.CheckConstraint(
+                condition=Q(quantity__gt=0), name="after_case_quantity_positive"
+            ),
             models.CheckConstraint(
                 condition=Q(kind=CaseKind.SUPPORT) | Q(order_item__isnull=False),
                 name="after_case_purchase_required",
@@ -116,7 +141,10 @@ class DigitalProductAsset(TenantOwnedModel, TimestampedModel):
             *TenantOwnedModel.Meta.constraints,
             TenantForeignKeyConstraint(field="variant", name="after_digital_variant_tenant"),
             TenantForeignKeyConstraint(field="asset", name="after_digital_asset_tenant"),
-            models.CheckConstraint(condition=Q(download_limit__gte=1, download_limit__lte=100), name="after_digital_limit_valid"),
+            models.CheckConstraint(
+                condition=Q(download_limit__gte=1, download_limit__lte=100),
+                name="after_digital_limit_valid",
+            ),
         ]
 
 
@@ -126,7 +154,9 @@ class DigitalEntitlement(TenantOwnedModel, TimestampedModel):
     order_item = models.OneToOneField(OrderItem, on_delete=models.PROTECT, related_name="+")
     customer = models.ForeignKey(User, on_delete=models.PROTECT, related_name="+")
     asset = models.ForeignKey(MediaAsset, on_delete=models.PROTECT, related_name="+")
-    status = models.CharField(max_length=16, choices=EntitlementStatus.choices, default=EntitlementStatus.ACTIVE)
+    status = models.CharField(
+        max_length=16, choices=EntitlementStatus.choices, default=EntitlementStatus.ACTIVE
+    )
     access_count = models.PositiveIntegerField(default=0)
     download_limit = models.PositiveSmallIntegerField(default=10)
     revoked_at = models.DateTimeField(null=True, blank=True)
@@ -137,6 +167,12 @@ class DigitalEntitlement(TenantOwnedModel, TimestampedModel):
             TenantForeignKeyConstraint(field="order_item", name="after_entitlement_item_tenant"),
             TenantForeignKeyConstraint(field="customer", name="after_entitlement_customer_tenant"),
             TenantForeignKeyConstraint(field="asset", name="after_entitlement_asset_tenant"),
-            models.CheckConstraint(condition=Q(status__in=EntitlementStatus.values), name="after_entitlement_status_valid"),
-            models.CheckConstraint(condition=Q(download_limit__gte=1, download_limit__lte=100), name="after_entitlement_limit_valid"),
+            models.CheckConstraint(
+                condition=Q(status__in=EntitlementStatus.values),
+                name="after_entitlement_status_valid",
+            ),
+            models.CheckConstraint(
+                condition=Q(download_limit__gte=1, download_limit__lte=100),
+                name="after_entitlement_limit_valid",
+            ),
         ]

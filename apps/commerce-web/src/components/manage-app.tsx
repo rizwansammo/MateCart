@@ -351,10 +351,12 @@ function ProtectedManagement({ path }: { path: string }) {
       subtitle={`${session.user.full_name} · ${session.role_label}`}
       team={canManage}
       links={[
-        ...(canEditContent ? [
-          { href: '/manage/appearance', label: 'Appearance' },
-          { href: '/manage/content', label: 'Content' },
-        ] : []),
+        ...(canEditContent
+          ? [
+              { href: '/manage/appearance', label: 'Appearance' },
+              { href: '/manage/content', label: 'Content' },
+            ]
+          : []),
         ...(canHandleOrders ? [{ href: '/manage/aftersales', label: 'Customer requests' }] : []),
       ]}
       onLogout={async () => {
@@ -363,7 +365,11 @@ function ProtectedManagement({ path }: { path: string }) {
       }}
     >
       {path === 'aftersales' ? (
-        canHandleOrders ? <AfterSalesManage /> : denied
+        canHandleOrders ? (
+          <AfterSalesManage />
+        ) : (
+          denied
+        )
       ) : path === 'appearance' ? (
         canEditContent ? (
           <AppearanceSettings canManageSettings={canManageSettings} />

@@ -70,6 +70,8 @@ export interface AfterSalesCase {
   subject: string;
   reason: string;
   decision_reason: string;
+  refund: string | null;
+  replacement_order: string | null;
   created_at: string;
   updated_at: string;
   messages: SupportMessage[];
@@ -86,6 +88,8 @@ export const afterSalesCase: Decoder<AfterSalesCase> = (raw) => {
     subject: string(o.subject),
     reason: string(o.reason),
     decision_reason: string(o.decision_reason),
+    refund: nullable(string)(o.refund),
+    replacement_order: nullable(string)(o.replacement_order),
     created_at: string(o.created_at),
     updated_at: string(o.updated_at),
     messages: array(o.messages, supportMessage),

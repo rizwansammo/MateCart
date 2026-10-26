@@ -1,13 +1,11 @@
 """Phase 10 customer ownership and verified purchase regression tests."""
 
-import uuid
 from typing import Any
 
 import pytest
 from rest_framework.test import APIClient
 
 from commerce.aftersales.models import AfterSalesCase, DigitalEntitlement, ProductReview
-from commerce.identity.models import AccountType
 from commerce.media.models import MediaAsset, MediaKind
 from commerce.orders.models import PaymentIntent
 from commerce.tenancy.context import tenant_context
@@ -43,19 +41,24 @@ def test_support_request_is_private_idempotent_and_staff_moderated(store: Any) -
     assert first.status_code == replay.status_code == 201
     assert first.data["id"] == replay.data["id"]
     assert stranger.get(f"/api/cases/{first.data['id']}/").status_code == 404
-    assert stranger.post(
-        f"/api/cases/{first.data['id']}/", {"body": "No access"}, format="json"
-    ).status_code == 404
+    assert (
+        stranger.post(
+            f"/api/cases/{first.data['id']}/", {"body": "No access"}, format="json"
+        ).status_code
+        == 404
+    )
     assert APIClient().get("/api/cases/").status_code == 401
 
     response = staff.patch(
         f"/api/manage/aftersales/cases/{first.data['id']}/",
-        {"status": "approved"}, format="json",
+        {"status": "approved"},
+        format="json",
     )
     assert response.status_code == 200, response.data
     replied = staff.post(
         f"/api/manage/aftersales/cases/{first.data['id']}/",
-        {"body": "We are reviewing this."}, format="json",
+        {"body": "We are reviewing this."},
+        format="json",
     )
     assert replied.status_code == 201, replied.data
     own = buyer.get(f"/api/cases/{first.data['id']}/")
@@ -80,7 +83,10 @@ def test_review_requires_payment_and_genuine_purchase(store: Any, fakepay: Any) 
     assert unpaid.status_code == 409
     assert stranger.post("/api/reviews/", payload, format="json").status_code == 404
 
-    assert buyer.post(f"/api/orders/{placed.data['id']}/payment/", {}, format="json").status_code == 200
+    assert (
+        buyer.post(f"/api/orders/{placed.data['id']}/payment/", {}, format="json").status_code
+        == 200
+    )
     with tenant_context(store.tenant):
         intent = PaymentIntent.objects.get(order_id=placed.data["id"])
     assert callback(APIClient(), intent).status_code == 200
@@ -94,7 +100,8 @@ def test_review_requires_payment_and_genuine_purchase(store: Any, fakepay: Any) 
     staff = merchant(store.tenant)
     accepted = staff.post(
         f"/api/manage/aftersales/reviews/{saved.data['id']}/",
-        {"status": "published"}, format="json",
+        {"status": "published"},
+        format="json",
     )
     assert accepted.status_code == 200, accepted.data
     assert accepted.data["status"] == "published"
@@ -127,7 +134,10 @@ def test_digital_library_requires_verified_payment(store: Any, fakepay: Any) -> 
     assert pending.data[0]["state"] == "payment_required"
     assert stranger.get("/api/account/library/").data == []
 
-    assert buyer.post(f"/api/orders/{placed.data['id']}/payment/", {}, format="json").status_code == 200
+    assert (
+        buyer.post(f"/api/orders/{placed.data['id']}/payment/", {}, format="json").status_code
+        == 200
+    )
     with tenant_context(store.tenant):
         intent = PaymentIntent.objects.get(order_id=placed.data["id"])
     assert callback(APIClient(), intent).status_code == 200

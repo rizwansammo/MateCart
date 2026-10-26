@@ -5,8 +5,9 @@ from typing import Any
 import pytest
 from rest_framework.test import APIClient
 
-from commerce.tenancy.context import tenant_context
 from commerce.orders.models import Order
+from commerce.tenancy.context import tenant_context
+
 from .test_orders import customer_client, place, product, reviewed, stock
 
 pytestmark = pytest.mark.django_db

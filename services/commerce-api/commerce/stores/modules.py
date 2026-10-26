@@ -182,17 +182,19 @@ REGISTRY: tuple[ModuleSpec, ...] = (
         requires=("online_payments",),
     ),
     ModuleSpec("courier_booking", "Courier booking", "Book and track couriers.", "09", True),
-    ModuleSpec("product_reviews", "Product reviews", "Verified customer reviews.", "10", False),
+    ModuleSpec("product_reviews", "Product reviews", "Verified customer reviews.", "10", True, default_on=ALL),
     ModuleSpec(
-        "returns_exchanges", "Returns and exchanges", "Customer return requests.", "10", False
+        "returns_exchanges", "Returns and exchanges", "Customer return requests.", "10", True, default_on=ALL
     ),
     ModuleSpec(
         "digital_downloads",
         "Digital downloads",
         "Deliver eBooks and digital files.",
         "10",
-        False,
+        True,
         frozenset({B, D}),
+        frozenset({B, D}),
+        requires=("cart_checkout",),
     ),
     ModuleSpec("flash_sales", "Flash sales", "Time-limited deals with countdowns.", "12", False),
     ModuleSpec("loyalty", "Loyalty points", "Rewards for repeat customers.", "12", False),

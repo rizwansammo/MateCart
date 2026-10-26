@@ -24,6 +24,11 @@ jobs:
           version: '0.13.5'
       - name: Format worktree and generate schema
         shell: bash
+        env:
+          DATABASE_URL: postgres://matecart:temporary@127.0.0.1:5432/matecart
+          REDIS_URL: redis://127.0.0.1:6379/0
+          CELERY_BROKER_URL: redis://127.0.0.1:6379/1
+          CELERY_RESULT_BACKEND: redis://127.0.0.1:6379/2
         run: |
           pnpm exec prettier --write .
           cd services/commerce-api
@@ -47,4 +52,12 @@ jobs:
               if path.is_file() and path.stat().st_size < 150000:
                   print('MCFMT ' + json.dumps({'path': filename, 'content': path.read_text(encoding='utf-8')}, ensure_ascii=True))
           print('MCFMT_END')
+          import base64
+          f = Path('services/commerce-api/openapi.yaml')
+          if f.exists():
+              content = base64.b64encode(f.read_bytes()).decode('ascii')
+              print('MC_OPENAPI_BEGIN')
+              for offset in range(0, len(content), 2500):
+                  print('MC_OPENAPI ' + content[offset:offset+2500])
+              print('MC_OPENAPI_END')
           PY

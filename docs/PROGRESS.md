@@ -1,3 +1,35 @@
+## Phase 10 integration and integrity update (2026-10-27)
+
+Work is being prepared in one Git tree/commit batch instead of one commit
+per file to reduce unnecessary GitHub Actions runs. The accepted Phase 09.1
+baseline remains intact; the feature branch PR #1 stays in draft.
+
+Phase 10 components developed: private paginated customer order history,
+purchase-linked reviews and moderation, support conversations, return,
+exchange and warranty case lifecycle, merchant case decision interface,
+reusable customer addresses and account UI, digital buyer library and
+verified-payment entitlements. Product reviews, returns/exchanges and
+digital delivery become configurable modules in their respective presets.
+
+Integrity refinements: return completion needs a refund explicitly bound to
+the original order; exchange completion requires a separately delivered
+replacement order with the same customer and SKU. Digital downloads are
+private even if an asset is later referenced in public catalogue content.
+Neither customer requests nor case changes directly mutate payment, shipment
+or inventory records.
+
+Acceptance pending: regenerate the committed OpenAPI schema, run migration
+and drift checks against PostgreSQL, resolve static checks, run full
+frontend/backend tests and inspect the final PR. No live provider credentials
+or real payment or courier integrations have been introduced. There is no
+claim of a passing Phase 10 CI or of a completed deployment.
+
+Next: push the prepared batch, collect the verification results, correct
+findings in one final batch, remove the temporary helper workflow and
+run the normal CI before reviewing and merging.
+
+---
+
 ## Phase 10 work in progress (GitHub feature branch, 2026-10-27)
 
 Branch: `feature/phase-10-customer-after-sales`, created from accepted Phase 09.1 main
@@ -6,6 +38,7 @@ commit `1ffdf365b45773913be0431a7c64045cbcaac32e` (CI run 40399357939:
 accepted and closed. The historical status below predates that acceptance.
 
 Implemented on the feature branch so far:
+
 - New authenticated `GET /api/orders/` listing, filtered to the current customer,
   with existing bounded page pagination and minimal order summary fields.
 - Targeted regression tests for unauthenticated access, customer ownership,
