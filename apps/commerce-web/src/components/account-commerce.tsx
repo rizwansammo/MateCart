@@ -13,7 +13,7 @@ import {
   buyerLibraryItem,
   order,
   orderSummary,
-  page,
+  afterSalesPage,
   savedAddress,
   array,
 } from '@matecart/shared-contracts';
@@ -89,9 +89,9 @@ export function CustomerCommerceAccount() {
         api.get<unknown>('/api/cases/?page_size=25'),
         api.get<unknown>('/api/account/library/'),
       ]);
-      setOrders(page(history, orderSummary).results);
+      setOrders(afterSalesPage(history, orderSummary).results);
       setAddresses(array(locations, savedAddress));
-      setCases(page(requests, afterSalesCase).results);
+      setCases(afterSalesPage(requests, afterSalesCase).results);
       setLibrary(array(items, buyerLibraryItem));
       setError('');
     } catch (err) {

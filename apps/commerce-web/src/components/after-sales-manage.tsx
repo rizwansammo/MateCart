@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import type { AfterSalesCase, PurchaseReview } from '@matecart/shared-contracts';
-import { afterSalesCase, page, purchaseReview } from '@matecart/shared-contracts';
+import { afterSalesCase, afterSalesPage, purchaseReview } from '@matecart/shared-contracts';
 import { Alert, Button, Loading, errorMessage } from '@matecart/shared-ui';
 import { authApi as api } from '@/lib/auth-client';
 
@@ -26,8 +26,8 @@ export function AfterSalesManage() {
         api.get<unknown>('/api/manage/aftersales/cases/?page_size=25'),
         api.get<unknown>('/api/manage/aftersales/reviews/?page_size=25'),
       ]);
-      setCases(page(a, afterSalesCase).results);
-      setReviews(page(b, purchaseReview).results);
+      setCases(afterSalesPage(a, afterSalesCase).results);
+      setReviews(afterSalesPage(b, purchaseReview).results);
       setError('');
     } catch (err) {
       setError(errorMessage(err));

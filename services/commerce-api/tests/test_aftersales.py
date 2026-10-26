@@ -1,15 +1,20 @@
 """Phase 10 customer ownership and verified purchase regression tests."""
 
+from collections.abc import Iterator
 from typing import Any
 
 import pytest
+from pytest_django.fixtures import Settings
 from rest_framework.test import APIClient
 
 from commerce.aftersales.models import AfterSalesCase, DigitalEntitlement, ProductReview
 from commerce.media.models import MediaAsset, MediaKind
 from commerce.orders.models import PaymentIntent
+from commerce.orders.providers import reset_provider_cache
+from commerce.stores.modules import set_module
 from commerce.tenancy.context import tenant_context
 
+from .fakes import FakePaymentProvider
 from .test_checkout import product
 from .test_orders import (
     callback,
@@ -23,6 +28,17 @@ from .test_orders import (
 )
 
 pytestmark = pytest.mark.django_db
+
+
+@pytest.fixture
+def fakepay(settings: Settings, store: Any) -> Iterator[type[FakePaymentProvider]]:
+    settings.MATECART_PAYMENT_PROVIDER = "tests.fakes.FakePaymentProvider"
+    reset_provider_cache()
+    FakePaymentProvider.reset()
+    with tenant_context(store.tenant):
+        set_module(key="online_payments", enabled=True, actor=None)
+    yield FakePaymentProvider
+    reset_provider_cache()
 
 
 def test_support_request_is_private_idempotent_and_staff_moderated(store: Any) -> None:
@@ -71,7 +87,7 @@ def test_support_request_is_private_idempotent_and_staff_moderated(store: Any) -
 def test_review_requires_payment_and_genuine_purchase(store: Any, fakepay: Any) -> None:
     buyer = customer_client(store.tenant, "review-buyer@example.test")
     stranger = customer_client(store.tenant, "review-stranger@example.test")
-    variant = product(store.tenant)
+    variant = product(store.tenant, tracked=True)
     stock(store.tenant, variant, 2)
     checked = reviewed(buyer, variant)
     placed = place(buyer, checked, method="online", key="review-checkout-1234")

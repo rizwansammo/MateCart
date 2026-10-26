@@ -22,7 +22,7 @@ def test_order_history_requires_customer_session(store: Any, api_client: APIClie
 def test_order_history_lists_only_customer_orders(store: Any) -> None:
     first = customer_client(store.tenant, "history-first@example.test")
     second = customer_client(store.tenant, "history-second@example.test")
-    variant = product(store.tenant)
+    variant = product(store.tenant, tracked=True)
     stock(store.tenant, variant, 3)
 
     first_order = place(first, reviewed(first, variant), key="customer-history-first")

@@ -2,14 +2,14 @@
 import { array, boolean, number, object, string, type Decoder } from './auth';
 import { decimal, nullable } from './catalog';
 
-export interface Page<T> {
+export interface AfterSalesPage<T> {
   count: number;
   page: number;
   page_size: number;
   results: T[];
 }
 
-export function page<T>(raw: unknown, decode: Decoder<T>): Page<T> {
+export function afterSalesPage<T>(raw: unknown, decode: Decoder<T>): AfterSalesPage<T> {
   const o = object(raw);
   return {
     count: number(o.count),
