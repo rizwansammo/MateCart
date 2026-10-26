@@ -46,6 +46,8 @@ INSTALLED_APPS = [
     "commerce.orders",
     # Phase 09: physical shipments, courier tracking, COD reconciliation and fraud review.
     "commerce.fulfillment",
+    # Phase 10: customer purchase-linked after sales records.
+    "commerce.aftersales",
     # Phase 05: store content (pages, homepage sections). Theme and modules live in stores.
     "commerce.content",
 ]
@@ -264,6 +266,10 @@ SPECTACULAR_SETTINGS = {
         "CodReconciliationStatusEnum": "commerce.fulfillment.models.CodReconciliationStatus",
         "FraudReviewStatusEnum": "commerce.fulfillment.models.FraudReviewStatus",
         "FraudDecisionEnum": "commerce.fulfillment.models.FraudDecision",
+        "AfterSalesCaseKindEnum": "commerce.aftersales.models.CaseKind",
+        "AfterSalesCaseStatusEnum": "commerce.aftersales.models.CaseStatus",
+        "PurchaseReviewStatusEnum": "commerce.aftersales.models.ReviewStatus",
+        "DigitalEntitlementStatusEnum": "commerce.aftersales.models.EntitlementStatus",
     },
 }
 API_SCHEMA_ENABLED = env.bool("DJANGO_API_SCHEMA_ENABLED", default=False)

@@ -615,6 +615,12 @@ class PublicMediaView(APIView):
         "collection.",
     )
     def get(self, request: Request, asset_id: uuid.UUID) -> Any:
+        from commerce.aftersales.models import DigitalProductAsset
+
+        # A private paid file stays private even if another module accidentally
+        # assigns the same media id as a public gallery or content attachment.
+        if DigitalProductAsset.objects.filter(asset_id=asset_id).exists():
+            raise Http404
         asset = MediaAsset.objects.filter(pk=asset_id).first()
         if asset is None or not is_public_asset(asset):
             raise Http404

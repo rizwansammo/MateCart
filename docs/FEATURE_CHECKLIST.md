@@ -313,17 +313,29 @@ Delivery requirements:
 - [ ] Facebook, Messenger, WhatsApp, website chat; unified inbox; social commerce (14)
 - [ ] Provider-independent AI layer, GroqCloud first; product content, image analysis, support replies, marketing, BI (15)
 
+## Customer accounts and after sales (Phase 10)
+
+Implementation CI: run 40417354396, 4/4 jobs, 1,080 tests. Interactive owner acceptance pending.
+
+- [~] Customer order history, saved address management and account integration
+- [~] Verified-purchase reviews and merchant moderation
+- [~] Customer return and exchange cases with merchant-controlled transitions
+- [~] Warranty claim eligibility and support conversation threads
+- [~] Private buyer digital library and payment-gated PDF entitlements
+- [~] Purchase and tenant isolation tests, API contracts, migrations and final CI
+- [ ] Final independent review and Phase 10 acceptance
+
 ## Other pending features (must not be dropped)
 
 - [x] Delivery address selection and order recipient snapshots (07/08)
-- [ ] Multiple customer addresses and a default address, separate recipient phone/name (10)
+- [~] Multiple customer addresses and a default address, separate recipient phone/name (10)
 
 - [ ] Consistent customer and merchant order synchronisation (08, 10, 11)
 - [ ] Product publishing and stock synchronisation (04, 11)
 - [ ] Complete bookstore-specific merchant workflows (04, 05, 11)
 - [ ] Fake COD order prevention and courier return risk analysis (09)
 - [ ] WooCommerce and Shopify migration; bulk product import (15)
-- [ ] Secure digital download delivery and buyer libraries (10)
+- [~] Secure digital download delivery and buyer libraries (10)
 - [ ] Advanced invoice customisation and QR support (basic printable invoice in 08; customisation and QR deferred)
 - [ ] Privacy consent and advanced marketing tracking (12)
 - [ ] Reliable cross-module reporting (11)

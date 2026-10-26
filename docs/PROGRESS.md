@@ -1,14 +1,63 @@
 # Progress and handoff
 
-Updated: 2026-10-27 (Asia/Dhaka). **Phase 08 — Orders, Payments & Invoices and Correction 08.1 are
-accepted and closed at `b2eb55f75a8e878599328c92b139eed6b7230d33` (GitHub Actions 40380408247:
-4/4 jobs, 1,050 tests, 0 failures). Phase 09 — Fulfillment & Courier was implemented and pushed at
-`84d790e0dbf8d4eae269bbcb5cd0f258c72f678f` (GitHub Actions 40393494776: 4/4 jobs, 1,067
-tests, 0 failures). Independent review requested the two Phase 09.1 integrity corrections, which
-are implemented locally pending owner commit/push, CI and review. No real payment or courier
-provider is configured.** Phases 01–08 (with 02.1, 02.2, 03.1, 04.1, 05.1, 06.1, 06.2, 07.1 and
-08.1) are accepted and closed.
-The managed theme marketplace remains deferred.
+Updated: 2026-10-27 (Asia/Dhaka).
+
+**Phase 10 — Customer Accounts & After-sales is implemented and CI-verified on
+feature branch `feature/phase-10-customer-after-sales` (PR #1).** The last
+code commit `c604313fd670d0cb175701166a511abe60158900` passed GitHub Actions
+run 40417354396: 4/4 jobs successful, 1,080 automated tests passed,
+0 failures. Phases 01–09 and their accepted corrective subphases remain closed.
+Phase 11 must not start before Phase 10 owner acceptance.
+
+## Phase 10 implementation and verification
+
+- Customer account UI extends the previously accepted authentication flows
+  with paginated, customer-owned order history and saved delivery addresses.
+- Purchase-verified product reviews and authenticated merchant moderation.
+- Tenant-owned return, exchange and warranty cases with quantity guards,
+  idempotency, restricted state transitions, staff decisions and audit events.
+  Return resolution requires a succeeded refund bound to the original order.
+  Exchange resolution requires a separately delivered matching replacement
+  order for the same customer; neither process bypasses existing order,
+  payment, inventory or courier services.
+- Customer support request threads, customer and merchant replies, and
+  ownership checks.
+- Payment-gated digital library: immutable order-item entitlements,
+  private PDF downloads, quota tracking and revocation after refunds.
+  Public catalogue media never serves an asset bound to a digital entitlement.
+- Module registry activated for the implemented Phase 10 functionality,
+  with the existing dedicated-tenant and preset rules.
+- Three new aftersales schema migrations. Django migration drift check reported
+  no missing changes. Committed OpenAPI schema and runtime TypeScript contracts
+  updated for the new endpoints.
+- Tests on PostgreSQL and Redis in CI: 795 commerce Python, 57 control Python,
+  51 shared contracts, 76 shared UI, 96 storefront, and 5 Node tests.
+  Frontend lint, formatting, types, unit tests, production builds, backend
+  Ruff, mypy, Django system checks and Compose validation all passed.
+- Temporary verification workflow removed; normal `CI` is the only
+  active pull request quality gate.
+
+## Remaining acceptance and external limitations
+
+- The owner has not yet performed interactive localhost review of the
+  customer and merchant interfaces. GitHub CI does not constitute
+  visual acceptance or a live production deployment.
+- Digital files are PDF only, matching the currently validated media format.
+  EPUB and other document formats require additional safe upload validators.
+- No real payment gateway, courier, Google, SMS or external SMTP provider
+  credentials were configured or used. The existing provider gates remain.
+- Manual returns/refunds and replacement-order handling use separately
+  authorized merchant operations. Phase 10 does not create a second stock
+  or payment engine.
+- No unrelated repositories, production services or Docker environments
+  were modified through this ChatGPT GitHub workflow.
+
+Next step: complete code review, merge the verified PR if all checks still
+pass, then have the owner pull `main` and smoke-test the account, reviews,
+returns, support and buyer library. Record any visual or real-provider
+acceptance findings without starting Phase 11 prematurely.
+
+---
 
 ## Accepted baseline and boundaries
 

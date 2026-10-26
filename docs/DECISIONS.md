@@ -855,6 +855,24 @@ idempotency_conflict`. The free-text reason, actor and a batch's supplier
   customer's identifiers. Authorized reviews are append-only. Scores and flags never automatically
   cancel, blacklist or block dispatch; a merchant must use the normal order decision path.
 
+### D-075 · Verified after sales and digital entitlement boundaries (2026-10-27, Phase 10)
+
+- Customer return and exchange requests never directly issue refunds, restore
+  stock or dispatch replacements. Existing payment, inventory and fulfillment
+  services remain authoritative; a merchant must supply independently verified
+  refund or replacement order evidence before resolving a case.
+- Purchase linked product reviews require payment verification and merchant
+  moderation. Published reviews expose rating and review text but not account
+  details; all submissions and decisions use tenant scoped persistence.
+- Download entitlements bind one immutable purchased item to a private document.
+  Payment callbacks (or verified existing payments during asset assignment)
+  grant access. Refunds conservatively revoke access; the private file endpoint
+  enforces customer ownership, paid status and a bounded download counter.
+  Public media serving refuses digital assets to prevent an accidental leak.
+- Digital resource formats are limited to already validated PDF documents until
+  safe additional byte validators and upload contracts are implemented.
+  No customer support flow creates payments or stock changes itself.
+
 ## Open questions for the owner
 
 | #   | Question                                                                                                                                   | Status                                                                                                    | Needed by |
