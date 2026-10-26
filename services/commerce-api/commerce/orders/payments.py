@@ -232,6 +232,9 @@ def _apply_event(code: str, event: ProviderEvent) -> str:
             actor=None,
             actor_label="provider",
         )
+    from commerce.aftersales.digital import issue_for_order
+
+    issue_for_order(order)
     return "payment_succeeded"
 
 
@@ -350,6 +353,9 @@ def _complete_refund(order: Order, refund: Refund, outcome_ref: str, actor: User
         actor_label="provider" if actor is None else "",
         changes={"number": order.number, "amount": refund.amount, "method": refund.method},
     )
+    from commerce.aftersales.digital import revoke_for_order
+
+    revoke_for_order(order)
 
 
 def _apply_refund_outcome(refund_id: Any, outcome: RefundOutcome) -> Refund:
