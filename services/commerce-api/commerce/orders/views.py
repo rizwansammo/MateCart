@@ -73,6 +73,28 @@ class PlaceOrderView(CheckoutOwnerMixin, StorefrontAPIView):
         return response
 
 
+@method_decorator(never_cache, name="dispatch")
+class CustomerOrderListView(StorefrontAPIView):
+    """Only orders bound to the signed-in customer; guest tokens cannot list orders."""
+
+    permission_classes = (IsAuthenticated,)
+
+    @extend_schema(
+        operation_id="customer_order_list",
+        tags=ORDER_TAG,
+        responses={200: paginated(OrderSummarySerializer)},
+    )
+    def get(self, request: Request) -> Response:
+        user = request.user
+        if not isinstance(user, User):
+            raise NotFound("Customer account not found.")
+        items, meta = paginate(
+            Order.objects.filter(customer=user).order_by("-placed_at", "-pk"),
+            request,
+        )
+        return Response({**meta, "results": OrderSummarySerializer(items, many=True).data})
+
+
 class OrderOwnerMixin:
     def order(self, request: Request, order_id: Any) -> Order:
         return services.owned_order(
