@@ -8,3 +8,5 @@ export * from './appearance';
 export * from './themes';
 export * from './checkout';
 export * from './orders';
+
+export * from './after-sales';
