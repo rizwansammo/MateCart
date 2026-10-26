@@ -120,6 +120,7 @@ export function storeConfig(extra: Partial<StorefrontConfig['store']> = {}): Sto
       },
     ],
     translations: { bn: { tagline: 'প্রতিদিনের পণ্য', announcement: 'নমুনা দাম' } },
+    local_date: '2026-10-27',
   };
 }
 

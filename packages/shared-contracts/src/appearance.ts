@@ -34,6 +34,12 @@ function hexOrEmpty(value: unknown): string {
   if (!HEX.test(text)) throw new Error('Invalid response');
   return text;
 }
+const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
+function isoDate(value: unknown): string {
+  const text = string(value);
+  if (!ISO_DATE.test(text)) throw new Error('Invalid response');
+  return text;
+}
 function mediaUrl(value: unknown): string {
   const text = string(value);
   if (!MEDIA_URL.test(text)) throw new Error('Invalid response');
@@ -279,6 +285,8 @@ export interface StorefrontConfig {
   modules: string[];
   footer_pages: { slug: string; title: string; page_type: string; translations: Translations }[];
   translations: Translations;
+  /** Today in the store's time zone (YYYY-MM-DD), the day availability is computed for. */
+  local_date: string;
 }
 export function storefrontConfig(value: unknown): StorefrontConfig {
   const o = object(value);
@@ -317,5 +325,6 @@ export function storefrontConfig(value: unknown): StorefrontConfig {
       };
     }),
     translations: translations(o.translations),
+    local_date: isoDate(o.local_date),
   };
 }

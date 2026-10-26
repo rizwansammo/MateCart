@@ -40,6 +40,7 @@ const config = {
     },
   ],
   translations: { bn: { tagline: 'ধীরে বোনা' } },
+  local_date: '2026-10-27',
 };
 
 describe('appearance response boundaries', () => {
@@ -48,6 +49,12 @@ describe('appearance response boundaries', () => {
     expect(decoded.preset).toBe('fashion');
     expect(decoded.theme.primary_color).toBe('#1F6F4A');
     expect(decoded.translations.bn?.tagline).toBe('ধীরে বোনা');
+  });
+  it('carries the store-local date and rejects anything else (06.1)', () => {
+    expect(storefrontConfig(config).local_date).toBe('2026-10-27');
+    for (const local_date of ['2026-10-27T00:30:00+06:00', '27/10/2026', null]) {
+      expect(() => storefrontConfig({ ...config, local_date })).toThrow();
+    }
   });
   it('rejects unknown presets', () => {
     expect(() => storefrontConfig({ ...config, preset: 'casino' })).toThrow();

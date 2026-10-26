@@ -7732,8 +7732,12 @@ components:
           items:
             $ref: '#/components/schemas/FooterPage'
         translations: {}
+        local_date:
+          type: string
+          format: date
       required:
       - footer_pages
+      - local_date
       - modules
       - preset
       - store

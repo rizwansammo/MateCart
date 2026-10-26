@@ -110,7 +110,7 @@ export default async function ProductPage({ params, searchParams }: Props) {
         product={product}
         preset={preset}
         lang={lang}
-        today={new Date().toISOString().slice(0, 10)}
+        today={ctx.config.local_date}
         requestedVariant={requested}
         header={<ProductHeader product={product} ctx={ctx} />}
         highlights={<ProductHighlights product={product} ctx={ctx} />}

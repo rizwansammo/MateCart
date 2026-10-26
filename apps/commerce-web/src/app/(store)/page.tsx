@@ -1,6 +1,6 @@
 import type { PresetId } from '@matecart/shared-ui';
 
-import { HomeFallback, HomeSections } from '@/components/store/home-sections';
+import { hasRenderableSection, HomeFallback, HomeSections } from '@/components/store/home-sections';
 import { apiQuery, parseListingQuery } from '@/lib/catalog-query';
 import { getStoreContext } from '@/lib/store-context';
 import { getCategoryTree, getHomeSections, getProducts } from '@/lib/storefront-api';
@@ -23,11 +23,6 @@ export default async function StoreHomePage() {
   const size = HIGHLIGHT_SIZE[ctx.theme.preset.id];
   const firstPage = parseListingQuery({});
 
-  if (sections.length === 0) {
-    const newest = await getProducts(apiQuery(firstPage, {}, size));
-    return <HomeFallback ctx={ctx} products={newest?.results ?? []} />;
-  }
-
   // All collection highlights are fetched at once, not one after another.
   const collections = await Promise.all(
     sections.map(async (section) => {
@@ -38,5 +33,13 @@ export default async function StoreHomePage() {
       return page?.results ?? null;
     }),
   );
-  return <HomeSections ctx={ctx} data={{ sections, categories, collections }} />;
+  const data = { sections, categories, collections };
+
+  // No sections, or none with anything to show: open on the store and its newest products.
+  // Only this case makes the extra request; normal homepages do not.
+  if (!hasRenderableSection(data, ctx.lang)) {
+    const newest = await getProducts(apiQuery(firstPage, {}, size));
+    return <HomeFallback ctx={ctx} products={newest?.results ?? []} />;
+  }
+  return <HomeSections ctx={ctx} data={data} />;
 }

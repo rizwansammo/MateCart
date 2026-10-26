@@ -490,6 +490,34 @@ export function secondaryLanguage(ctx: StoreContext): string | null {
   return ctx.config.store.languages.find((code) => code !== ctx.lang) ?? null;
 }
 
+/**
+ * Whether a section has real public content to show (Phase 06.1). The homepage route uses the
+ * same rule to decide on the fallback, so the page is never left without main content.
+ * Heroes and brand stories always render: the API returns enabled sections only, and an
+ * enabled section always has a title (05.1).
+ */
+export function isRenderable(
+  section: StorefrontSection,
+  index: number,
+  data: HomeData,
+  lang: string,
+): boolean {
+  switch (section.section_type) {
+    case 'category_showcase':
+      return data.categories.length > 0;
+    case 'collection_highlight':
+      return Boolean(section.collection && data.collections[index]?.length);
+    case 'trust_strip':
+      return trustItems(section, lang).length > 0;
+    default:
+      return true;
+  }
+}
+
+export function hasRenderableSection(data: HomeData, lang: string): boolean {
+  return data.sections.some((section, index) => isRenderable(section, index, data, lang));
+}
+
 export function HomeSections({ data, ctx }: { data: HomeData; ctx: StoreContext }) {
   const preset = ctx.theme.preset.id;
   const editorial = preset === 'fashion' || preset === 'books';
@@ -501,6 +529,7 @@ export function HomeSections({ data, ctx }: { data: HomeData; ctx: StoreContext 
       {firstHero === -1 && <h1 className="sr-only">{ctx.config.store.name}</h1>}
       {data.sections.map((section, index) => {
         const key = `${section.section_type}-${index}`;
+        if (!isRenderable(section, index, data, ctx.lang)) return null;
         switch (section.section_type) {
           case 'hero':
             return <Hero key={key} section={section} ctx={ctx} first={index === firstHero} />;
@@ -534,7 +563,10 @@ export function HomeSections({ data, ctx }: { data: HomeData; ctx: StoreContext 
   );
 }
 
-/** A store without homepage sections still opens on something real: its name and newest products. */
+/**
+ * A homepage without sections, or whose sections have nothing to show, still opens on something
+ * real: the store's name and texts, and its newest products.
+ */
 export function HomeFallback({
   ctx,
   products,

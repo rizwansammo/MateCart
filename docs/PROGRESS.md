@@ -1,9 +1,11 @@
 # Progress and handoff
 
-Updated: 2026-10-26 (Asia/Dhaka). **Phase 06 — Customer Storefront is implemented and
-locally verified, ready for the owner's commit, push, GitHub CI and independent
-acceptance.** Phases 01–05 (with 02.1, 02.2, 03.1, 04.1 and 05.1) are accepted and closed.
-Phase 07 has not started and needs explicit authorization.
+Updated: 2026-10-26 (Asia/Dhaka). **Phase 06.1 — Focused Storefront Corrections is
+implemented and locally verified, ready for the owner's commit, push, GitHub CI and
+independent review; it is not yet accepted.** Phase 06 — Customer Storefront is committed
+and GitHub-verified (`46c2e1a`). Phases 01–05 (with 02.1, 02.2, 03.1, 04.1 and 05.1) are
+accepted and closed. Phase 07 and the managed theme work have not started and need explicit
+authorization.
 
 ## Accepted baseline and boundaries
 
@@ -19,7 +21,8 @@ Phase 07 has not started and needs explicit authorization.
 | Correction 04.1 | Accepted and Phase 04 closed: `8290fe424ea7729d46c392e2ab974fa646f2fcf6`, run 40249765179, 4/4 jobs, 735 tests (630 commerce, 57 control, 29 contracts, 16 UI, 3 Node).                                                                                   |
 | Phase 05        | Implemented and pushed (GitHub-verified): `e3810cb465a771cc9b18437290f67aba1bbd7f02`, run 40297666311, SUCCESS 4/4 jobs, 807 tests (667 commerce, 57 control, 34 contracts, 46 UI, 3 Node). Review requested the 05.1 corrections.                        |
 | Correction 05.1 | Accepted and Phase 05 closed: `613cd49edee5c16b31e3beb34d0b84b74f6dce72`, run 40301529264, 4/4 jobs, 827 tests (678 commerce, 57 control, 34 contracts, 55 UI, 3 Node).                                                                                   |
-| Phase 06        | **Implemented and verified locally, not committed.** Baseline `613cd49` on `main`; no commit, push or PR was created by the assistant. CI and independent acceptance pending.                                                                             |
+| Phase 06        | Implemented and pushed (GitHub-verified): `46c2e1af3078a46e1531c6783304f3430dacfbf0`, run 40311886344, SUCCESS 4/4 jobs, 894 tests (679 commerce, 57 control, 39 contracts, 55 UI, 61 web, 3 Node). Review requested the 06.1 corrections.                |
+| Correction 06.1 | **Implemented and verified locally, not committed.** Baseline `46c2e1a` on `main`; no commit, push or PR was created by the assistant. CI and independent review pending; not accepted.                                                                   |
 | Architecture    | Dedicated single-tenant deployment, tenant-aware modular monolith, future hybrid only if approved; commerce/control independent.                                                                                                                          |
 | Product         | Private beta, manual onboarding. Public commercial signup/subscriptions/billing deferred. Public customer registration is authorized.                                                                                                                     |
 | Prototype       | MateCart-UI strictly read-only; no edits/build/install (HEAD `9ff1361`, clean).                                                                                                                                                                           |
@@ -31,6 +34,54 @@ and staff invitations; 03.1 closed backend team step-up, OIDC binding order and
 narrow Google provider failure handling (D-039 to D-049, AUTHENTICATION.md,
 SECURITY.md). External Google, SMS and SMTP acceptance remains outstanding until
 genuine providers are configured.
+
+## Phase 06.1 corrections (corrective subphase, not accepted)
+
+Three gaps from the independent post-push review of Phase 06, fixed without redesign. No
+model, migration or dependency change; inventory, pricing, authentication and content
+management are untouched.
+
+1. **Translated product names were not searchable.** Public search matched `name`, tags,
+   brand, authors and ISBN, but not `translations[lang]["name"]`, so a Bangla name (or the
+   English name of a Bangla-default store) found nothing. `_search()` now also matches the
+   translated name for each of the store's supported languages (JSON key lookups in the ORM,
+   keys limited to platform language codes), inside the same filtered queryset before
+   pagination, so active-only and tenant scoping are unchanged.
+2. **Pre-order labels used the UTC date.** The product page passed
+   `new Date().toISOString()` while availability uses the store's IANA time zone
+   (`store_today()`). `/api/storefront/config/` now returns `local_date` from `store_today()`
+   (D-068); the contract decodes it as `YYYY-MM-DD` and the product page passes it to the
+   existing label logic. Availability responses are unchanged.
+3. **The homepage could render without main content.** The fallback ran only for zero
+   sections, while showcases without categories, empty collection highlights and empty trust
+   strips render nothing. `isRenderable()` / `hasRenderableSection()` in `home-sections.tsx`
+   now decide both what the renderer shows and when the route uses the existing
+   `HomeFallback`; the fallback's newest-products request is made only in that case.
+
+Files: `commerce/catalog/public.py`, `commerce/content/public.py`, `openapi.yaml`,
+`tests/test_catalog_api.py`, `tests/test_appearance.py`;
+`packages/shared-contracts/src/{appearance.ts, appearance.test.ts}`;
+`apps/commerce-web/src/{app/(store)/page.tsx, app/(store)/products/[slug]/page.tsx,
+components/store/{home-sections.tsx, product-experience.tsx, storefront.test.tsx},
+test/fixtures.ts}`.
+
+## Verification record (Phase 06.1, observed locally)
+
+**913 automated tests passed, 0 failed** (682 commerce + 57 control + 40 contracts + 55 shared
+UI + 76 commerce-web + 3 Node): 3 new commerce tests (translated-name search; store-local date
+in Asia/Dhaka and America/New_York with availability around the release day), 1 new contract
+test and 15 new commerce-web tests (pre-order labels before, on and after release with digital
+and regular variants; fallback decisions for each empty-section case, mixed order and all five
+presets).
+
+| Check        | Actual observation                                                                                                                                                                                                                                                                                                              |
+| ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Backend      | `pnpm api:test`: 682 + 57 passed (includes the OpenAPI drift test). `pnpm api:lint` passed after ruff sorted two inserted imports and one test line was wrapped; the two touched test files were re-run (69 passed). `makemigrations --check`: no changes.                                                                      |
+| Frontend     | `pnpm check` passed (Prettier, ESLint, typecheck, 40 + 55 + 76 + 3 tests). `pnpm build` passed (both apps).                                                                                                                                                                                                                     |
+| API contract | `pnpm api:schema`: only `local_date` (string, date) added to the storefront configuration.                                                                                                                                                                                                                                      |
+| Live         | Bangla search for "গীতাঞ্জলি" returns Gitanjali through the API and `/search`; `local_date` is the Dhaka date; the pre-order book shows "Pre-order · Releases 15 March 2027" and Gitanjali "In stock". `pnpm health` passed (a first run hit the console's first-compile delay; re-run passed). `docker compose config` passed. |
+| Not verified | The empty-homepage fallback was not exercised against the review store (that would mean disabling its sections); it is covered by the component tests. Preset screenshots were not repeated (no layout change).                                                                                                                 |
+| GitHub CI    | Phase 06.1 not run (uncommitted). Last CI: run 40311886344 (Phase 06), 4/4, 894 tests.                                                                                                                                                                                                                                          |
 
 ## Phase 06 implemented scope
 
@@ -110,7 +161,7 @@ authors, ISBN) and an extended footer test, 5 new contract tests and 61 new comm
 | Review data  | `storefront-seed.mjs --local` run once (7 categories, 10 products of all five types, 1 collection, homepage sections, 2 pages, appearance texts, Bangla translations); option order then corrected once through the merchant API.                                    |
 | Not verified | Screen-reader run, real phones and Safari, Lighthouse/performance budgets. The auth smoke was not re-run (no authentication change).                                                                                                                                 |
 | Preservation | Only `matecart-dev` used; other projects untouched; prototype `9ff1361` clean; no env, key or font files in the change set.                                                                                                                                          |
-| GitHub CI    | Phase 06 not run (uncommitted). Last CI: run 40301529264 (Phase 05.1), 4/4, 827 tests.                                                                                                                                                                               |
+| GitHub CI    | After push: `46c2e1a`, run 40311886344, SUCCESS 4/4 jobs, 894 tests.                                                                                                                                                                                                 |
 
 ## Phase 05.1 corrections (accepted)
 
@@ -375,14 +426,12 @@ contract tests. Plus 7 live catalogue and 12 live authentication smoke checks.
 
 ## Remaining scope, limits and next step
 
-- **Next step:** owner reviews the uncommitted Phase 06 diff, commits and pushes it,
-  verifies GitHub CI and requests independent acceptance. Phase 07 starts only after
-  explicit authorization.
+- **Next step:** owner reviews the uncommitted Phase 06.1 diff, commits and pushes it,
+  verifies GitHub CI and requests independent review; Phase 06 is accepted only after that.
+  Phase 07 and the managed theme marketplace work start only after explicit authorization.
 - Phase 06 limits (documented, not defects): no "in stock only" filter or brand, author,
   publisher and format facet lists (the API has no facet counts; an exact stock filter would
-  duplicate D-060 in SQL); Grocery cards do not show pack sizes (product pages do); pre-order
-  labels compare with the UTC date (the API decides purchasability in the store's time zone);
-  images are served as uploaded (no resizing or `srcset`); HTML is not cached by shared
+  duplicate D-060 in SQL); Grocery cards do not show pack sizes (product pages do); images are served as uploaded (no resizing or `srcset`); HTML is not cached by shared
   caches, only media; the `<html>` element stays `lang="en"` while the store frame carries
   the customer's language.
 - Phase 05 limits: module states are configuration only. Contact address and social links

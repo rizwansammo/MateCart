@@ -1,6 +1,7 @@
 """Phase 05: store appearance, modules, content, public storefront config and isolation."""
 
 from collections.abc import Callable
+from datetime import UTC, date, datetime, timedelta
 from io import StringIO
 from typing import Any
 
@@ -365,7 +366,15 @@ def test_public_config_exposes_only_storefront_data(
     editor.patch(APPEARANCE, {"primary_color": "#1F6F4A", "tagline": "Hello"})
     editor.post(PAGES, {"title": "Draft page", "body": "Not yet."})
     config = make_api().get("/api/storefront/config/").json()
-    assert set(config) == {"store", "preset", "theme", "modules", "footer_pages", "translations"}
+    assert set(config) == {
+        "store",
+        "preset",
+        "theme",
+        "modules",
+        "footer_pages",
+        "translations",
+        "local_date",
+    }
     assert config["theme"]["primary_color"] == "#1F6F4A"
     assert config["store"]["tagline"] == "Hello"
     assert "size_guides" in config["modules"]
@@ -512,3 +521,41 @@ def test_translations_round_trip_for_either_default_language(
     assert editor.get(f"{PAGES}{page.json()['id']}/").json()["translations"] == {
         other: {"title": "T", "body": "B"}
     }
+
+
+@pytest.mark.parametrize(
+    ("zone", "instant", "local"),
+    [
+        # 00:30 on 27 October in Dhaka (UTC+6) while UTC is still 26 October.
+        ("Asia/Dhaka", datetime(2026, 10, 26, 18, 30, tzinfo=UTC), date(2026, 10, 27)),
+        # 22:00 on 26 October in New York (UTC-4) while UTC is already 27 October.
+        ("America/New_York", datetime(2026, 10, 27, 2, 0, tzinfo=UTC), date(2026, 10, 26)),
+    ],
+)
+def test_public_config_gives_the_store_local_date(
+    editor: Api,
+    make_api: Callable[[], Api],
+    deployment_tenant: Tenant,
+    monkeypatch: pytest.MonkeyPatch,
+    zone: str,
+    instant: datetime,
+    local: date,
+) -> None:
+    """Phase 06.1: pre-order labels use the same calendar day as availability (store_today)."""
+    assert instant.date() != local  # the case the storefront previously got wrong
+    with tenant_context(deployment_tenant):
+        StoreSettings.objects.update(timezone=zone)
+    for sku, release in (("ON-DAY", local), ("NEXT-DAY", local + timedelta(days=1))):
+        simple_product(
+            deployment_tenant, sku=sku, name=sku, publish=True, variant={"release_date": release}
+        )
+    simple_product(deployment_tenant, sku="PLAIN", name="Plain", publish=True)
+    monkeypatch.setattr("django.utils.timezone.now", lambda: instant)
+    visitor = make_api()
+
+    assert visitor.get("/api/storefront/config/").json()["local_date"] == local.isoformat()
+    listing = visitor.get("/api/catalog/products/").json()["results"]
+    in_stock = {row["slug"]: row["in_stock"] for row in listing}
+    # Released today (store time): no longer a pre-order, and without stock it is unavailable.
+    # Releasing tomorrow: still a pre-order. Plain unstocked products are unchanged.
+    assert in_stock == {"on-day": False, "next-day": True, "plain": False}

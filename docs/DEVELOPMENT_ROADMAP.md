@@ -4,27 +4,27 @@
 
 ## Status board
 
-| #   | Phase                                       | Stage                         | Status                                                                                    |
-| --- | ------------------------------------------- | ----------------------------- | ----------------------------------------------------------------------------------------- |
-| 01  | Project Foundation                          | A — Foundation                | **Complete — accepted** (`8f3e34b`, CI passed 4/4)                                        |
-| 02  | Database & Tenant Architecture              | A — Foundation                | **Accepted and closed**, including 02.1/02.2 (`aceae6f`, CI 40213680998: 4/4, 260 tests). |
-| 03  | Authentication & Security                   | A — Foundation                | **Accepted and closed**, including 03.1 (`5d6152a`, CI 40237897132: 4/4, 463 tests).      |
-| 04  | Product & Inventory Engine                  | A — Foundation                | **Accepted and closed**, including 04.1 (`8290fe4`, CI 40249765179: 4/4, 735 tests).      |
-| 05  | Presets, Themes & Branding                  | B — Commerce Application      | **Accepted and closed**, including 05.1 (`613cd49`, CI 40301529264: 4/4, 827 tests).      |
-| 06  | Customer Storefront                         | B — Commerce Application      | **Complete locally** — owner commit, CI and independent acceptance pending.               |
-| 07  | Cart & Checkout                             | B — Commerce Application      | Pending                                                                                   |
-| 08  | Orders, Payments & Invoices                 | B — Commerce Application      | Pending                                                                                   |
-| 09  | Fulfillment & Courier                       | B — Commerce Application      | Pending                                                                                   |
-| 10  | Customer Accounts & After-sales             | B — Commerce Application      | Pending                                                                                   |
-| 11  | Merchant Management Dashboard               | B — Commerce Application      | Pending                                                                                   |
-| 12  | Marketing, SEO & Analytics                  | C — Growth & Integrations     | Pending                                                                                   |
-| 13  | Mail & Notification Engine                  | C — Growth & Integrations     | Pending                                                                                   |
-| 14  | Social Commerce & Unified Inbox             | C — Growth & Integrations     | Pending                                                                                   |
-| 15  | AI & Advanced Extensions                    | C — Growth & Integrations     | Pending                                                                                   |
-| 16  | Central Platform Console                    | D — Platform & Infrastructure | Pending                                                                                   |
-| 17  | Deployment Automation                       | D — Platform & Infrastructure | Pending                                                                                   |
-| 18  | Final Quality, Performance & Security       | D — Platform & Infrastructure | Pending                                                                                   |
-| 19  | Production Deployment & Private Beta Launch | E — Production Launch         | Pending (never before 01–18 are accepted)                                                 |
+| #   | Phase                                       | Stage                         | Status                                                                                                    |
+| --- | ------------------------------------------- | ----------------------------- | --------------------------------------------------------------------------------------------------------- |
+| 01  | Project Foundation                          | A — Foundation                | **Complete — accepted** (`8f3e34b`, CI passed 4/4)                                                        |
+| 02  | Database & Tenant Architecture              | A — Foundation                | **Accepted and closed**, including 02.1/02.2 (`aceae6f`, CI 40213680998: 4/4, 260 tests).                 |
+| 03  | Authentication & Security                   | A — Foundation                | **Accepted and closed**, including 03.1 (`5d6152a`, CI 40237897132: 4/4, 463 tests).                      |
+| 04  | Product & Inventory Engine                  | A — Foundation                | **Accepted and closed**, including 04.1 (`8290fe4`, CI 40249765179: 4/4, 735 tests).                      |
+| 05  | Presets, Themes & Branding                  | B — Commerce Application      | **Accepted and closed**, including 05.1 (`613cd49`, CI 40301529264: 4/4, 827 tests).                      |
+| 06  | Customer Storefront                         | B — Commerce Application      | **Pushed** (`46c2e1a`, CI 40311886344: 4/4, 894 tests); corrective 06.1 complete locally, review pending. |
+| 07  | Cart & Checkout                             | B — Commerce Application      | Pending                                                                                                   |
+| 08  | Orders, Payments & Invoices                 | B — Commerce Application      | Pending                                                                                                   |
+| 09  | Fulfillment & Courier                       | B — Commerce Application      | Pending                                                                                                   |
+| 10  | Customer Accounts & After-sales             | B — Commerce Application      | Pending                                                                                                   |
+| 11  | Merchant Management Dashboard               | B — Commerce Application      | Pending                                                                                                   |
+| 12  | Marketing, SEO & Analytics                  | C — Growth & Integrations     | Pending                                                                                                   |
+| 13  | Mail & Notification Engine                  | C — Growth & Integrations     | Pending                                                                                                   |
+| 14  | Social Commerce & Unified Inbox             | C — Growth & Integrations     | Pending                                                                                                   |
+| 15  | AI & Advanced Extensions                    | C — Growth & Integrations     | Pending                                                                                                   |
+| 16  | Central Platform Console                    | D — Platform & Infrastructure | Pending                                                                                                   |
+| 17  | Deployment Automation                       | D — Platform & Infrastructure | Pending                                                                                                   |
+| 18  | Final Quality, Performance & Security       | D — Platform & Infrastructure | Pending                                                                                                   |
+| 19  | Production Deployment & Private Beta Launch | E — Production Launch         | Pending (never before 01–18 are accepted)                                                                 |
 
 | Standing item                          | Status                                     |
 | -------------------------------------- | ------------------------------------------ |
@@ -123,7 +123,10 @@ Implemented locally (D-065 to D-067): server-rendered storefront pages for all f
 from one implementation, homepage from the Phase 05 sections, URL-driven discovery over the
 public catalogue (with a narrow price-range and search extension), product pages with variant
 choice, English and Bangla with fallback, and honest non-functional purchase controls until
-Phase 07. Results: [PROGRESS.md](PROGRESS.md).
+Phase 07. Pushed as `46c2e1a` (GitHub Actions run 40311886344, 4/4, 894 tests). Corrective
+subphase 06.1 (D-068): search by translated product names, store-local dates for pre-order
+labels and a homepage fallback whenever no section can render. Results:
+[PROGRESS.md](PROGRESS.md).
 
 ### Phase 07 — Cart & Checkout
 

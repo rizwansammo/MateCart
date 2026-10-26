@@ -10,7 +10,7 @@ import { parseListingQuery } from '@/lib/catalog-query';
 import { productWith, storeContext, summary, variant } from '@/test/fixtures';
 
 import { CatalogListing } from './catalog-listing';
-import { HomeSections, trustItems } from './home-sections';
+import { hasRenderableSection, HomeFallback, HomeSections, trustItems } from './home-sections';
 import { ProductCard } from './product-card';
 import { ProductExperience } from './product-experience';
 import { StoreShell } from './store-shell';
@@ -302,6 +302,80 @@ describe('homepage sections', () => {
   });
 });
 
+describe('homepage fallback (06.1)', () => {
+  const emptyTrust = section('trust_strip', { subtitle: ' · ', body: '' });
+  const emptyCollection = section('collection_highlight', {
+    collection: { name: 'New', slug: 'new' },
+  });
+  it.each([
+    ['no sections', [], [], []],
+    ['only a showcase without categories', [section('category_showcase')], [], [null]],
+    ['only an empty collection', [emptyCollection], [], [[]]],
+    ['only a collection that could not be loaded', [emptyCollection], [], [null]],
+    ['only an empty trust strip', [emptyTrust], [], [null]],
+  ] as const)('falls back with %s', (_label, sections, cats, collections) => {
+    const data = {
+      sections: [...sections],
+      categories: [...cats],
+      collections: collections.map((c) => (c ? [...c] : null)),
+    };
+    expect(hasRenderableSection(data, 'en')).toBe(false);
+  });
+  it('keeps the normal homepage when any section can render', () => {
+    const data = {
+      sections: [emptyTrust, section('category_showcase'), emptyCollection, section('brand_story')],
+      categories: [],
+      collections: [null, null, [], null],
+    };
+    expect(hasRenderableSection(data, 'en')).toBe(true);
+    expect(
+      hasRenderableSection({ ...data, sections: [section('hero')], collections: [null] }, 'en'),
+    ).toBe(true);
+    const withProducts = {
+      sections: [emptyCollection],
+      categories: [],
+      collections: [[summary()]],
+    };
+    expect(hasRenderableSection(withProducts, 'en')).toBe(true);
+  });
+  it('skips only the empty sections and keeps the merchant order', () => {
+    const { container } = render(
+      <HomeSections
+        ctx={storeContext('electronics')}
+        data={{
+          sections: [emptyTrust, section('hero'), emptyCollection, section('brand_story')],
+          categories: [],
+          collections: [null, null, [], null],
+        }}
+      />,
+    );
+    const headings = [...container.querySelectorAll('h1, h2')].map((h) => h.textContent);
+    expect(headings).toEqual(['hero title', 'brand_story title']);
+  });
+  it.each(PRESET_IDS)('%s renders both the fallback and a normal homepage', (preset) => {
+    const ctx = storeContext(preset);
+    const fallback = render(<HomeFallback ctx={ctx} products={[summary()]} />);
+    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('Review Store');
+    expect(screen.getByText('Everyday goods')).toBeInTheDocument(); // configured tagline
+    expect(screen.getByRole('link', { name: /Gitanjali/ })).toHaveAttribute(
+      'href',
+      '/products/gitanjali',
+    );
+    fallback.unmount();
+    render(
+      <HomeSections
+        ctx={ctx}
+        data={{
+          sections: [section('hero'), emptyCollection],
+          categories: [],
+          collections: [null, []],
+        }}
+      />,
+    );
+    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('hero title');
+  });
+});
+
 describe('product page', () => {
   const product = productWith(
     [
@@ -414,6 +488,38 @@ describe('product page', () => {
     );
     expect(screen.getByText('Price not available')).toBeInTheDocument();
     expect(screen.getAllByText('Not available').length).toBeGreaterThan(0);
+  });
+  it.each([
+    ['2026-10-26', 'Pre-order · Releases 27 October 2026'], // the day before (store time)
+    ['2026-10-27', 'In stock'], // release day in the store's time zone: no longer a pre-order
+    ['2026-10-28', 'In stock'],
+  ])('labels a release on 27 October with the store date %s (06.1)', (today, label) => {
+    const book = productWith([
+      variant('pb', {}, { release_date: '2026-10-27' }),
+      variant('ebook', {}, { kind: 'digital', digital_format: 'epub' }),
+      variant('plain', {}, { in_stock: false }),
+    ]);
+    const show = (id: string) =>
+      render(
+        <ProductExperience
+          product={book}
+          preset="books"
+          lang="en"
+          today={today}
+          requestedVariant={id}
+          header={null}
+          highlights={null}
+        />,
+      );
+    const first = show('pb');
+    expect(screen.getByText(label)).toBeInTheDocument();
+    first.unmount();
+    // Digital and regular variants do not depend on the date.
+    const digital = show('ebook');
+    expect(screen.getByText('In stock')).toBeInTheDocument();
+    digital.unmount();
+    show('plain');
+    expect(screen.getByText('Out of stock')).toBeInTheDocument();
   });
   it('lets keyboard users move between tabs', () => {
     render(

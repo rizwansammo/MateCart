@@ -7,9 +7,11 @@ from typing import Any
 import pytest
 from rest_framework.test import APIClient
 
+from commerce.catalog import services as catalog
 from commerce.catalog.models import AttributeDefinition, AttributeOption, Brand, Category
 from commerce.identity import sessions
 from commerce.staff.permissions import StaffRole
+from commerce.stores.models import StoreSettings
 from commerce.tenancy.context import tenant_context
 from commerce.tenancy.models import Tenant
 
@@ -505,3 +507,72 @@ def test_public_search_price_range_and_book_fields(
     detail = visitor.get("/api/catalog/products/gitanjali/").json()
     assert detail["variants"][0]["isbn"] == "9780306406157"
     assert detail["book"]["publisher"] == "Shapla Classics"
+
+
+def test_public_search_matches_translated_names(
+    owner: Api, make_api: Callable[[], Api], deployment_tenant: Tenant
+) -> None:
+    """Phase 06.1: customers find products by their name in any of the store's languages."""
+    simple_product(
+        deployment_tenant,
+        sku="GT-1",
+        name="Gitanjali",
+        publish=True,
+        translations={"bn": {"name": "গীতাঞ্জলি"}},
+    )
+    simple_product(
+        deployment_tenant,
+        sku="GT-2",
+        name="Gitanjali Notebook",
+        publish=True,
+        translations={"bn": {"name": "গীতাঞ্জলি নোটবুক"}},
+    )
+    simple_product(
+        deployment_tenant, sku="DR-1", name="Draft", translations={"bn": {"name": "গীতাঞ্জলি খসড়া"}}
+    )
+    archived = simple_product(
+        deployment_tenant,
+        sku="AR-1",
+        name="Old",
+        publish=True,
+        translations={"bn": {"name": "পুরনো গীতাঞ্জলি"}},
+    )
+    with tenant_context(deployment_tenant):
+        catalog.set_status(product=archived, status="archived", actor=None)
+    visitor = make_api()
+
+    def search(text: str, **params: str) -> dict[str, Any]:
+        response = visitor.get("/api/catalog/products/", q=text, ordering="name", **params)
+        assert response.status_code == 200, response.json()
+        return dict(response.json())
+
+    def slugs(text: str) -> list[str]:
+        return [row["slug"] for row in search(text)["results"]]
+
+    assert slugs("গীতাঞ্জলি") == ["gitanjali", "gitanjali-notebook"]  # never drafts or archived
+    assert slugs("Gitanjali") == ["gitanjali", "gitanjali-notebook"]
+    assert slugs("gITANJALI noTEBOOK") == ["gitanjali-notebook"]
+    assert slugs("নোটবুক") == ["gitanjali-notebook"]
+    # Filtering happens before paging: the count covers every match, pages split them.
+    first = search("গীতাঞ্জলি", page_size="1")
+    second = search("গীতাঞ্জলি", page_size="1", page="2")
+    assert (first["count"], second["count"]) == (2, 2)
+    assert [row["slug"] for row in first["results"] + second["results"]] == [
+        "gitanjali",
+        "gitanjali-notebook",
+    ]
+
+    # A Bangla-default store keeps Bangla in `name` and English in translations.
+    with tenant_context(deployment_tenant):
+        StoreSettings.objects.update(default_language="bn", supported_languages=["bn", "en"])
+    simple_product(
+        deployment_tenant,
+        sku="RC-1",
+        name="মিনিকেট চাল",
+        publish=True,
+        translations={"en": {"name": "Miniket Rice"}},
+    )
+    rice = slugs("মিনিকেট")
+    assert len(rice) == 1
+    assert slugs("miniket RICE") == rice  # its English translation, any case
+    assert slugs("গীতাঞ্জলি") == ["gitanjali", "gitanjali-notebook"]  # older names still match

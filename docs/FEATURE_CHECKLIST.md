@@ -121,7 +121,11 @@ Update the status in the same change that completes a feature.
 - [x] Page titles, descriptions, sharing basics; development stores not indexable
 - [x] Honest purchase state: "Add to cart" disabled until Phase 07
 - [x] Storefront tests (commerce-web Vitest), five-preset desktop and mobile smoke, review seed data
-- [ ] Owner commit, GitHub CI and independent acceptance of Phase 06
+- [x] Phase 06 commit `46c2e1a` and GitHub CI run 40311886344 (4/4, 894 tests)
+- [x] Search finds products by translated names in the store's languages (06.1)
+- [x] Pre-order labels use the store-local date (`local_date`, same day as availability) (06.1)
+- [x] Homepage falls back to the store and its newest products when no section can render (06.1)
+- [ ] Owner commit, GitHub CI and independent review of Phase 06.1 (closes Phase 06)
 - [ ] Deferred from Phase 06: "in stock only" filter and facet lists (brand, author, publisher, format); pack sizes on Grocery cards; responsive image sizes and shared HTML caching (12/17)
 
 ## Carried into Phases 07 and 08 (from Phase 04.1, not implemented yet)

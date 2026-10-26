@@ -680,6 +680,17 @@ idempotency_conflict`. The free-text reason, actor and a batch's supplier
 - commerce-web has its own Vitest and Testing Library setup (same versions as shared-ui).
   Storefront components stay in commerce-web because no other app uses them.
 
+### D-068 · Storefront search by translated names and store-local date (2026-10-26, Phase 06.1)
+
+- Public product search also matches `translations[lang]["name"]` for each of the store's
+  supported languages, through the ORM's JSON key lookups on the already filtered queryset
+  (before pagination). Keys come only from the store's languages, which the database limits to
+  platform codes. No search engine, index or migration; translated summaries and
+  descriptions are not searched.
+- `/api/storefront/config/` returns `local_date`: `store_today()`, the store's calendar date
+  in its IANA time zone, the same day availability uses. Storefront date decisions (pre-order
+  labels) use it instead of the browser's or server's UTC date. It carries no time of day.
+
 ## Open questions for the owner
 
 | #   | Question                                                                                                                                   | Status                                                                                                    | Needed by |

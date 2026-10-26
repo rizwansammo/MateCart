@@ -16,6 +16,7 @@ from rest_framework.response import Response
 from commerce.catalog.serializers import public_media_url
 from commerce.core.domain import found
 from commerce.identity.auth import CsrfProtectedAPIView
+from commerce.inventory.services import store_today
 from commerce.stores import appearance, modules
 
 from .models import ContentPage, HomeSection, PageStatus, PageType, SectionType
@@ -77,6 +78,9 @@ class StorefrontConfigSerializer(serializers.Serializer[Any]):
     modules = serializers.ListField(child=serializers.CharField())
     footer_pages = FooterPageSerializer(many=True)
     translations = serializers.JSONField()
+    # Phase 06.1: today's date in the store's time zone (store_today), so storefront labels such
+    # as pre-orders use the same calendar day as availability. A date only, never the time.
+    local_date = serializers.DateField()
 
 
 class PublicSectionSerializer(serializers.Serializer[Any]):
@@ -138,6 +142,7 @@ class StorefrontConfigView(PublicView):
             .filter(show_in_footer=True)
             .order_by("position", "title", "pk"),
             "translations": theme.translations,
+            "local_date": store_today(),
         }
         return Response(StorefrontConfigSerializer(payload).data)
 

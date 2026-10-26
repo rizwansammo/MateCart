@@ -319,7 +319,8 @@ export function ProductExperience({
   product: PublicProductDetail;
   preset: PresetId;
   lang: string;
-  /** The store's current date (YYYY-MM-DD), to tell pre-orders from stock on hand. */
+  /** Today in the store's time zone (YYYY-MM-DD, from the API's store_today), to tell
+   * pre-orders from stock on hand on the same calendar day as availability. */
   today: string;
   requestedVariant: string | null;
   header: ReactNode;

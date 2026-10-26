@@ -34,6 +34,7 @@ from rest_framework.views import APIView
 from commerce.content.models import HomeSection
 from commerce.core.domain import found, found_in
 from commerce.core.pagination import PageQuerySerializer, paginate, paginated
+from commerce.core.standards import PLATFORM_LANGUAGES
 from commerce.identity.auth import CsrfProtectedAPIView
 from commerce.inventory.services import sellable_quantities, store_today
 from commerce.media.models import MediaAsset
@@ -295,13 +296,19 @@ class PublicProductQuerySerializer(serializers.Serializer[dict[str, Any]]):
 
 
 def _search(text: str) -> Q:
-    """Name, tags, brand, book authors and (for 13 digits, hyphens allowed) a variant's ISBN."""
+    """Name (default and translated), tags, brand, book authors and, for 13 digits (hyphens
+    allowed), a variant's ISBN."""
     match = (
         Q(name__icontains=text)
         | Q(tags__contains=[text.lower()])
         | Q(brand__name__icontains=text, brand__is_active=True)
         | Q(author_text__icontains=text)
     )
+    # Phase 06.1: names in the store's other languages (``translations[lang]["name"]``). The
+    # keys are the store's supported languages, which the database limits to platform codes.
+    for language in services.store_context().languages:
+        if language in PLATFORM_LANGUAGES:
+            match |= Q(**{f"translations__{language}__name__icontains": text})
     digits = re.sub(r"[\s-]", "", text)
     if re.fullmatch(r"\d{13}", digits):
         match |= Q(
