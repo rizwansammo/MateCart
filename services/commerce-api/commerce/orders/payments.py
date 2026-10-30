@@ -385,7 +385,13 @@ def _apply_refund_outcome(refund_id: Any, outcome: RefundOutcome) -> Refund:
 
 
 def request_refund(
-    *, order_id: Any, amount: Decimal, reason: str, idempotency_key: str, actor: User
+    *,
+    order_id: Any,
+    amount: Decimal,
+    reason: str,
+    idempotency_key: str,
+    actor: User,
+    return_case_id: Any | None = None,
 ) -> Refund:
     """Refund verified money, never more than was paid or collected.
 
@@ -410,8 +416,21 @@ def request_refund(
                     "This idempotency key was already used for a different refund.",
                     "idempotency_conflict",
                 )
+            from commerce.aftersales.services import assert_refund_replay
+
+            assert_refund_replay(refund=existing, case_id=return_case_id)
             refund = existing
         else:
+            from commerce.aftersales.services import (
+                link_requested_refund,
+                validate_refund_attribution,
+            )
+
+            return_case = (
+                validate_refund_attribution(case_id=return_case_id, order=order, amount=amount)
+                if return_case_id is not None
+                else None
+            )
             precision = pricing.currency_precision(order.currency)
             if amount <= 0 or amount != amount.quantize(Decimal(1).scaleb(-precision)):
                 raise ValidationError(
@@ -456,6 +475,8 @@ def request_refund(
                 idempotency_key_hash=digest,
                 requested_by=actor,
             )
+            if return_case is not None:
+                link_requested_refund(case=return_case, refund=refund, actor=actor)
             record_audit_event(
                 action="order.refund.requested",
                 resource=refund,

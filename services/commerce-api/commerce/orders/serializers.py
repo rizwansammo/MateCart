@@ -41,6 +41,7 @@ class RefundInputSerializer(serializers.Serializer[Any]):
     amount = serializers.DecimalField(max_digits=19, decimal_places=4)
     reason = serializers.CharField(max_length=300)
     idempotency_key = serializers.CharField(min_length=8, max_length=100)
+    return_case = serializers.UUIDField(required=False, allow_null=True)
 
 
 class PaymentStartSerializer(serializers.Serializer[Any]):

@@ -292,3 +292,21 @@ Cross-service references use opaque UUIDs only. There are no foreign keys betwee
 ## 5. Path to a shared (pooled) database
 
 The schema already supports moving stores into one database without re-keying, because primary keys are UUIDv7, every business row carries `tenant_id`, uniqueness is per tenant, and cross-row references are tenant-guarded. What a pooled mode would still need, as a separate decision (D-026): verified domain-to-tenant resolution, PostgreSQL row-level security as defence in depth, per-tenant rate limits and quotas, and tenant-aware search and analytics stores.
+
+## Phase 10.1 corrective attribution
+
+`aftersales.ReturnRefundEvidence` is a tenant-owned, audited link between
+one `orders.Refund` and one `aftersales.AfterSalesCase`. `refund` is
+unique; `case` is many-to-one so a partial return can be funded by multiple
+successful refunds. Same-tenant foreign-key constraints protect both
+references. Link creation is part of the authorized refund request
+transaction, not part of later case resolution.
+
+Return completion needs the successful sum of related refunds to cover the
+immutable, quantity-proportional goods value after order discount and tax
+allocation. The existing case's optional `refund` reference records the
+final evidence used at resolution. Its earlier evidence records persist.
+Exchange provenance uses the existing `replacement_order` one-to-one
+field; it is bound while still undispatched and confirmed delivered before
+resolution. Historical `DigitalEntitlement.asset` references remain
+immutable and private even when `DigitalProductAsset.asset` is replaced.

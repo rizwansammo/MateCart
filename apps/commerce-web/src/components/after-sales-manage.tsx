@@ -151,10 +151,12 @@ export function AfterSalesManage() {
               </label>
             </div>
             {(statuses[item.id] === 'resolved' ||
-              (!statuses[item.id] && item.status === 'replacement_pending')) &&
+              (statuses[item.id] === 'replacement_pending' && item.kind === 'exchange')) &&
             (item.kind === 'return' || item.kind === 'exchange') ? (
               <label className="text-sm">
-                {item.kind === 'return' ? 'Verified refund ID' : 'Delivered replacement order ID'}
+                {item.kind === 'return'
+                  ? 'Verified refund ID'
+                  : 'Replacement order ID (bind before dispatch)'}
                 <input
                   className={selectClass}
                   required

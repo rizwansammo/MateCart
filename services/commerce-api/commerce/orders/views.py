@@ -250,5 +250,6 @@ class ManageRefundView(OrdersStaffView):
             reason=values["reason"],
             idempotency_key=values["idempotency_key"],
             actor=self.user,
+            return_case_id=values.get("return_case"),
         )
         return Response(RefundSerializer(refund).data)
