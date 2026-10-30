@@ -246,7 +246,7 @@ def required_return_refund(case: AfterSalesCase) -> Decimal:
     precision = pricing.currency_precision(order.currency)
     quantum = Decimal(1).scaleb(-precision)
     total = net_goods * item.line_total / order.item_subtotal * case.quantity / item.quantity
-    expected = total.quantize(quantum)
+    expected: Decimal = total.quantize(quantum)
     if expected <= 0 or expected > order.grand_total:
         raise ConflictError("Return has no refundable paid amount.", "return_value_unavailable")
     return expected

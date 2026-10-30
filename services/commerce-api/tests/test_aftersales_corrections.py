@@ -121,7 +121,7 @@ def test_historical_and_current_digital_assets_stay_private(
         downloaded = customer.get(url)
         assert downloaded.status_code == 200
         assert downloaded["Cache-Control"] == "private, no-store"
-        assert b"".join(downloaded.streaming_content).startswith(b"%PDF-1.4")
+        assert b"".join(getattr(downloaded, "streaming_content")).startswith(b"%PDF-1.4")
         with tenant_context(store.tenant):
             refreshed = DigitalEntitlement.objects.get(pk=entitlement.pk)
             assert refreshed.download_limit - refreshed.access_count == remaining
@@ -157,8 +157,10 @@ def _case(store: Any, order: Any, kind: str, *, quantity: str = "1") -> AfterSal
     with tenant_context(store.tenant):
         stored_order = Order.objects.get(pk=order.data["id"])
         item = OrderItem.objects.get(order=stored_order)
+        customer = stored_order.customer
+        assert customer is not None
         return AfterSalesCase.objects.create(
-            customer=stored_order.customer,
+            customer=customer,
             order_item=item,
             kind=kind,
             status=CaseStatus.AWAITING_REFUND if kind == CaseKind.RETURN else CaseStatus.INSPECTED,
