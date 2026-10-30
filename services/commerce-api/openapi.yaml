@@ -10338,6 +10338,10 @@ components:
           type: string
           minLength: 8
           maxLength: 100
+        return_case:
+          type: string
+          format: uuid
+          nullable: true
       required:
       - amount
       - idempotency_key

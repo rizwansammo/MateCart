@@ -315,6 +315,10 @@ Delivery requirements:
 
 ## Customer accounts and after sales (Phase 10)
 
+Phase 10.1 corrective scope: historical digital-file privacy, auditable
+return refund attribution and replacement binding before dispatch. Regression
+coverage is included in PR CI; no Phase 11 changes.
+
 Implementation CI: run 40417354396, 4/4 jobs, 1,080 tests. Interactive owner acceptance pending.
 
 - [~] Customer order history, saved address management and account integration

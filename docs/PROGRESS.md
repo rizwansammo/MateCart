@@ -1,5 +1,39 @@
 # Progress and handoff
 
+## Phase 10.1: After-sales and digital access integrity correction
+
+Corrective subphase of Phase 10 only. The accepted implementation baseline is
+`32a206c0a2d431bc91284e5605f17e6f8ab12a0c` (CI 40418606832,
+4/4 jobs, 1,080 tests). This correction does not authorize Phase 11.
+
+- The public catalogue media endpoint refuses both current digital product
+  assets and historical private files retained by digital entitlements.
+  Existing purchase/download snapshots and owner-gated downloads remain.
+- A return now requires explicit attribution at the authorized refund request.
+  One refund maps to one return case, while multiple partial refunds may fund
+  that case. The successful attributed refunds must cover its historical,
+  quantity-adjusted item value after proportional order discount and tax.
+  Unrelated same-order refunds are not evidence.
+- An exchange replacement is bound and audited when the inspected case moves
+  to `replacement_pending`, before shipment dispatch. Resolution requires
+  delivery of that bound order; a newly supplied unrelated delivered order is
+  never accepted. Existing order and shipping services remain authoritative.
+- One additive `aftersales` migration creates `ReturnRefundEvidence`.
+  The existing merchant refund API gains an optional `return_case` UUID;
+  existing refund operations without this field remain valid.
+- Focused regressions cover file replacement and unauthorized download,
+  refund attribution, valid partial returns, discounts and tax, incorrect
+  replacement provenance and state transitions.
+
+Verification and merge are controlled by the Phase 10.1 pull request. No
+production deployment, provider configuration, unrelated phase or prototype
+change is included. Existing refunds without pre-established attribution
+remain ordinary refunds and cannot retroactively prove a return. Interactive
+browser acceptance is a separate owner follow-up.
+
+---
+
+
 Updated: 2026-10-27 (Asia/Dhaka).
 
 **Phase 10 — Customer Accounts & After-sales is implemented and CI-verified on

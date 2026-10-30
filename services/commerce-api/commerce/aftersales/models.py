@@ -178,3 +178,25 @@ class DigitalEntitlement(TenantOwnedModel, TimestampedModel):
                 name="after_entitlement_limit_valid",
             ),
         ]
+
+
+class ReturnRefundEvidence(TenantOwnedModel, TimestampedModel):
+    """Refund attribution recorded at the authorized refund request, not after payment.
+
+    A refund belongs to one return claim; a claim can use multiple partial refunds.
+    Money and success status remain authoritative in orders.Refund.
+    """
+
+    case = models.ForeignKey(
+        AfterSalesCase, on_delete=models.PROTECT, related_name="refund_evidence"
+    )
+    refund = models.OneToOneField(
+        "orders.Refund", on_delete=models.PROTECT, related_name="return_case_evidence"
+    )
+
+    class Meta(TenantOwnedModel.Meta):
+        constraints = [
+            *TenantOwnedModel.Meta.constraints,
+            TenantForeignKeyConstraint(field="case", name="after_return_evidence_case_tenant"),
+            TenantForeignKeyConstraint(field="refund", name="after_return_evidence_refund_tenant"),
+        ]

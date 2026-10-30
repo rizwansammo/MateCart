@@ -873,6 +873,24 @@ idempotency_conflict`. The free-text reason, actor and a batch's supplier
   safe additional byte validators and upload contracts are implemented.
   No customer support flow creates payments or stock changes itself.
 
+### D-076 · Attributed return refunds and pre-dispatch replacement proof (Phase 10.1)
+
+- Unrelated refunds on the same order cannot settle a return. The existing
+  authorized merchant refund API accepts optional `return_case` and records
+  immutable, tenant-scoped attribution when the refund is requested, before
+  any payment outcome. One refund has one case; multiple partial refunds can
+  meet a single case's net returned-item value.
+- The refundable goods share is calculated from immutable order item quantity
+  and line total, with order discount and tax apportioned by the original
+  item subtotal. Shipping charges are excluded. A successful sum at least
+  equal to the returned goods value is required for case resolution.
+- An exchange must bind a matching customer order after case creation and
+  before dispatch, using the case's existing one-to-one replacement field.
+  The binding is audited; only the originally bound, delivered order proves
+  resolution. Neither route creates money or shipments independently.
+- Current digital asset mappings and all historical entitlement snapshots
+  are private in the public media route even if later assigned to content.
+
 ## Open questions for the owner
 
 | #   | Question                                                                                                                                   | Status                                                                                                    | Needed by |
