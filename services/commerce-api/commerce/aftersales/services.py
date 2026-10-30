@@ -225,7 +225,6 @@ def submit_case(
         return case
 
 
-
 def required_return_refund(case: AfterSalesCase) -> Decimal:
     """Net value of returned units from immutable order snapshots, not live prices.
 
@@ -254,7 +253,10 @@ def required_return_refund(case: AfterSalesCase) -> Decimal:
 
 
 def validate_refund_attribution(
-    *, case_id: Any, order: Order, amount: Decimal,
+    *,
+    case_id: Any,
+    order: Order,
+    amount: Decimal,
 ) -> AfterSalesCase:
     """Called only while the payment service holds the source order lock."""
     case = (
@@ -271,12 +273,10 @@ def validate_refund_attribution(
     ):
         raise ConflictError("A matching inspected return is required.", "return_case_invalid")
     expected = required_return_refund(case)
-    committed = (
-        ReturnRefundEvidence.objects.filter(
-            case=case,
-            refund__status__in=(RefundStatus.PENDING, RefundStatus.SUCCEEDED),
-        ).aggregate(total=Sum("refund__amount"))["total"] or Decimal(0)
-    )
+    committed = ReturnRefundEvidence.objects.filter(
+        case=case,
+        refund__status__in=(RefundStatus.PENDING, RefundStatus.SUCCEEDED),
+    ).aggregate(total=Sum("refund__amount"))["total"] or Decimal(0)
     if amount <= 0 or committed + amount > expected:
         raise ConflictError("Refund exceeds this return's eligible value.", "return_refund_exceeds")
     return case
@@ -305,7 +305,8 @@ def assert_refund_replay(*, refund: Refund, case_id: Any | None) -> None:
 def _matching_replacement(case: AfterSalesCase, replacement: Order | None) -> bool:
     item = case.order_item
     if (
-        item is None or replacement is None
+        item is None
+        or replacement is None
         or replacement.pk == item.order_id
         or replacement.customer_id != case.customer_id
         or replacement.status == OrderStatus.CANCELLED
@@ -318,6 +319,7 @@ def _matching_replacement(case: AfterSalesCase, replacement: Order | None) -> bo
         quantity__gte=case.quantity,
         kind="physical",
     ).exists()
+
 
 def transition_case(
     *,
@@ -349,27 +351,31 @@ def transition_case(
                 raise ConflictError(
                     "Bind the replacement order before fulfillment.", "replacement_binding_required"
                 )
-            replacement = (
-                Order.objects.select_for_update().filter(pk=replacement_order_id).first()
-            )
+            replacement = Order.objects.select_for_update().filter(pk=replacement_order_id).first()
             if not _matching_replacement(case, replacement):
                 raise ConflictError(
                     "Replacement does not match this exchange.", "replacement_not_verified"
                 )
-            if Shipment.objects.filter(order=replacement).exclude(
-                status__in=(
-                    ShipmentStatus.READY,
-                    ShipmentStatus.PICKING,
-                    ShipmentStatus.PACKED,
-                    ShipmentStatus.READY_FOR_DISPATCH,
+            if (
+                Shipment.objects.filter(order=replacement)
+                .exclude(
+                    status__in=(
+                        ShipmentStatus.READY,
+                        ShipmentStatus.PICKING,
+                        ShipmentStatus.PACKED,
+                        ShipmentStatus.READY_FOR_DISPATCH,
+                    )
                 )
-            ).exists():
+                .exists()
+            ):
                 raise ConflictError(
                     "Replacement must be linked before dispatch.", "replacement_already_dispatched"
                 )
-            if AfterSalesCase.objects.filter(replacement_order=replacement).exclude(
-                pk=case.pk
-            ).exists():
+            if (
+                AfterSalesCase.objects.filter(replacement_order=replacement)
+                .exclude(pk=case.pk)
+                .exists()
+            ):
                 raise ConflictError(
                     "Replacement order is already assigned.", "replacement_already_used"
                 )
@@ -379,17 +385,14 @@ def transition_case(
                 raise ConflictError("Inspect the return before resolution.", "return_not_inspected")
             evidence = (
                 ReturnRefundEvidence.objects.select_related("refund")
-                .filter(
-                    case=case, refund_id=refund_id, refund__status=RefundStatus.SUCCEEDED
-                )
+                .filter(case=case, refund_id=refund_id, refund__status=RefundStatus.SUCCEEDED)
                 .first()
-                if refund_id is not None else None
+                if refund_id is not None
+                else None
             )
-            succeeded = (
-                ReturnRefundEvidence.objects.filter(
-                    case=case, refund__status=RefundStatus.SUCCEEDED
-                ).aggregate(total=Sum("refund__amount"))["total"] or Decimal(0)
-            )
+            succeeded = ReturnRefundEvidence.objects.filter(
+                case=case, refund__status=RefundStatus.SUCCEEDED
+            ).aggregate(total=Sum("refund__amount"))["total"] or Decimal(0)
             if evidence is None or succeeded < required_return_refund(case):
                 raise ConflictError(
                     "Verified refunds attributed to this return are insufficient.",

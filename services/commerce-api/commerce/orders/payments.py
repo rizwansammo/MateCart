@@ -427,10 +427,9 @@ def request_refund(
             )
 
             return_case = (
-                validate_refund_attribution(
-                    case_id=return_case_id, order=order, amount=amount
-                )
-                if return_case_id is not None else None
+                validate_refund_attribution(case_id=return_case_id, order=order, amount=amount)
+                if return_case_id is not None
+                else None
             )
             precision = pricing.currency_precision(order.currency)
             if amount <= 0 or amount != amount.quantize(Decimal(1).scaleb(-precision)):

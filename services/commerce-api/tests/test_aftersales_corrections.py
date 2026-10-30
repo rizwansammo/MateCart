@@ -71,9 +71,7 @@ def _paid_digital(store: Any, fakepay: Any) -> tuple[APIClient, APIClient, Any]:
         key="phase-101-digital-original",
     )
     assert order.status_code == 201, order.data
-    payment_start = customer.post(
-        f"/api/orders/{order.data['id']}/payment/", {}, format="json"
-    )
+    payment_start = customer.post(f"/api/orders/{order.data['id']}/payment/", {}, format="json")
     assert payment_start.status_code == 200
     with tenant_context(store.tenant):
         intent = PaymentIntent.objects.get(order_id=order.data["id"])
@@ -82,7 +80,8 @@ def _paid_digital(store: Any, fakepay: Any) -> tuple[APIClient, APIClient, Any]:
 
 
 def test_historical_and_current_digital_assets_stay_private(
-    store: Any, fakepay: Any,
+    store: Any,
+    fakepay: Any,
 ) -> None:
     customer, staff, variant = _paid_digital(store, fakepay)
     outsider = customer_client(store.tenant, "not-the-buyer@example.test")
@@ -171,15 +170,23 @@ def _case(store: Any, order: Any, kind: str, *, quantity: str = "1") -> AfterSal
 
 
 def _refund(
-    staff: APIClient, order: Any, amount: str, key: str, case: AfterSalesCase | None = None,
+    staff: APIClient,
+    order: Any,
+    amount: str,
+    key: str,
+    case: AfterSalesCase | None = None,
 ) -> Any:
     payload: dict[str, Any] = {
-        "amount": amount, "reason": "Return adjustment", "idempotency_key": key,
+        "amount": amount,
+        "reason": "Return adjustment",
+        "idempotency_key": key,
     }
     if case is not None:
         payload["return_case"] = str(case.pk)
     return staff.post(
-        f"/api/manage/orders/{order.data['id']}/refunds/", payload, format="json",
+        f"/api/manage/orders/{order.data['id']}/refunds/",
+        payload,
+        format="json",
     )
 
 
@@ -237,7 +244,9 @@ def test_return_proration_uses_original_line_discount_tax_and_quantity() -> None
         currency="BDT",
     )
     item = SimpleNamespace(
-        order=order, line_total=Decimal("200.00"), quantity=Decimal("2"),
+        order=order,
+        line_total=Decimal("200.00"),
+        quantity=Decimal("2"),
     )
     case = SimpleNamespace(order_item=item, quantity=Decimal("1"))
     assert required_return_refund(cast(AfterSalesCase, case)) == Decimal("95.00")
@@ -289,7 +298,8 @@ def test_exchange_requires_pre_dispatch_binding_and_verified_delivery(store: Any
 
     confirmed = staff.post(
         f"/api/manage/orders/{normal.data['id']}/transition/",
-        {"status": "confirmed"}, format="json",
+        {"status": "confirmed"},
+        format="json",
     )
     assert confirmed.status_code == 200, confirmed.data
     shipment = prepare(staff, normal.data["id"])
@@ -319,7 +329,8 @@ def test_exchange_rejects_wrong_quantity_and_retroactive_binding(store: Any) -> 
     case = _case(store, original, CaseKind.EXCHANGE)
     confirmed = staff.post(
         f"/api/manage/orders/{existing.data['id']}/transition/",
-        {"status": "confirmed"}, format="json",
+        {"status": "confirmed"},
+        format="json",
     )
     assert confirmed.status_code == 200
     shipment = prepare(staff, existing.data["id"])
