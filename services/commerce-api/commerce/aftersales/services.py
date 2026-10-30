@@ -261,7 +261,6 @@ def validate_refund_attribution(
     """Called only while the payment service holds the source order lock."""
     case = (
         AfterSalesCase.objects.select_for_update()
-        .select_related("order_item__order")
         .filter(pk=case_id, kind=CaseKind.RETURN, status=CaseStatus.AWAITING_REFUND)
         .first()
     )
@@ -332,12 +331,7 @@ def transition_case(
 ) -> AfterSalesCase:
     """Resolve only with pre-attributed refund or bound replacement evidence."""
     with transaction.atomic():
-        case = (
-            AfterSalesCase.objects.select_for_update()
-            .select_related("order_item__order")
-            .filter(pk=case_id)
-            .first()
-        )
+        case = AfterSalesCase.objects.select_for_update().filter(pk=case_id).first()
         if case is None:
             raise NotFound("Request not found.")
         if status not in TRANSITIONS.get(case.status, frozenset()):
