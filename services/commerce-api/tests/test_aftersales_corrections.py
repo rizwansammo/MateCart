@@ -195,7 +195,7 @@ def test_return_rejects_unrelated_and_insufficient_refunds_and_accepts_partial(
     store: Any,
     tenant_b: Any,
 ) -> None:
-    buyer, staff, _variant, order = _physical_orders(store)
+    _buyer, staff, _variant, order = _physical_orders(store)
     first = _case(store, order, CaseKind.RETURN)
     second = _case(store, order, CaseKind.RETURN)
     with tenant_context(store.tenant):

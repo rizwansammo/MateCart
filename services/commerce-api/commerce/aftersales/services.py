@@ -246,10 +246,7 @@ def required_return_refund(case: AfterSalesCase) -> Decimal:
     )
     precision = pricing.currency_precision(order.currency)
     quantum = Decimal(1).scaleb(-precision)
-    total = (
-        net_goods * item.line_total / order.item_subtotal
-        * case.quantity / item.quantity
-    )
+    total = net_goods * item.line_total / order.item_subtotal * case.quantity / item.quantity
     expected = total.quantize(quantum)
     if expected <= 0 or expected > order.grand_total:
         raise ConflictError("Return has no refundable paid amount.", "return_value_unavailable")
@@ -352,9 +349,9 @@ def transition_case(
                 raise ConflictError(
                     "Bind the replacement order before fulfillment.", "replacement_binding_required"
                 )
-            replacement = Order.objects.select_for_update().filter(
-                pk=replacement_order_id
-            ).first()
+            replacement = (
+                Order.objects.select_for_update().filter(pk=replacement_order_id).first()
+            )
             if not _matching_replacement(case, replacement):
                 raise ConflictError(
                     "Replacement does not match this exchange.", "replacement_not_verified"

@@ -33,7 +33,6 @@ browser acceptance is a separate owner follow-up.
 
 ---
 
-
 Updated: 2026-10-27 (Asia/Dhaka).
 
 **Phase 10 — Customer Accounts & After-sales is implemented and CI-verified on
