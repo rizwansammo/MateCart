@@ -121,7 +121,8 @@ def test_historical_and_current_digital_assets_stay_private(
         downloaded = customer.get(url)
         assert downloaded.status_code == 200
         cache_control = downloaded["Cache-Control"]
-        assert "private" in cache_control and "no-store" in cache_control
+        assert "private" in cache_control
+        assert "no-store" in cache_control
         assert b"".join(cast(Any, downloaded).streaming_content).startswith(b"%PDF-1.4")
         with tenant_context(store.tenant):
             refreshed = DigitalEntitlement.objects.get(pk=entitlement.pk)
