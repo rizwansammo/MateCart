@@ -121,7 +121,7 @@ def test_historical_and_current_digital_assets_stay_private(
         downloaded = customer.get(url)
         assert downloaded.status_code == 200
         assert downloaded["Cache-Control"] == "private, no-store"
-        assert b"".join(getattr(downloaded, "streaming_content")).startswith(b"%PDF-1.4")
+        assert b"".join(cast(Any, downloaded).streaming_content).startswith(b"%PDF-1.4")
         with tenant_context(store.tenant):
             refreshed = DigitalEntitlement.objects.get(pk=entitlement.pk)
             assert refreshed.download_limit - refreshed.access_count == remaining
