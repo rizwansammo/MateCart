@@ -891,6 +891,77 @@ idempotency_conflict`. The free-text reason, actor and a batch's supplier
 - Current digital asset mappings and all historical entitlement snapshots
   are private in the public media route even if later assigned to content.
 
+### D-077 · Merchant-assisted (manual) orders (2026-11-03, Phase 11)
+
+- Staff with `orders.manage` enter orders that customers requested by phone, Facebook,
+  WhatsApp, in store or elsewhere. `commerce.orders.assisted` is a thin orchestration layer,
+  not a second order engine: inside one transaction it builds a staff-owned cart and checkout,
+  runs the storefront's checkout rules (`quote_cart`, `update_checkout`), the same review step
+  (variant locks, temporary reservations, slot holds, coupon validation, eligibility) and the
+  same placement step (`orders.services._place`: number, allocations, coupon redemption, slot
+  booking, invoice, history, audit). Any failure rolls everything back; nothing stays reserved.
+- Ownership is explicit. `Cart` and `CheckoutSession` gain `assisted_by` (the staff user) as a
+  third owner kind beside customer and guest credential. No guest token is minted for staff.
+  An assisted order has no customer account and no guest credential (`orders_order_one_owner`
+  allows an empty credential only for non-storefront sources), so it is never reachable from a
+  browser. Accounts are never created or linked by matching an email or phone.
+- `Order.source` (default `storefront`) records the channel; existing and website orders keep
+  `storefront`. `orders.AssistedOrder` (one per order, immutable in the ORM and a PostgreSQL
+  trigger) records the creating staff member, time, optional channel reference, a request
+  fingerprint and the staff attestation that the customer asked for the order. The
+  attestation is the staff member's statement, not a customer signature or verified consent.
+- Payment is cash on delivery only, under the existing COD rules (all-physical orders with
+  shipping; digital or mixed orders refused). Staff cannot hand an online payment page to a
+  customer and no in-store collection method exists, so no other method is offered. The order is
+  unpaid until the existing collection operations record real cash.
+- Prices, discounts, shipping and tax are server-calculated by the existing services. There is
+  no price override; a future, separately authorized override would need its own decision.
+- Idempotency: the request key is unique per store (`orders_assisted_key_unique`). A replay
+  returns the same order (HTTP 200); the same key with a different request fingerprint is
+  `409 idempotency_conflict`. A concurrent duplicate that loses the race (unique violation or a
+  business refusal such as stock taken by the winner) returns the winner's order.
+- A draft quote endpoint prices the order inside a rolled-back transaction: it reports per-line
+  stock issues, totals, eligible methods and slots without reserving anything.
+- Phase 14 may later call `place_assisted_order` from its own channels; Phase 11 adds no
+  external integration.
+
+### D-078 · Dashboard and reports from authoritative records (2026-11-03, Phase 11)
+
+- `commerce.orders.reports` reads only stored records: order value from placed, not-cancelled
+  orders; verified collections from succeeded payment and COD-collection transactions; refunds
+  from succeeded refund transactions; COD still to collect from open COD payment intents; courier
+  cash to remit and shortfalls from COD records. Placing an order is never reported as revenue.
+- Ranges are store-local calendar days (store time zone), at most 366 days; `days=N` means the
+  last N store days including today. Every figure is an indexed aggregate (`orders_order_placed`
+  index added). Money stays Decimal, grouped per currency and rounded to its minor unit.
+- `GET /api/manage/dashboard/` is open to any active staff member but each section is gated:
+  orders, operations and after-sales need `orders.manage`; money needs `reports.view`; stock
+  alerts need `catalog.manage`. `GET /api/manage/reports/sales/` needs `reports.view`.
+- No visitor, traffic, campaign or attribution figures (Phase 12). The only export is a CSV of
+  the server's daily rows, generated in the browser without recalculation.
+
+### D-079 · Merchant workspace, customer records and dashboard contracts (2026-11-03, Phase 11)
+
+- `/manage` remains one client application behind the catch-all route. A shared route table
+  (`apps/commerce-web/src/lib/manage-routes.ts`) 404s unknown paths on the server and builds the
+  grouped, permission-filtered navigation (Overview · Sell · Operate · Store) in the client.
+  Hiding a link is not authorization; every API keeps its own permission.
+- Existing fixed roles are kept; no custom role editor. Order handlers get an orders-scoped,
+  read-only variant lookup for manual orders because they have no catalogue access.
+- `GET /api/manage/customers/` (`customers.view`) lists registered customer accounts only, with
+  their own orders and requests. Password hashes, MFA state, recovery data, sessions and tokens
+  are never returned, and staff cannot act as a customer.
+- Merchant response shapes add facts the UI needs instead of re-implementing rules in the
+  browser: order `allowed_transitions`, `can_record_cod`, `refundable_amount`, payments,
+  provenance and related cases; shipment `next_statuses` (never cancellation, per Phase 09.1),
+  serial allocations needed at dispatch and whether a courier provider is configured; case
+  `next_statuses`, attributed refunds and the required refund value. The server enforces every
+  rule again on submission. The staff session adds the store's preset, country, currency and
+  time zone for formatting and form defaults.
+- Merchant pages reuse `@matecart/shared-ui` controls and theme tokens; `DashboardShell` gains
+  optional grouped navigation, an active-page marker and a collapsible phone menu while the
+  console keeps its default navigation.
+
 ## Open questions for the owner
 
 | #   | Question                                                                                                                                   | Status                                                                                                    | Needed by |

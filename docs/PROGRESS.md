@@ -1,6 +1,157 @@
 # Progress and handoff
 
-## Phase 10.1: After-sales and digital access integrity correction
+Updated: 2026-11-03 (Asia/Dhaka).
+
+## Phase 11: Merchant Management Dashboard (implemented locally; acceptance pending)
+
+**Active phase: 11.** Implemented in the local working tree by Claude Code on top of the accepted
+baseline `6fe1a8c46643fb16463fb7d92264043e3447ec98`. Not committed or pushed (the owner commits).
+Phase 11 is not accepted until the owner's review and GitHub CI. Phase 12 has not been started.
+
+### Delivered
+
+- **Workspace and navigation.** `/manage` is a real merchant workspace with grouped,
+  permission-filtered navigation (Overview · Sell · Operate · Store), active-page marking and a
+  collapsible phone menu. A shared route table 404s unknown paths on the server and shows each
+  role only the sections it may open; the APIs still enforce every permission (D-079).
+- **Overview dashboard** (`/manage`): Today / 7 / 30 store days. Order value, verified
+  collections, refunds and net collected (`reports.view` only); COD still to collect and courier
+  cash to remit (point in time); orders placed, awaiting confirmation, to prepare, being packed,
+  with courier, failed deliveries and fraud reviews (`orders.manage`); open requests and reviews;
+  low/out-of-stock and expiring batches (`catalog.manage`); recent orders; honest empty states.
+- **Orders**: filtered, searchable, paginated list (status, payment, source, store-local dates;
+  number, name, phone, email), item count and shipment status. Detail with items and frozen
+  totals, verified payments, refunds (recent-authentication dialog, optional return attribution),
+  invoice view/print, history, provenance, customer link, shipment, risk check and related
+  requests. Only state-machine-valid actions are offered (`allowed_transitions`).
+- **Manual order creation** (`/manage/orders/new`, D-077): product search with price and sellable
+  stock, multiple lines, quantities, customer and delivery details, source and reference, staff
+  attestation, server-quoted totals, eligible delivery methods and slots, coupons, cash on
+  delivery only, one idempotency key per form. Placement reuses the checkout review and order
+  placement services in one transaction. No customer account is created or linked; the order is
+  unpaid until cash is recorded.
+- **Shipments**: queues (packing, dispatch, with courier, delivered, problems), search, detail
+  with valid next steps, serial/IMEI entry at dispatch, manual courier details (HTTPS tracking),
+  honest "no courier provider connected" state, COD collection and remittance (recent
+  authentication), fraud review. Pre-dispatch cancellation stays an order action (09.1).
+- **Products and catalogue**: product list/search/filters; create (preset-allowed types, tracking
+  modes from enabled modules, grocery pack size); editor for basics, brand, category, tags,
+  variants (SKU, barcode, active, price, compare-at, cost with `catalog.costs`), preset details
+  (apparel, grocery, electronics model, book), photos (upload, main, remove), publish, unpublish,
+  archive with the server's publication problems. Categories, brands, collections (with product
+  membership) and attributes/options.
+- **Inventory**: stock levels with low/out filters and alert thresholds; receipts, adjustments
+  (count, damaged, lost, returned) and transfers through the inventory services with batch and
+  serial inputs; movement ledger with reversals; batches with expiry warnings; serials;
+  locations; ledger reconciliation.
+- **Customers** (`customers.view`): registered accounts with search, order count, last order,
+  profile, own orders and requests. No credentials, MFA, sessions or tokens are exposed.
+- **Customer requests**: requests and reviews with filters; per-case valid next steps only;
+  return resolution picks from succeeded refunds attributed to the case (required value shown);
+  exchange binding by replacement order number before dispatch; conversation replies. Phase 10.1
+  checks are unchanged and enforced server-side.
+- **Reports** (`reports.view`): sales summary, collections, refunds, cash positions, orders by
+  status, payment method and source, best sellers, daily orders (CSV of the server's rows),
+  after-sales and stock counts (D-078).
+- **Settings**: hub for branding and store features, homepage and pages, team and account
+  security, with read-only store facts. Theme, domain, payment and courier stay with NetaMate.
+
+### Backend changes
+
+- Migrations (additive, applied cleanly to the local dev database with existing data):
+  `checkout.0002_assisted_owner` (`Cart.assisted_by`, `CheckoutSession.assisted_by`, three-way
+  owner constraints), `orders.0003_assisted_orders` (`Order.source`, `orders_order_placed`
+  index, relaxed owner constraint for assisted orders, `AssistedOrder`),
+  `orders.0004_immutable_assisted_provenance` (PostgreSQL immutability trigger).
+- New endpoints: `POST /api/manage/orders/assisted/`, `POST …/assisted/quote/`,
+  `GET …/assisted/variants/`, `GET /api/manage/orders/<id>/invoice/`, `GET /api/manage/dashboard/`,
+  `GET /api/manage/reports/sales/`, `GET /api/manage/customers/` and `…/<id>/`.
+- Extended: merchant order list filters and summary; merchant order detail; shipment list
+  status/search filters and summary; merchant shipment facts; merchant case and review shapes
+  and filters; staff session store facts. OpenAPI regenerated; shared contracts in
+  `packages/shared-contracts/src/manage.ts` (+ staff session fields).
+- Reused, not duplicated: checkout quote/review, order placement, state machine, COD collection,
+  refunds, fulfillment, fraud, inventory, catalogue, pricing, media and after-sales services.
+
+### Verification (observed locally, 2026-11-03)
+
+- `pnpm check`: Prettier, ESLint, TypeScript (4 packages) and unit tests passed: contracts 60,
+  shared UI 78, commerce web 101, Node scripts 5.
+- `pnpm build`: both production builds passed.
+- `pnpm api:lint`: ruff, ruff format and mypy strict passed for commerce (235 files) and control.
+- `pnpm api:test`: commerce **830 passed**, control **57 passed**, 0 failed.
+- `pnpm api:schema`: generated without warnings (commerce schema updated; control unchanged).
+- `makemigrations --check`: no changes. `pnpm health`: all checks passed.
+  `docker compose config --quiet`: passed.
+- **Total automated tests: 1,131 passed, 0 failed** (baseline 1,085).
+- New Phase 11 backend tests (`tests/test_merchant_dashboard.py`, 30): assisted COD placement with
+  multiple products, totals, shipping and tax; source, staff audit and provenance; no account or
+  guest credential; idempotent replay and fingerprint conflict; validation (attestation, payment
+  method, source, phone, name); unavailable, short and expired batch stock; invalid/inactive/
+  foreign shipping; digital-only COD refused; coupon single use; permissions and tenant
+  isolation; customers cannot reach assisted orders; quote without reservation; immutable
+  provenance; **concurrent placements never oversell; concurrent duplicates create one order**;
+  merchant order filters, detail and invoice; dashboard sections per role and empty store;
+  finance separation (order value vs collected vs refunded vs COD); store-day boundaries and
+  bounded ranges; low-stock dashboard; customer privacy and isolation; case next steps;
+  cancellation releases stock once; session store facts; shipment next steps; `days` ranges.
+- **Browser verification** (headless Chrome driven over the DevTools protocol, controlled local
+  accounts, no new packages). Pass 1: 37 of 38 checks passed; the one failure was an operator
+  precedence bug in the check itself, and its screenshot confirmed the correct behaviour. Pass 2
+  (after the fixes below): 11 of 11 passed. Manager: overview, manual order
+  created through the UI (search, add, details, quote, delivery, attestation, place), order
+  detail shows unpaid COD and provenance, confirm, prepare shipment, start picking, every
+  workspace page, product editor, product creation, stock receipt with ledger entry, brand
+  creation, order cancellation (database check: allocation released once, reserved back to 0,
+  shipment cancelled, no account or guest credential). Phone width (390 px): menu collapsed, no
+  horizontal overflow. Order handler: no money or catalogue navigation, products page refused in
+  the UI and `403` from the API, manual order form available. No uncaught page errors.
+- Defects found and fixed during verification: a server page calling a client-module function
+  (route table moved to `lib/manage-routes.ts`), a nested form in the inventory product picker,
+  over-wide small report tables, inaccurate photo/publication copy, missing grocery pack size.
+  The new migrations were applied to the local dev database (`manage.py migrate`) before the
+  browser checks; the stack had not run them yet.
+
+### Local review data (controlled, additive)
+
+- Review accounts created through the real invitation services:
+  `phase11-smoke-manager@example.test` (Manager) and `phase11-smoke-handler@example.test`
+  (Order handler). Their generated passwords were kept out of the repository; use Forgot
+  password and Mailpit to set your own. Existing review accounts are unchanged.
+- Records from the browser checks: order `ORD-000003` (Facebook, cancelled; invoice
+  `INV-000003`), draft product "Phase 11 Smoke Kettle …" with 5 units received, brand
+  "Phase 11 Smoke Brand …". Nothing pre-existing was deleted.
+
+### Known limits (documented, not defects)
+
+- Manual orders are cash on delivery for physical goods only; no online payment link, in-store
+  paid workflow or price override. Assisted orders have no customer self-service view.
+- Exchange replacements must still be the customer's own matching order (Phase 10 rule); a
+  merchant-assisted order cannot be a replacement because it belongs to no account.
+- Reports are per-currency aggregates over at most 366 days; only a daily CSV export exists.
+- Merchant pages are English only; their strings are plain literals in the components and are
+  not yet extracted for translation. Storefront EN/BN behaviour is unchanged.
+- Shipping methods, tax rates, coupons and delivery slots have no merchant editing API yet; the
+  dashboard uses what is configured. Courier and payment providers remain unconfigured.
+- Collection membership editing loads at most 100 products per collection in the UI.
+
+### Next step
+
+Owner review on localhost, then owner commit/push, GitHub CI and independent review of Phase 11.
+Do not start Phase 12 before that acceptance.
+
+## Phase 10 and 10.1 (accepted and closed)
+
+Phase 10 merged through PR #1 (`32a206c0a2d431bc91284e5605f17e6f8ab12a0c`); correction 10.1
+merged through PR #2. **Accepted baseline `6fe1a8c46643fb16463fb7d92264043e3447ec98`, GitHub
+Actions run 41115310035: 4/4 jobs passed, 1,085 tests (800 commerce, 57 control, 51 contracts,
+76 shared UI, 96 web, 5 Node), 0 failed.** The owner pulled the merged `main` locally before
+Phase 11. Earlier statements in this file that 10.1 awaited review or merge are historical. No
+interactive browser acceptance of the Phase 10 customer screens is recorded here.
+
+---
+
+## Phase 10.1: After-sales and digital access integrity correction (historical record)
 
 Corrective subphase of Phase 10 only. The accepted implementation baseline is
 `32a206c0a2d431bc91284e5605f17e6f8ab12a0c` (CI 40418606832,
@@ -40,7 +191,8 @@ feature branch `feature/phase-10-customer-after-sales` (PR #1).** The last
 code commit `c604313fd670d0cb175701166a511abe60158900` passed GitHub Actions
 run 40417354396: 4/4 jobs successful, 1,080 automated tests passed,
 0 failures. Phases 01–09 and their accepted corrective subphases remain closed.
-Phase 11 must not start before Phase 10 owner acceptance.
+Phase 11 must not start before Phase 10 owner acceptance. (Historical: Phase 10 and 10.1
+were later accepted at `6fe1a8c`; see the top of this file.)
 
 ## Phase 10 implementation and verification
 
@@ -114,6 +266,10 @@ acceptance findings without starting Phase 11 prematurely.
 | Phase 08        | Implemented and pushed: `a806baced20b7f39547b4bed7c92a4f1afb1809a`, run 40376575339, 4/4 jobs, 1,045 tests. Review requested the 08.1 corrections.                                                                                                        |
 | Correction 08.1 | **Accepted and Phase 08 closed:** `b2eb55f75a8e878599328c92b139eed6b7230d33`, run 40380408247, 4/4 jobs, 1,050 tests, 0 failures.                                                                                                                         |
 | Phase 09        | Implemented and pushed: `84d790e0dbf8d4eae269bbcb5cd0f258c72f678f`, run 40393494776, 4/4 jobs, 1,067 tests. Independent review requested the two 09.1 integrity corrections.                                                                              |
+| Correction 09.1 | **Accepted and Phase 09 closed:** `1ffdf36`, GitHub CI passed 4/4.                                                                                                                                                                                        |
+| Phase 10        | Merged through PR #1: `32a206c0a2d431bc91284e5605f17e6f8ab12a0c`, 1,080 tests.                                                                                                                                                                            |
+| Correction 10.1 | **Accepted and Phase 10 closed:** `6fe1a8c46643fb16463fb7d92264043e3447ec98`, run 41115310035, 4/4 jobs, 1,085 tests, 0 failures.                                                                                                                         |
+| Phase 11        | Implemented locally (not committed); acceptance pending. See the top of this file.                                                                                                                                                                        |
 | Architecture    | Dedicated single-tenant deployment, tenant-aware modular monolith, future hybrid only if approved; commerce/control independent.                                                                                                                          |
 | Product         | Private beta, manual onboarding. Public commercial signup/subscriptions/billing deferred. Public customer registration is authorized.                                                                                                                     |
 | Prototype       | MateCart-UI strictly read-only; no edits/build/install (HEAD `9ff1361`, clean).                                                                                                                                                                           |
@@ -809,8 +965,8 @@ contract tests. Plus 7 live catalogue and 12 live authentication smoke checks.
 
 ## Remaining scope, limits and next step
 
-- **Next step:** owner review of the Phase 09.1 working tree, then owner commit/push, GitHub CI and
-  independent review. Do not mark Phase 09 accepted or start Phase 10 before that review.
+- **Next step:** see the Phase 11 section at the top of this file. (Historical: this list
+  was written during Phase 09.1, which has since been accepted.)
 - **Courier provider decision needed:** no real provider is selected. External booking and provider
   callbacks remain unavailable until the owner approves an adapter, credentials and real sandbox
   verification; manual shipment and tracking operations remain available without one.

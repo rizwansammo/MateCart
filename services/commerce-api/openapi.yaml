@@ -1374,6 +1374,47 @@ paths:
     get:
       operationId: manage_cases
       description: Base for every cookie-authenticated or sign-in endpoint.
+      parameters:
+      - in: query
+        name: kind
+        schema:
+          enum:
+          - return
+          - exchange
+          - warranty
+          - support
+          type: string
+          minLength: 1
+        description: |-
+          * `return` - Return
+          * `exchange` - Exchange
+          * `warranty` - Warranty
+          * `support` - Support
+      - in: query
+        name: status
+        schema:
+          enum:
+          - requested
+          - approved
+          - rejected
+          - received
+          - inspected
+          - awaiting_refund
+          - replacement_pending
+          - resolved
+          - closed
+          type: string
+          minLength: 1
+        description: |-
+          * `requested` - Requested
+          * `approved` - Approved
+          * `rejected` - Rejected
+          * `received` - Goods received
+          * `inspected` - Inspected
+          * `awaiting_refund` - Awaiting verified refund
+          * `replacement_pending` - Replacement pending
+          * `resolved` - Resolved
+          * `closed` - Closed
       tags:
       - manage-aftersales
       security:
@@ -1383,7 +1424,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/AfterSalesCasePage'
+                $ref: '#/components/schemas/MerchantCasePage'
           description: ''
   /api/manage/aftersales/cases/{case_id}/:
     get:
@@ -1405,7 +1446,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/AfterSalesCase'
+                $ref: '#/components/schemas/MerchantCase'
           description: ''
     post:
       operationId: manage_case_reply
@@ -1458,12 +1499,26 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/AfterSalesCase'
+                $ref: '#/components/schemas/MerchantCase'
           description: ''
   /api/manage/aftersales/reviews/:
     get:
       operationId: manage_reviews
       description: Base for every cookie-authenticated or sign-in endpoint.
+      parameters:
+      - in: query
+        name: status
+        schema:
+          enum:
+          - pending
+          - published
+          - rejected
+          type: string
+          minLength: 1
+        description: |-
+          * `pending` - Pending moderation
+          * `published` - Published
+          * `rejected` - Rejected
       tags:
       - manage-aftersales
       security:
@@ -1473,7 +1528,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ProductReviewPage'
+                $ref: '#/components/schemas/MerchantReviewPage'
           description: ''
   /api/manage/aftersales/reviews/{review_id}/:
     post:
@@ -1501,7 +1556,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ProductReview'
+                $ref: '#/components/schemas/MerchantReview'
           description: ''
   /api/manage/auth/login/:
     post:
@@ -3000,6 +3055,86 @@ paths:
                 items:
                   $ref: '#/components/schemas/Section'
           description: ''
+  /api/manage/customers/:
+    get:
+      operationId: manage_customer_list
+      description: Base for every cookie-authenticated or sign-in endpoint.
+      parameters:
+      - in: query
+        name: q
+        schema:
+          type: string
+          maxLength: 100
+      tags:
+      - manage-customers
+      security:
+      - staffSession: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CustomerSummaryPage'
+          description: ''
+  /api/manage/customers/{customer_id}/:
+    get:
+      operationId: manage_customer_get
+      description: Base for every cookie-authenticated or sign-in endpoint.
+      parameters:
+      - in: path
+        name: customer_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - manage-customers
+      security:
+      - staffSession: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CustomerDetail'
+          description: ''
+  /api/manage/dashboard/:
+    get:
+      operationId: manage_dashboard
+      description: Any active staff member; each section is gated by the permission
+        that owns its data.
+      parameters:
+      - in: query
+        name: days
+        schema:
+          type: integer
+          maximum: 366
+          minimum: 1
+        description: The last N store days including today, when start and end are
+          omitted.
+      - in: query
+        name: end
+        schema:
+          type: string
+          format: date
+        description: Store-local date, inclusive.
+      - in: query
+        name: start
+        schema:
+          type: string
+          format: date
+        description: Store-local date, inclusive.
+      tags:
+      - manage-reports
+      security:
+      - staffSession: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Dashboard'
+          description: ''
   /api/manage/digital/assets/:
     post:
       operationId: manage_digital_asset_assign
@@ -3142,6 +3277,40 @@ paths:
     get:
       operationId: manage_shipment_list
       description: Base for every cookie-authenticated or sign-in endpoint.
+      parameters:
+      - in: query
+        name: q
+        schema:
+          type: string
+          maxLength: 100
+      - in: query
+        name: status
+        schema:
+          type: array
+          items:
+            enum:
+            - ready
+            - picking
+            - packed
+            - ready_for_dispatch
+            - dispatched
+            - in_transit
+            - delivered
+            - delivery_failed
+            - return_to_sender
+            - cancelled
+            type: string
+            description: |-
+              * `ready` - Ready for fulfillment
+              * `picking` - Picking
+              * `packed` - Packed
+              * `ready_for_dispatch` - Ready for dispatch
+              * `dispatched` - Dispatched
+              * `in_transit` - In transit
+              * `delivered` - Delivered
+              * `delivery_failed` - Delivery failed
+              * `return_to_sender` - Return to sender
+              * `cancelled` - Cancelled before dispatch
       tags:
       - manage-fulfillment
       security:
@@ -4008,6 +4177,77 @@ paths:
     get:
       operationId: manage_order_list
       description: 'Order actions: ``orders.manage`` (Owner, Manager, Order handler).'
+      parameters:
+      - in: query
+        name: payment_status
+        schema:
+          enum:
+          - unpaid
+          - paid
+          - partially_refunded
+          - refunded
+          - failed
+          type: string
+          minLength: 1
+        description: |-
+          * `unpaid` - Unpaid
+          * `paid` - Paid
+          * `partially_refunded` - Partially refunded
+          * `refunded` - Refunded
+          * `failed` - Payment not completed
+      - in: query
+        name: placed_from
+        schema:
+          type: string
+          format: date
+        description: Store-local date, inclusive.
+      - in: query
+        name: placed_to
+        schema:
+          type: string
+          format: date
+        description: Store-local date, inclusive.
+      - in: query
+        name: q
+        schema:
+          type: string
+          maxLength: 100
+      - in: query
+        name: source
+        schema:
+          enum:
+          - storefront
+          - facebook
+          - whatsapp
+          - phone
+          - in_store
+          - other
+          type: string
+          minLength: 1
+        description: |-
+          * `storefront` - Online store
+          * `facebook` - Facebook
+          * `whatsapp` - WhatsApp
+          * `phone` - Phone call
+          * `in_store` - In store
+          * `other` - Other
+      - in: query
+        name: status
+        schema:
+          enum:
+          - pending_payment
+          - placed
+          - confirmed
+          - processing
+          - cancelled
+          type: string
+          minLength: 1
+        description: |-
+          * `pending_payment` - Awaiting online payment
+          * `placed` - Placed
+          * `confirmed` - Confirmed
+          * `processing` - Processing
+          * `cancelled` - Cancelled
       tags:
       - manage-orders
       security:
@@ -4017,7 +4257,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/OrderSummaryPage'
+                $ref: '#/components/schemas/MerchantOrderSummaryPage'
           description: ''
   /api/manage/orders/{order_id}/:
     get:
@@ -4039,7 +4279,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/MerchantOrder'
+                $ref: '#/components/schemas/MerchantOrderDetail'
           description: ''
   /api/manage/orders/{order_id}/cod-collection/:
     post:
@@ -4061,7 +4301,29 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/MerchantOrder'
+                $ref: '#/components/schemas/MerchantOrderDetail'
+          description: ''
+  /api/manage/orders/{order_id}/invoice/:
+    get:
+      operationId: manage_order_invoice
+      description: 'Order actions: ``orders.manage`` (Owner, Manager, Order handler).'
+      parameters:
+      - in: path
+        name: order_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - manage-orders
+      security:
+      - staffSession: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Invoice'
           description: ''
   /api/manage/orders/{order_id}/refunds/:
     post:
@@ -4118,7 +4380,81 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/MerchantOrder'
+                $ref: '#/components/schemas/MerchantOrderDetail'
+          description: ''
+  /api/manage/orders/assisted/:
+    post:
+      operationId: manage_assisted_order_create
+      description: Create an order a customer requested by phone, chat or in person
+        (D-077).
+      tags:
+      - manage-orders
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AssistedOrderInputRequest'
+        required: true
+      security:
+      - staffSession: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MerchantOrderDetail'
+          description: ''
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MerchantOrderDetail'
+          description: ''
+  /api/manage/orders/assisted/quote/:
+    post:
+      operationId: manage_assisted_order_quote
+      description: 'Order actions: ``orders.manage`` (Owner, Manager, Order handler).'
+      tags:
+      - manage-orders
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AssistedQuoteInputRequest'
+        required: true
+      security:
+      - staffSession: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AssistedQuote'
+          description: ''
+  /api/manage/orders/assisted/variants/:
+    get:
+      operationId: manage_assisted_order_variants
+      description: |-
+        Products staff can add to an assisted order, with price and sellable stock. Order
+        handlers have no catalogue access, so this read-only lookup lives under orders.
+      parameters:
+      - in: query
+        name: q
+        schema:
+          type: string
+          maxLength: 100
+      tags:
+      - manage-orders
+      security:
+      - staffSession: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/AssistedVariant'
           description: ''
   /api/manage/pricing/price-lists/:
     get:
@@ -4281,6 +4617,42 @@ paths:
       responses:
         '204':
           description: No response body
+  /api/manage/reports/sales/:
+    get:
+      operationId: manage_sales_report
+      description: '``reports.view`` (Owner, Manager).'
+      parameters:
+      - in: query
+        name: days
+        schema:
+          type: integer
+          maximum: 366
+          minimum: 1
+        description: The last N store days including today, when start and end are
+          omitted.
+      - in: query
+        name: end
+        schema:
+          type: string
+          format: date
+        description: Store-local date, inclusive.
+      - in: query
+        name: start
+        schema:
+          type: string
+          format: date
+        description: Store-local date, inclusive.
+      tags:
+      - manage-reports
+      security:
+      - staffSession: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SalesReport'
+          description: ''
   /api/manage/store/appearance/:
     get:
       operationId: manage_appearance
@@ -5062,6 +5434,25 @@ components:
         * `replacement_pending` - Replacement pending
         * `resolved` - Resolved
         * `closed` - Closed
+    AftersalesCounts:
+      type: object
+      properties:
+        open_returns:
+          type: integer
+        open_exchanges:
+          type: integer
+        open_warranty:
+          type: integer
+        open_support:
+          type: integer
+        pending_reviews:
+          type: integer
+      required:
+      - open_exchanges
+      - open_returns
+      - open_support
+      - open_warranty
+      - pending_reviews
     ApparelDetails:
       type: object
       properties:
@@ -5216,6 +5607,373 @@ components:
         * `manager` - manager
         * `order_handler` - order_handler
         * `content_editor` - content_editor
+    AssistedItemRequest:
+      type: object
+      properties:
+        variant:
+          type: string
+          format: uuid
+        quantity:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,11}(?:\.\d{0,3})?$
+      required:
+      - quantity
+      - variant
+    AssistedOrderInputRequest:
+      type: object
+      description: A draft assisted order. Every detail is optional so staff can price
+        it while typing.
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/AssistedItemRequest'
+        recipient_name:
+          type: string
+          minLength: 1
+          maxLength: 150
+        contact_phone:
+          type: string
+          minLength: 1
+          maxLength: 40
+        contact_email:
+          oneOf:
+          - type: string
+            format: email
+          - type: string
+            maxLength: 0
+        address_line_1:
+          type: string
+          minLength: 1
+          maxLength: 200
+        address_line_2:
+          type: string
+          maxLength: 200
+        city:
+          type: string
+          minLength: 1
+          maxLength: 100
+        region:
+          type: string
+          maxLength: 100
+        postal_code:
+          type: string
+          maxLength: 32
+        country:
+          type: string
+          minLength: 1
+          maxLength: 2
+        delivery_notes:
+          type: string
+          maxLength: 500
+        shipping_method:
+          type: string
+          format: uuid
+          nullable: true
+        delivery_slot:
+          type: string
+          format: uuid
+          nullable: true
+        coupon_code:
+          type: string
+          maxLength: 32
+        payment_method:
+          $ref: '#/components/schemas/PaymentMethodEnum'
+        source:
+          $ref: '#/components/schemas/AssistedOrderSourceEnum'
+        source_reference:
+          type: string
+          maxLength: 120
+        customer_request_attested:
+          type: boolean
+          description: Staff confirm the customer asked for this order. Not a customer
+            signature.
+        idempotency_key:
+          type: string
+          minLength: 8
+          maxLength: 100
+      required:
+      - address_line_1
+      - city
+      - contact_phone
+      - country
+      - customer_request_attested
+      - idempotency_key
+      - items
+      - payment_method
+      - recipient_name
+      - source
+    AssistedOrderSourceEnum:
+      enum:
+      - facebook
+      - whatsapp
+      - phone
+      - in_store
+      - other
+      type: string
+      description: |-
+        * `facebook` - Facebook
+        * `whatsapp` - WhatsApp
+        * `phone` - Phone call
+        * `in_store` - In store
+        * `other` - Other
+    AssistedProvenance:
+      type: object
+      properties:
+        created_by_name:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        source_reference:
+          type: string
+          readOnly: true
+        customer_request_attested:
+          type: boolean
+          readOnly: true
+      required:
+      - created_at
+      - created_by_name
+      - customer_request_attested
+      - source_reference
+    AssistedQuote:
+      type: object
+      properties:
+        valid:
+          type: boolean
+        lines:
+          type: array
+          items:
+            $ref: '#/components/schemas/AssistedQuoteLine'
+        totals:
+          allOf:
+          - $ref: '#/components/schemas/AssistedTotals'
+          nullable: true
+        shipping_methods:
+          type: array
+          items:
+            $ref: '#/components/schemas/ShippingMethod'
+        delivery_slots:
+          type: array
+          items:
+            $ref: '#/components/schemas/DeliverySlot'
+        payment_methods:
+          type: array
+          items:
+            type: string
+      required:
+      - delivery_slots
+      - lines
+      - payment_methods
+      - shipping_methods
+      - totals
+      - valid
+    AssistedQuoteInputRequest:
+      type: object
+      description: A draft assisted order. Every detail is optional so staff can price
+        it while typing.
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/AssistedItemRequest'
+        recipient_name:
+          type: string
+          maxLength: 150
+        contact_phone:
+          type: string
+          maxLength: 40
+        contact_email:
+          oneOf:
+          - type: string
+            format: email
+          - type: string
+            maxLength: 0
+        address_line_1:
+          type: string
+          maxLength: 200
+        address_line_2:
+          type: string
+          maxLength: 200
+        city:
+          type: string
+          maxLength: 100
+        region:
+          type: string
+          maxLength: 100
+        postal_code:
+          type: string
+          maxLength: 32
+        country:
+          type: string
+          maxLength: 2
+        delivery_notes:
+          type: string
+          maxLength: 500
+        shipping_method:
+          type: string
+          format: uuid
+          nullable: true
+        delivery_slot:
+          type: string
+          format: uuid
+          nullable: true
+        coupon_code:
+          type: string
+          maxLength: 32
+      required:
+      - items
+    AssistedQuoteLine:
+      type: object
+      properties:
+        variant:
+          type: string
+          format: uuid
+        sku:
+          type: string
+        product_name:
+          type: string
+        variant_title:
+          type: string
+        kind:
+          type: string
+        quantity:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,11}(?:\.\d{0,3})?$
+        unit_price:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,15}(?:\.\d{0,4})?$
+          nullable: true
+        currency:
+          type: string
+          nullable: true
+        subtotal:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,15}(?:\.\d{0,4})?$
+          nullable: true
+        available_quantity:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,11}(?:\.\d{0,3})?$
+          nullable: true
+        issue:
+          type: string
+      required:
+      - available_quantity
+      - currency
+      - issue
+      - kind
+      - product_name
+      - quantity
+      - sku
+      - subtotal
+      - unit_price
+      - variant
+      - variant_title
+    AssistedTotals:
+      type: object
+      properties:
+        currency:
+          type: string
+        requires_shipping:
+          type: boolean
+        item_subtotal:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,15}(?:\.\d{0,4})?$
+        discount_total:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,15}(?:\.\d{0,4})?$
+        shipping_total:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,15}(?:\.\d{0,4})?$
+        tax_total:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,15}(?:\.\d{0,4})?$
+        grand_total:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,15}(?:\.\d{0,4})?$
+        coupon_code:
+          type: string
+        shipping_method:
+          type: string
+          format: uuid
+          nullable: true
+        delivery_slot:
+          type: string
+          format: uuid
+          nullable: true
+      required:
+      - coupon_code
+      - currency
+      - delivery_slot
+      - discount_total
+      - grand_total
+      - item_subtotal
+      - requires_shipping
+      - shipping_method
+      - shipping_total
+      - tax_total
+    AssistedVariant:
+      type: object
+      description: 'One search result: ``(variant, price quote or None, sellable quantity
+        or None)``.'
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        sku:
+          type: string
+          readOnly: true
+        product_name:
+          type: string
+          readOnly: true
+        variant_title:
+          type: string
+          readOnly: true
+        kind:
+          type: string
+          readOnly: true
+        inventory_unit:
+          type: string
+          readOnly: true
+        unit_price:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,15}(?:\.\d{0,4})?$
+          nullable: true
+          readOnly: true
+        currency:
+          type: string
+          nullable: true
+          readOnly: true
+        available_quantity:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,11}(?:\.\d{0,3})?$
+          nullable: true
+          description: Sellable stock now; null when the product does not track stock.
+          readOnly: true
+      required:
+      - available_quantity
+      - currency
+      - id
+      - inventory_unit
+      - kind
+      - product_name
+      - sku
+      - unit_price
+      - variant_title
     Attribute:
       type: object
       properties:
@@ -5332,6 +6090,25 @@ components:
       - name
       - scope
       - value_type
+    AttributedRefund:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        amount:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,15}(?:\.\d{0,4})?$
+        currency:
+          type: string
+        status:
+          type: string
+      required:
+      - amount
+      - currency
+      - id
+      - status
     AudienceEnum:
       enum:
       - women
@@ -5713,6 +6490,19 @@ components:
       - unit_price
       - variant
       - variant_title
+    CaseCount:
+      type: object
+      properties:
+        kind:
+          type: string
+        status:
+          type: string
+        cases:
+          type: integer
+      required:
+      - cases
+      - kind
+      - status
     CaseInputRequest:
       type: object
       properties:
@@ -5776,6 +6566,24 @@ components:
           maxLength: 2000
       required:
       - body
+    CashPosition:
+      type: object
+      properties:
+        cod:
+          type: array
+          items:
+            $ref: '#/components/schemas/CodRow'
+        awaiting_collection_orders:
+          type: integer
+        courier_records_pending:
+          type: integer
+        courier_records_disputed:
+          type: integer
+      required:
+      - awaiting_collection_orders
+      - cod
+      - courier_records_disputed
+      - courier_records_pending
     Category:
       type: object
       properties:
@@ -6281,6 +7089,31 @@ components:
       - actual_remittance
       - remittance_reference
       - remitted_at
+    CodRow:
+      type: object
+      properties:
+        currency:
+          type: string
+        awaiting_collection:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,15}(?:\.\d{0,4})?$
+          description: COD still to be collected on open orders (now).
+        courier_remittance_pending:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,15}(?:\.\d{0,4})?$
+          description: Courier-collected cash not yet remitted.
+        courier_remittance_disputed:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,15}(?:\.\d{0,4})?$
+          description: Shortfall on disputed remittances.
+      required:
+      - awaiting_collection
+      - courier_remittance_disputed
+      - courier_remittance_pending
+      - currency
     Collection:
       type: object
       properties:
@@ -6460,6 +7293,16 @@ components:
           type: string
       required:
       - csrf_token
+    CurrencyCount:
+      type: object
+      properties:
+        currency:
+          type: string
+        orders:
+          type: integer
+      required:
+      - currency
+      - orders
     CustomerAccount:
       type: object
       properties:
@@ -6499,6 +7342,217 @@ components:
       - id
       - phone
       - phone_verified
+    CustomerDetail:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        full_name:
+          type: string
+        email:
+          type: string
+          format: email
+          nullable: true
+        phone:
+          type: string
+          nullable: true
+        email_verified:
+          type: boolean
+          readOnly: true
+        phone_verified:
+          type: boolean
+          readOnly: true
+        is_active:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+        order_count:
+          type: integer
+        last_order_at:
+          type: string
+          format: date-time
+          nullable: true
+        orders:
+          type: array
+          items:
+            $ref: '#/components/schemas/OrderSummary'
+          readOnly: true
+        cases:
+          type: array
+          items:
+            $ref: '#/components/schemas/RelatedCase'
+          readOnly: true
+      required:
+      - cases
+      - created_at
+      - email
+      - email_verified
+      - full_name
+      - id
+      - is_active
+      - last_order_at
+      - order_count
+      - orders
+      - phone
+      - phone_verified
+    CustomerRef:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        full_name:
+          type: string
+      required:
+      - full_name
+      - id
+    CustomerSummary:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        full_name:
+          type: string
+        email:
+          type: string
+          format: email
+          nullable: true
+        phone:
+          type: string
+          nullable: true
+        email_verified:
+          type: boolean
+          readOnly: true
+        phone_verified:
+          type: boolean
+          readOnly: true
+        is_active:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+        order_count:
+          type: integer
+        last_order_at:
+          type: string
+          format: date-time
+          nullable: true
+      required:
+      - created_at
+      - email
+      - email_verified
+      - full_name
+      - id
+      - is_active
+      - last_order_at
+      - order_count
+      - phone
+      - phone_verified
+    CustomerSummaryPage:
+      type: object
+      properties:
+        count:
+          type: integer
+        page:
+          type: integer
+        page_size:
+          type: integer
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/CustomerSummary'
+      required:
+      - count
+      - page
+      - page_size
+      - results
+    DailyRow:
+      type: object
+      properties:
+        date:
+          type: string
+          format: date
+        currency:
+          type: string
+        orders:
+          type: integer
+        value:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,15}(?:\.\d{0,4})?$
+      required:
+      - currency
+      - date
+      - orders
+      - value
+    Dashboard:
+      type: object
+      description: Sections the staff member's role does not cover are null.
+      properties:
+        start:
+          type: string
+          format: date
+        end:
+          type: string
+          format: date
+        orders:
+          allOf:
+          - $ref: '#/components/schemas/OrderCounts'
+          nullable: true
+        operations:
+          allOf:
+          - $ref: '#/components/schemas/Operations'
+          nullable: true
+        aftersales:
+          allOf:
+          - $ref: '#/components/schemas/AftersalesCounts'
+          nullable: true
+        recent_orders:
+          type: array
+          items:
+            $ref: '#/components/schemas/OrderBrief'
+          nullable: true
+        finance:
+          allOf:
+          - $ref: '#/components/schemas/Finance'
+          nullable: true
+        inventory:
+          allOf:
+          - $ref: '#/components/schemas/InventorySummary'
+          nullable: true
+      required:
+      - aftersales
+      - end
+      - finance
+      - inventory
+      - operations
+      - orders
+      - recent_orders
+      - start
+    DeliverySlot:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        label:
+          type: string
+          maxLength: 100
+        starts_at:
+          type: string
+          format: date-time
+        ends_at:
+          type: string
+          format: date-time
+      required:
+      - ends_at
+      - id
+      - label
+      - starts_at
     DigitalAsset:
       type: object
       properties:
@@ -6619,6 +7673,48 @@ components:
           maxLength: 254
       required:
       - email
+    Finance:
+      type: object
+      properties:
+        totals:
+          type: array
+          items:
+            $ref: '#/components/schemas/FinanceRow'
+        cash:
+          $ref: '#/components/schemas/CashPosition'
+      required:
+      - cash
+      - totals
+    FinanceRow:
+      type: object
+      properties:
+        currency:
+          type: string
+        order_value:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,15}(?:\.\d{0,4})?$
+          description: Grand total of orders placed in the range, not cancelled.
+        collected:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,15}(?:\.\d{0,4})?$
+          description: Verified payments and COD collections in the range.
+        refunded:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,15}(?:\.\d{0,4})?$
+          description: Succeeded refunds in the range.
+        net_collected:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,15}(?:\.\d{0,4})?$
+      required:
+      - collected
+      - currency
+      - net_collected
+      - order_value
+      - refunded
     FooterPage:
       type: object
       properties:
@@ -6719,6 +7815,29 @@ components:
         * `cleared` - Cleared by staff
         * `monitor` - Monitor
         * `confirmed_risk` - Risk confirmed by staff
+    FraudSummary:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        score:
+          type: integer
+          readOnly: true
+        status:
+          allOf:
+          - $ref: '#/components/schemas/FraudReviewStatusEnum'
+          readOnly: true
+        assessed_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - assessed_at
+      - id
+      - score
+      - status
     GoogleStart:
       type: object
       properties:
@@ -6778,6 +7897,43 @@ components:
         allergens:
           type: string
           maxLength: 500
+    GroupedValue:
+      type: object
+      properties:
+        key:
+          type: string
+        orders:
+          type: integer
+        currency:
+          type: string
+        value:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,15}(?:\.\d{0,4})?$
+      required:
+      - currency
+      - key
+      - orders
+      - value
+    InventorySummary:
+      type: object
+      properties:
+        low_stock:
+          type: integer
+        out_of_stock:
+          type: integer
+        expiring_batches:
+          type: integer
+          description: Batches in stock expiring in 30 days.
+        low_stock_items:
+          type: array
+          items:
+            $ref: '#/components/schemas/LowStockItem'
+      required:
+      - expiring_batches
+      - low_stock
+      - low_stock_items
+      - out_of_stock
     InventoryUnitEnum:
       enum:
       - each
@@ -6978,6 +8134,16 @@ components:
       - seller
       - shipping_total
       - tax_total
+    KeyCount:
+      type: object
+      properties:
+        key:
+          type: string
+        orders:
+          type: integer
+      required:
+      - key
+      - orders
     LibraryItem:
       type: object
       properties:
@@ -7155,6 +8321,40 @@ components:
       required:
       - email
       - password
+    LowStockItem:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        variant:
+          type: string
+          format: uuid
+        sku:
+          type: string
+        product_name:
+          type: string
+        variant_title:
+          type: string
+        location_code:
+          type: string
+        available:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,11}(?:\.\d{0,3})?$
+        low_stock_threshold:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,11}(?:\.\d{0,3})?$
+      required:
+      - available
+      - id
+      - location_code
+      - low_stock_threshold
+      - product_name
+      - sku
+      - variant
+      - variant_title
     ManualCourierRequest:
       type: object
       properties:
@@ -7295,8 +8495,138 @@ components:
       description: |-
         * `active` - Active
         * `suspended` - Suspended
-    MerchantOrder:
+    MerchantCase:
       type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        kind:
+          allOf:
+          - $ref: '#/components/schemas/AfterSalesCaseKindEnum'
+          readOnly: true
+        status:
+          allOf:
+          - $ref: '#/components/schemas/AfterSalesCaseStatusEnum'
+          readOnly: true
+        order_item:
+          type: string
+          format: uuid
+          readOnly: true
+          nullable: true
+        quantity:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,9}(?:\.\d{0,3})?$
+          readOnly: true
+        subject:
+          type: string
+          readOnly: true
+        reason:
+          type: string
+          readOnly: true
+        decision_reason:
+          type: string
+          readOnly: true
+        refund:
+          type: string
+          format: uuid
+          readOnly: true
+          nullable: true
+        replacement_order:
+          type: string
+          format: uuid
+          readOnly: true
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+        messages:
+          type: array
+          items:
+            $ref: '#/components/schemas/CaseMessage'
+          readOnly: true
+        order_id:
+          type: string
+          format: uuid
+          nullable: true
+        order_number:
+          type: string
+          nullable: true
+        product_name:
+          type: string
+          nullable: true
+        sku:
+          type: string
+          nullable: true
+        currency:
+          type: string
+          nullable: true
+        customer_name:
+          type: string
+        next_statuses:
+          type: array
+          items:
+            type: string
+          readOnly: true
+        required_refund:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,15}(?:\.\d{0,4})?$
+          nullable: true
+          readOnly: true
+        attributed_refunds:
+          type: array
+          items:
+            $ref: '#/components/schemas/AttributedRefund'
+          readOnly: true
+      required:
+      - attributed_refunds
+      - created_at
+      - customer_name
+      - decision_reason
+      - id
+      - kind
+      - messages
+      - next_statuses
+      - order_item
+      - quantity
+      - reason
+      - refund
+      - replacement_order
+      - required_refund
+      - status
+      - subject
+      - updated_at
+    MerchantCasePage:
+      type: object
+      properties:
+        count:
+          type: integer
+        page:
+          type: integer
+        page_size:
+          type: integer
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/MerchantCase'
+      required:
+      - count
+      - page
+      - page_size
+      - results
+    MerchantOrderDetail:
+      type: object
+      description: |-
+        Everything staff need on one order page. ``allowed_transitions`` lists only the merchant
+        status changes the state machine accepts now; the server still enforces every rule.
       properties:
         id:
           type: string
@@ -7458,27 +8788,80 @@ components:
             type: object
             additionalProperties: {}
           readOnly: true
+        source:
+          allOf:
+          - $ref: '#/components/schemas/OrderSourceEnum'
+          readOnly: true
+        assisted:
+          allOf:
+          - $ref: '#/components/schemas/AssistedProvenance'
+          nullable: true
+          readOnly: true
+        customer:
+          allOf:
+          - $ref: '#/components/schemas/CustomerRef'
+          nullable: true
+          readOnly: true
+        payments:
+          type: array
+          items:
+            $ref: '#/components/schemas/PaymentRecord'
+          readOnly: true
+        shipment_id:
+          type: string
+          format: uuid
+          nullable: true
+          readOnly: true
+        fraud:
+          allOf:
+          - $ref: '#/components/schemas/FraudSummary'
+          nullable: true
+          readOnly: true
+        cases:
+          type: array
+          items:
+            $ref: '#/components/schemas/RelatedCase'
+          readOnly: true
+        allowed_transitions:
+          type: array
+          items:
+            type: string
+          readOnly: true
+        can_record_cod:
+          type: boolean
+          readOnly: true
+        refundable_amount:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,15}(?:\.\d{0,4})?$
+          readOnly: true
       required:
       - address_line_1
       - address_line_2
+      - allowed_transitions
       - amount_paid
       - amount_refunded
+      - assisted
       - can_cancel
       - can_pay
+      - can_record_cod
       - cancel_reason
       - cancelled_at
+      - cases
       - city
       - contact_email
       - contact_phone
       - country
       - coupon_code
       - currency
+      - customer
       - delivery_notes
       - delivery_slot_ends_at
       - delivery_slot_label
       - delivery_slot_starts_at
       - discount_total
       - events
+      - fraud
       - grand_total
       - id
       - invoice_number
@@ -7488,17 +8871,102 @@ components:
       - payment_due_at
       - payment_method
       - payment_status
+      - payments
       - placed_at
       - postal_code
       - recipient_name
+      - refundable_amount
       - refunds
       - region
       - requires_shipping
       - shipment
+      - shipment_id
       - shipping_method_name
       - shipping_total
+      - source
       - status
       - tax_total
+    MerchantOrderSummary:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        number:
+          type: string
+          readOnly: true
+        status:
+          allOf:
+          - $ref: '#/components/schemas/OrderStatusEnum'
+          readOnly: true
+        payment_method:
+          allOf:
+          - $ref: '#/components/schemas/PaymentMethodEnum'
+          readOnly: true
+        payment_status:
+          allOf:
+          - $ref: '#/components/schemas/OrderPaymentStatusEnum'
+          readOnly: true
+        currency:
+          type: string
+          readOnly: true
+        grand_total:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,15}(?:\.\d{0,4})?$
+          readOnly: true
+        placed_at:
+          type: string
+          format: date-time
+          readOnly: true
+        source:
+          allOf:
+          - $ref: '#/components/schemas/OrderSourceEnum'
+          readOnly: true
+        recipient_name:
+          type: string
+          readOnly: true
+        contact_phone:
+          type: string
+          readOnly: true
+        item_count:
+          type: integer
+        shipment_status:
+          type: string
+          nullable: true
+      required:
+      - contact_phone
+      - currency
+      - grand_total
+      - id
+      - item_count
+      - number
+      - payment_method
+      - payment_status
+      - placed_at
+      - recipient_name
+      - shipment_status
+      - source
+      - status
+    MerchantOrderSummaryPage:
+      type: object
+      properties:
+        count:
+          type: integer
+        page:
+          type: integer
+        page_size:
+          type: integer
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/MerchantOrderSummary'
+      required:
+      - count
+      - page
+      - page_size
+      - results
     MerchantOrderTargetEnum:
       enum:
       - confirmed
@@ -7509,6 +8977,66 @@ components:
         * `confirmed` - Confirmed
         * `processing` - Processing
         * `cancelled` - Cancelled
+    MerchantReview:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        order_item:
+          type: string
+          format: uuid
+          readOnly: true
+        rating:
+          type: integer
+          readOnly: true
+        body:
+          type: string
+          readOnly: true
+        status:
+          allOf:
+          - $ref: '#/components/schemas/PurchaseReviewStatusEnum'
+          readOnly: true
+        decision_reason:
+          type: string
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        product_name:
+          type: string
+        customer_name:
+          type: string
+      required:
+      - body
+      - created_at
+      - customer_name
+      - decision_reason
+      - id
+      - order_item
+      - product_name
+      - rating
+      - status
+    MerchantReviewPage:
+      type: object
+      properties:
+        count:
+          type: integer
+        page:
+          type: integer
+        page_size:
+          type: integer
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/MerchantReview'
+      required:
+      - count
+      - page
+      - page_size
+      - results
     MerchantShipment:
       type: object
       properties:
@@ -7581,17 +9109,36 @@ components:
           additionalProperties: {}
           nullable: true
           readOnly: true
+        payment_method:
+          type: string
+        next_statuses:
+          type: array
+          items:
+            type: string
+          readOnly: true
+        serial_allocations:
+          type: array
+          items:
+            $ref: '#/components/schemas/SerialAllocation'
+          readOnly: true
+        courier_booking_available:
+          type: boolean
+          readOnly: true
       required:
       - bookings
       - cod
+      - courier_booking_available
       - events
       - fraud
       - id
       - items
+      - next_statuses
       - operational_notes
       - order_id
       - order_number
+      - payment_method
       - reference
+      - serial_allocations
     MfaEmailSendRequest:
       type: object
       properties:
@@ -7833,6 +9380,28 @@ components:
       - movements
       - operation_id
       - replayed
+    Operations:
+      type: object
+      properties:
+        awaiting_confirmation:
+          type: integer
+        to_prepare:
+          type: integer
+        pending_shipments:
+          type: integer
+        in_transit:
+          type: integer
+        delivery_failed:
+          type: integer
+        fraud_review:
+          type: integer
+      required:
+      - awaiting_confirmation
+      - delivery_failed
+      - fraud_review
+      - in_transit
+      - pending_shipments
+      - to_prepare
     Option:
       type: object
       properties:
@@ -8074,6 +9643,84 @@ components:
       - shipping_total
       - status
       - tax_total
+    OrderBrief:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        number:
+          type: string
+          readOnly: true
+        status:
+          allOf:
+          - $ref: '#/components/schemas/OrderStatusEnum'
+          readOnly: true
+        payment_method:
+          allOf:
+          - $ref: '#/components/schemas/PaymentMethodEnum'
+          readOnly: true
+        payment_status:
+          allOf:
+          - $ref: '#/components/schemas/OrderPaymentStatusEnum'
+          readOnly: true
+        currency:
+          type: string
+          readOnly: true
+        grand_total:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,15}(?:\.\d{0,4})?$
+          readOnly: true
+        placed_at:
+          type: string
+          format: date-time
+          readOnly: true
+        source:
+          allOf:
+          - $ref: '#/components/schemas/OrderSourceEnum'
+          readOnly: true
+        recipient_name:
+          type: string
+          readOnly: true
+      required:
+      - currency
+      - grand_total
+      - id
+      - number
+      - payment_method
+      - payment_status
+      - placed_at
+      - recipient_name
+      - source
+      - status
+    OrderCounts:
+      type: object
+      properties:
+        total:
+          type: integer
+        placed:
+          type: integer
+        pending_payment:
+          type: integer
+        confirmed:
+          type: integer
+        processing:
+          type: integer
+        cancelled:
+          type: integer
+        delivered:
+          type: integer
+          description: Shipments delivered in the range.
+      required:
+      - cancelled
+      - confirmed
+      - delivered
+      - pending_payment
+      - placed
+      - processing
+      - total
     OrderPaymentStatusEnum:
       enum:
       - unpaid
@@ -8088,6 +9735,22 @@ components:
         * `partially_refunded` - Partially refunded
         * `refunded` - Refunded
         * `failed` - Payment not completed
+    OrderSourceEnum:
+      enum:
+      - storefront
+      - facebook
+      - whatsapp
+      - phone
+      - in_store
+      - other
+      type: string
+      description: |-
+        * `storefront` - Online store
+        * `facebook` - Facebook
+        * `whatsapp` - WhatsApp
+        * `phone` - Phone call
+        * `in_store` - In store
+        * `other` - Other
     OrderStatusEnum:
       enum:
       - pending_payment
@@ -8853,6 +10516,62 @@ components:
       description: |-
         * `cod` - Cash on delivery
         * `online` - Online payment
+    PaymentRecord:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        kind:
+          allOf:
+          - $ref: '#/components/schemas/PaymentRecordKindEnum'
+          readOnly: true
+        status:
+          allOf:
+          - $ref: '#/components/schemas/PaymentRecordStatusEnum'
+          readOnly: true
+        provider:
+          type: string
+          readOnly: true
+        amount:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,15}(?:\.\d{0,4})?$
+          readOnly: true
+        currency:
+          type: string
+          readOnly: true
+        occurred_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - amount
+      - currency
+      - id
+      - kind
+      - occurred_at
+      - provider
+      - status
+    PaymentRecordKindEnum:
+      enum:
+      - payment
+      - cod_collection
+      - refund
+      type: string
+      description: |-
+        * `payment` - Payment
+        * `cod_collection` - Cash collected on delivery
+        * `refund` - Refund
+    PaymentRecordStatusEnum:
+      enum:
+      - succeeded
+      - failed
+      type: string
+      description: |-
+        * `succeeded` - Succeeded
+        * `failed` - Failed
     PaymentStart:
       type: object
       properties:
@@ -10385,6 +12104,34 @@ components:
       - email
       - full_name
       - password
+    RelatedCase:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        kind:
+          allOf:
+          - $ref: '#/components/schemas/AfterSalesCaseKindEnum'
+          readOnly: true
+        status:
+          allOf:
+          - $ref: '#/components/schemas/AfterSalesCaseStatusEnum'
+          readOnly: true
+        subject:
+          type: string
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - created_at
+      - id
+      - kind
+      - status
+      - subject
     ReversalRequest:
       type: object
       properties:
@@ -10458,6 +12205,69 @@ components:
           $ref: '#/components/schemas/AssignableRoleEnum'
       required:
       - role
+    SalesReport:
+      type: object
+      properties:
+        start:
+          type: string
+          format: date
+        end:
+          type: string
+          format: date
+        summary:
+          type: array
+          items:
+            $ref: '#/components/schemas/SummaryRow'
+        order_counts:
+          type: array
+          items:
+            $ref: '#/components/schemas/CurrencyCount'
+        totals:
+          type: array
+          items:
+            $ref: '#/components/schemas/FinanceRow'
+        cash:
+          $ref: '#/components/schemas/CashPosition'
+        by_status:
+          type: array
+          items:
+            $ref: '#/components/schemas/KeyCount'
+        by_payment_method:
+          type: array
+          items:
+            $ref: '#/components/schemas/GroupedValue'
+        by_source:
+          type: array
+          items:
+            $ref: '#/components/schemas/GroupedValue'
+        daily:
+          type: array
+          items:
+            $ref: '#/components/schemas/DailyRow'
+        top_products:
+          type: array
+          items:
+            $ref: '#/components/schemas/TopProduct'
+        aftersales:
+          type: array
+          items:
+            $ref: '#/components/schemas/CaseCount'
+        inventory:
+          $ref: '#/components/schemas/StockCounts'
+      required:
+      - aftersales
+      - by_payment_method
+      - by_source
+      - by_status
+      - cash
+      - daily
+      - end
+      - inventory
+      - order_counts
+      - start
+      - summary
+      - top_products
+      - totals
     Section:
       type: object
       properties:
@@ -10613,6 +12423,22 @@ components:
       - status
       - updated_at
       - variant
+    SerialAllocation:
+      type: object
+      properties:
+        allocation:
+          type: string
+          format: uuid
+        sku:
+          type: string
+        quantity:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,11}(?:\.\d{0,3})?$
+      required:
+      - allocation
+      - quantity
+      - sku
     SerialPage:
       type: object
       properties:
@@ -10680,8 +12506,17 @@ components:
           type: string
           pattern: ^SHP-[0-9]{6,}$
           maxLength: 20
+        order_id:
+          type: string
+          format: uuid
         order_number:
           type: string
+        recipient_name:
+          type: string
+          maxLength: 150
+        city:
+          type: string
+          maxLength: 100
         status:
           $ref: '#/components/schemas/ShipmentStatusEnum'
         courier_name:
@@ -10699,10 +12534,13 @@ components:
           nullable: true
           readOnly: true
       required:
+      - city
       - created_at
       - fraud_status
       - id
+      - order_id
       - order_number
+      - recipient_name
       - reference
     ShipmentSummaryPage:
       type: object
@@ -10765,6 +12603,40 @@ components:
         * `delivery_failed` - Delivery failed
         * `return_to_sender` - Return to sender
         * `cancelled` - Cancelled before dispatch
+    ShippingMethod:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        code:
+          type: string
+          pattern: ^[a-z][a-z0-9_-]+$
+          maxLength: 50
+        name:
+          type: string
+          maxLength: 100
+        description:
+          type: string
+          maxLength: 300
+        amount:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,15}(?:\.\d{0,4})?$
+        currency:
+          type: string
+          maxLength: 3
+        free_above:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,15}(?:\.\d{0,4})?$
+          nullable: true
+      required:
+      - code
+      - currency
+      - id
+      - name
     SignInMethods:
       type: object
       properties:
@@ -10867,12 +12739,24 @@ components:
           type: string
         mfa_enabled:
           type: boolean
+        store_preset:
+          type: string
+        store_country:
+          type: string
+        store_currency:
+          type: string
+        store_timezone:
+          type: string
       required:
       - mfa_enabled
       - permissions
       - role
       - role_label
+      - store_country
+      - store_currency
       - store_name
+      - store_preset
+      - store_timezone
       - user
     StaffUser:
       type: object
@@ -10902,6 +12786,16 @@ components:
         * `payment_required` - payment_required
         * `awaiting_resource` - awaiting_resource
         * `unavailable` - unavailable
+    StockCounts:
+      type: object
+      properties:
+        low_stock:
+          type: integer
+        out_of_stock:
+          type: integer
+      required:
+      - low_stock
+      - out_of_stock
     StockLevel:
       type: object
       properties:
@@ -11050,6 +12944,23 @@ components:
       - store
       - theme
       - translations
+    SummaryRow:
+      type: object
+      properties:
+        currency:
+          type: string
+        order_value:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,15}(?:\.\d{0,4})?$
+        average_order_value:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,15}(?:\.\d{0,4})?$
+      required:
+      - average_order_value
+      - currency
+      - order_value
     Team:
       type: object
       properties:
@@ -11096,6 +13007,36 @@ components:
       - logo_url
       - primary_color
       - show_name_with_logo
+    TopProduct:
+      type: object
+      properties:
+        variant:
+          type: string
+          format: uuid
+        sku:
+          type: string
+        product_name:
+          type: string
+        currency:
+          type: string
+        quantity:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,11}(?:\.\d{0,3})?$
+        revenue:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,15}(?:\.\d{0,4})?$
+        orders:
+          type: integer
+      required:
+      - currency
+      - orders
+      - product_name
+      - quantity
+      - revenue
+      - sku
+      - variant
     TotpConfirmRequest:
       type: object
       properties:

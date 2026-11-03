@@ -126,3 +126,29 @@ Phase 11 builds the order dashboard. Phase 08 provides the following APIs under
 - `transition/`: `confirmed`, `processing` or `cancelled`, with an optional reason code
 - `cod-collection/`
 - `refunds/`
+
+## Merchant-assisted orders (Phase 11, D-077)
+
+Staff with `orders.manage` create orders that customers asked for by phone, Facebook, WhatsApp,
+in store or elsewhere (`/manage/orders/new`).
+
+- **Same engine.** `POST /api/manage/orders/assisted/` builds a staff-owned cart and checkout and
+  runs the storefront's quote, review and placement steps in one transaction: published, active
+  variants only; server prices; sellable stock with expired batches excluded; shipping
+  eligibility; tax; coupon rules and redemption; delivery-slot capacity; order number,
+  allocations, invoice, history and audit. A refusal anywhere rolls everything back.
+- **Source.** `Order.source` stores the channel; website orders keep `storefront`. The immutable
+  `AssistedOrder` record holds the creating staff member, time, optional reference and the staff
+  attestation that the customer requested the order (a staff statement, not a signature).
+- **Customer.** Name, phone (E.164), optional email and the delivery address are kept on the
+  order only. No account is created or linked, and no guest credential exists for the order.
+- **Payment.** Cash on delivery only, for all-physical orders. The order is unpaid until cash is
+  recorded through the existing order or courier COD operations. Digital-only COD stays refused.
+- **Pricing.** No price editing; only the store's own coupons apply.
+- **Idempotency.** One key per form: a replay returns the same order (200); the same key with a
+  different request is `409 idempotency_conflict`; concurrent duplicates resolve to one order.
+- **Quote.** `POST …/assisted/quote/` prices a draft (lines, issues, totals, methods, slots,
+  payment methods) in a rolled-back transaction; nothing is reserved.
+- **Lookup.** `GET …/assisted/variants/?q=` lists up to 20 active variants with price and
+  sellable stock for order handlers, who have no catalogue access.
+- **Later channels.** Phase 14 may call the same service; Phase 11 adds no external integration.

@@ -200,7 +200,7 @@ Update the status in the same change that completes a feature.
 - [x] Same-key replay succeeds only with the original payment method; otherwise `409 idempotency_conflict`
 - [x] Zero-total orders and gateway overpayment reconciliation documented as limits (no implementation change)
 
-## Shipment and courier integrity corrections (Phase 09.1; implemented locally, acceptance pending)
+## Shipment and courier integrity corrections (Phase 09.1; accepted and closed)
 
 - [x] Direct shipment cancellation requires the existing full Order cancellation lifecycle
 - [x] Order and Shipment cancellation, commitment release, history and audit commit atomically
@@ -210,9 +210,9 @@ Update the status in the same change that completes a feature.
 - [x] Concurrent duplicates apply one tracking event; stale, invalid and unknown outcomes stay safe
 - [x] Five focused regressions plus existing cancellation, dispatch and FEFO coverage pass
 - [x] Final local gates pass: 1,072 tests, builds, lint/types, schema, health and Compose validation
-- [ ] Owner commit/push, GitHub CI and independent acceptance
+- [x] Owner commit/push, GitHub CI and independent acceptance (`1ffdf36`)
 
-## Fulfillment and courier (Phase 09; implemented and pushed, correction 09.1 pending)
+## Fulfillment and courier (Phase 09; accepted and closed with 09.1)
 
 - [x] One controlled physical shipment per order; digital-only orders never create shipments
 - [x] Ready, picking, packed, ready-to-dispatch, dispatched, transit, delivered, failed and return states
@@ -229,7 +229,7 @@ Update the status in the same change that completes a feature.
 - [x] Additive migrations, OpenAPI and shared contracts; restricted merchant APIs under `/manage`
 - [x] Final local gates pass: 1,067 tests, production builds, schema, migrations, Celery and six health checks
 - [ ] Real courier adapter and sandbox verification (no provider selected or configured)
-- [ ] Owner commit/push, GitHub CI and independent acceptance
+- [x] Owner commit/push, GitHub CI and independent acceptance
 
 ## Carried into Phases 07 and 08 (from Phase 04.1)
 
@@ -251,9 +251,9 @@ Update the status in the same change that completes a feature.
 - [x] Storefront: discovery, search, filters, product detail, responsive, bilingual EN/BN (06 accepted)
 - [x] Cart, guest checkout, addresses, basic coupons, shipping, taxes, delivery options, price calculation, batch-expiry check and temporary checkout reservation (07 accepted)
 - [x] Order state machine, final stock allocation, expiry-safe batch allocation, payments, COD, refunds, callbacks, invoices (08 accepted; real online gateway not configured)
-- [~] Fulfillment, manual courier operations, tracking, COD reconciliation and fraud review (09 implemented; real courier not configured)
-- [ ] Accounts, order history, reviews, returns, exchanges, warranties, support (10)
-- [ ] Merchant dashboard: operations, products, orders, inventory, customers, reports, staff, settings (11)
+- [x] Fulfillment, manual courier operations, tracking, COD reconciliation and fraud review (09 accepted; real courier not configured)
+- [x] Accounts, order history, reviews, returns, exchanges, warranties, support (10 accepted)
+- [~] Merchant dashboard: operations, products, orders, inventory, customers, reports, staff, settings (11 implemented locally)
 
 ## Reliability and scaling
 
@@ -319,30 +319,55 @@ Phase 10.1 corrective scope: historical digital-file privacy, auditable
 return refund attribution and replacement binding before dispatch. Regression
 coverage is included in PR CI; no Phase 11 changes.
 
-Implementation CI: run 40417354396, 4/4 jobs, 1,080 tests. Interactive owner acceptance pending.
+Accepted and closed with 10.1: `6fe1a8c`, GitHub Actions 41115310035, 4/4 jobs, 1,085 tests.
 
-- [~] Customer order history, saved address management and account integration
-- [~] Verified-purchase reviews and merchant moderation
-- [~] Customer return and exchange cases with merchant-controlled transitions
-- [~] Warranty claim eligibility and support conversation threads
-- [~] Private buyer digital library and payment-gated PDF entitlements
-- [~] Purchase and tenant isolation tests, API contracts, migrations and final CI
-- [ ] Final independent review and Phase 10 acceptance
+- [x] Customer order history, saved address management and account integration
+- [x] Verified-purchase reviews and merchant moderation
+- [x] Customer return and exchange cases with merchant-controlled transitions
+- [x] Warranty claim eligibility and support conversation threads
+- [x] Private buyer digital library and payment-gated PDF entitlements
+- [x] Purchase and tenant isolation tests, API contracts, migrations and final CI
+- [x] Final independent review and Phase 10 acceptance
+
+## Merchant management dashboard (Phase 11; implemented locally, acceptance pending)
+
+- [x] `/manage` operational dashboard: store-day ranges; order value, verified collections,
+      refunds, COD and courier cash kept separate; work queues; stock alerts; empty states
+- [x] Grouped, permission-filtered navigation and a collapsible phone menu; APIs still enforce access
+- [x] Orders: filters, search, pagination, detail, valid actions only, COD collection, refunds with
+      recent authentication and return attribution, invoice, history, provenance, risk check
+- [x] Manual order creation through the existing checkout and placement services (D-077): source,
+      staff attestation, COD only, no account linking, idempotent, concurrency-safe, audited
+- [x] Shipments: queues, valid steps, serials at dispatch, manual courier details, honest
+      provider-unavailable state, COD collection and remittance, fraud review
+- [x] Products, variants, prices, preset details, photos and publication; categories, brands,
+      collections and attributes
+- [x] Inventory: levels and alerts, receipts, adjustments, transfers, reversals, batches and
+      expiry, serials, locations, reconciliation (all through inventory services)
+- [x] Customers (`customers.view`): accounts, orders and requests without credentials or sessions
+- [x] Customer requests and reviews with state-machine next steps and Phase 10.1 evidence rules
+- [x] Reports (`reports.view`): sales, collections, refunds, cash, status, method, source, best
+      sellers, daily CSV, after-sales and stock counts
+- [x] Settings hub; existing appearance, modules, content, team and security screens retained
+- [x] Migrations, OpenAPI, shared contracts and tests; final local gates: 1,131 tests
+- [x] Headless browser verification of the main flows, roles and phone layout
+- [ ] Merchant UI translation (English only); shipping, tax, coupon and slot editing UIs
+- [ ] Owner review, commit/push, GitHub CI and independent acceptance
 
 ## Other pending features (must not be dropped)
 
 - [x] Delivery address selection and order recipient snapshots (07/08)
 - [~] Multiple customer addresses and a default address, separate recipient phone/name (10)
 
-- [ ] Consistent customer and merchant order synchronisation (08, 10, 11)
-- [ ] Product publishing and stock synchronisation (04, 11)
+- [~] Consistent customer and merchant order synchronisation (08, 10, 11; one order record, both views)
+- [~] Product publishing and stock synchronisation (04, 11; merchant publishing and stock UI in 11)
 - [ ] Complete bookstore-specific merchant workflows (04, 05, 11)
 - [ ] Fake COD order prevention and courier return risk analysis (09)
 - [ ] WooCommerce and Shopify migration; bulk product import (15)
 - [~] Secure digital download delivery and buyer libraries (10)
 - [ ] Advanced invoice customisation and QR support (basic printable invoice in 08; customisation and QR deferred)
 - [ ] Privacy consent and advanced marketing tracking (12)
-- [ ] Reliable cross-module reporting (11)
+- [~] Reliable cross-module reporting (11: authoritative sales, cash, after-sales and stock reports)
 - [ ] Full production-quality type safety and tests (ongoing; enforced from 01; verified in 18)
 
 ## Platform and operations

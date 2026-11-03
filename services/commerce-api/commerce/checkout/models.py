@@ -39,14 +39,27 @@ class CartStatus(models.TextChoices):
     ABANDONED = "abandoned", "Abandoned"
 
 
+# Exactly one owner: a customer, an opaque guest credential, or (D-077) the staff member who
+# assembles a merchant-assisted order. An assisted cart has no browser credential at all.
+_ONE_OWNER = (
+    Q(customer__isnull=False, guest_token_hash="", assisted_by__isnull=True)
+    | (Q(customer__isnull=True, assisted_by__isnull=True) & ~Q(guest_token_hash=""))
+    | Q(customer__isnull=True, guest_token_hash="", assisted_by__isnull=False)
+)
+
+
 class Cart(TenantOwnedModel, TimestampedModel):
-    """One server-authoritative cart, owned by one customer or one opaque guest credential."""
+    """One server-authoritative cart, owned by one customer, one opaque guest credential or the
+    staff member assembling a merchant-assisted order."""
 
     customer = models.ForeignKey(
         User, null=True, blank=True, on_delete=models.CASCADE, related_name="carts"
     )
     guest_token_hash = models.CharField(
         max_length=64, blank=True, validators=[RegexValidator(SHA256_HEX_PATTERN)]
+    )
+    assisted_by = models.ForeignKey(
+        User, null=True, blank=True, on_delete=models.PROTECT, related_name="+"
     )
     status = models.CharField(max_length=16, choices=CartStatus.choices, default=CartStatus.ACTIVE)
     expires_at = models.DateTimeField()
@@ -55,11 +68,10 @@ class Cart(TenantOwnedModel, TimestampedModel):
         constraints = [
             *TenantOwnedModel.Meta.constraints,
             TenantForeignKeyConstraint(field="customer", name="checkout_cart_customer_tenant"),
-            models.CheckConstraint(
-                condition=(Q(customer__isnull=False, guest_token_hash=""))
-                | (Q(customer__isnull=True) & ~Q(guest_token_hash="")),
-                name="checkout_cart_one_owner",
+            TenantForeignKeyConstraint(
+                field="assisted_by", name="checkout_cart_assisted_by_tenant"
             ),
+            models.CheckConstraint(condition=_ONE_OWNER, name="checkout_cart_one_owner"),
             models.CheckConstraint(
                 condition=Q(status__in=CartStatus.values), name="checkout_cart_status_valid"
             ),
@@ -295,6 +307,9 @@ class CheckoutSession(TenantOwnedModel, TimestampedModel):
     guest_token_hash = models.CharField(
         max_length=64, blank=True, validators=[RegexValidator(SHA256_HEX_PATTERN)]
     )
+    assisted_by = models.ForeignKey(
+        User, null=True, blank=True, on_delete=models.PROTECT, related_name="+"
+    )
     status = models.CharField(
         max_length=16, choices=CheckoutStatus.choices, default=CheckoutStatus.DRAFT
     )
@@ -341,11 +356,10 @@ class CheckoutSession(TenantOwnedModel, TimestampedModel):
             ),
             TenantForeignKeyConstraint(field="delivery_slot", name="checkout_session_slot_tenant"),
             TenantForeignKeyConstraint(field="coupon", name="checkout_session_coupon_tenant"),
-            models.CheckConstraint(
-                condition=(Q(customer__isnull=False, guest_token_hash=""))
-                | (Q(customer__isnull=True) & ~Q(guest_token_hash="")),
-                name="checkout_session_one_owner",
+            TenantForeignKeyConstraint(
+                field="assisted_by", name="checkout_session_assisted_by_tenant"
             ),
+            models.CheckConstraint(condition=_ONE_OWNER, name="checkout_session_one_owner"),
             models.CheckConstraint(
                 condition=Q(status__in=CheckoutStatus.values), name="checkout_session_status_valid"
             ),

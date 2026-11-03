@@ -30,11 +30,15 @@ from .serializers import (
     CaseInputSerializer,
     CaseMessageInputSerializer,
     CaseMessageSerializer,
+    CaseQuerySerializer,
     CaseTransitionSerializer,
+    MerchantCaseSerializer,
+    MerchantReviewSerializer,
     ProductReviewSerializer,
     PublicReviewSerializer,
     ReviewDecisionSerializer,
     ReviewInputSerializer,
+    ReviewQuerySerializer,
 )
 
 TAGS = ["aftersales"]
@@ -189,11 +193,16 @@ class ManageReviewView(MerchantAfterSalesView):
     @extend_schema(
         operation_id="manage_reviews",
         tags=MANAGE_TAGS,
-        responses={200: paginated(ProductReviewSerializer)},
+        parameters=[ReviewQuerySerializer],
+        responses={200: paginated(MerchantReviewSerializer)},
     )
     def get(self, request: Request) -> Response:
-        reviews, meta = paginate(ProductReview.objects.order_by("-created_at", "-pk"), request)
-        return Response({**meta, "results": ProductReviewSerializer(reviews, many=True).data})
+        params = validated(ReviewQuerySerializer, request.query_params)
+        rows = ProductReview.objects.select_related("order_item", "customer")
+        if params.get("status"):
+            rows = rows.filter(status=params["status"])
+        reviews, meta = paginate(rows.order_by("-created_at", "-pk"), request)
+        return Response({**meta, "results": MerchantReviewSerializer(reviews, many=True).data})
 
 
 class ManageReviewDecisionView(MerchantAfterSalesView):
@@ -201,14 +210,14 @@ class ManageReviewDecisionView(MerchantAfterSalesView):
         operation_id="manage_review_decision",
         tags=MANAGE_TAGS,
         request=ReviewDecisionSerializer,
-        responses={200: ProductReviewSerializer},
+        responses={200: MerchantReviewSerializer},
     )
     def post(self, request: Request, review_id: Any) -> Response:
         data = validated(ReviewDecisionSerializer, request.data)
         review = services.moderate_review(
             review_id=review_id, status=data["status"], reason=data["reason"], actor=self.user
         )
-        return Response(ProductReviewSerializer(review).data)
+        return Response(MerchantReviewSerializer(review).data)
 
 
 @method_decorator(never_cache, name="dispatch")
@@ -216,14 +225,19 @@ class ManageCaseListView(MerchantAfterSalesView):
     @extend_schema(
         operation_id="manage_cases",
         tags=MANAGE_TAGS,
-        responses={200: paginated(AfterSalesCaseSerializer)},
+        parameters=[CaseQuerySerializer],
+        responses={200: paginated(MerchantCaseSerializer)},
     )
     def get(self, request: Request) -> Response:
+        params = validated(CaseQuerySerializer, request.query_params)
+        rows = AfterSalesCase.objects.select_related("order_item__order", "customer")
+        for field in ("status", "kind"):
+            if params.get(field):
+                rows = rows.filter(**{field: params[field]})
         cases, meta = paginate(
-            AfterSalesCase.objects.prefetch_related("messages").order_by("-created_at", "-pk"),
-            request,
+            rows.prefetch_related("messages").order_by("-created_at", "-pk"), request
         )
-        return Response({**meta, "results": AfterSalesCaseSerializer(cases, many=True).data})
+        return Response({**meta, "results": MerchantCaseSerializer(cases, many=True).data})
 
 
 @method_decorator(never_cache, name="dispatch")
@@ -237,16 +251,16 @@ class ManageCaseDetailView(MerchantAfterSalesView):
     @extend_schema(
         operation_id="manage_case_detail",
         tags=MANAGE_TAGS,
-        responses={200: AfterSalesCaseSerializer},
+        responses={200: MerchantCaseSerializer},
     )
     def get(self, request: Request, case_id: Any) -> Response:
-        return Response(AfterSalesCaseSerializer(self.target(case_id)).data)
+        return Response(MerchantCaseSerializer(self.target(case_id)).data)
 
     @extend_schema(
         operation_id="manage_case_transition",
         tags=MANAGE_TAGS,
         request=CaseTransitionSerializer,
-        responses={200: AfterSalesCaseSerializer},
+        responses={200: MerchantCaseSerializer},
     )
     def patch(self, request: Request, case_id: Any) -> Response:
         data = validated(CaseTransitionSerializer, request.data)
@@ -258,7 +272,7 @@ class ManageCaseDetailView(MerchantAfterSalesView):
             refund_id=data.get("refund"),
             replacement_order_id=data.get("replacement_order"),
         )
-        return Response(AfterSalesCaseSerializer(case).data)
+        return Response(MerchantCaseSerializer(case).data)
 
     @extend_schema(
         operation_id="manage_case_reply",

@@ -263,7 +263,7 @@ Every table below is tenant-owned unless marked otherwise. Arrows are FKs and ca
 | **Inventory** (04 implemented; allocation 08)                                | `StockLocation` · `StockLevel` → Variant, Location · `StockMovement` (append-only ledger: receipt, sale, return, adjustment, reservation) · `Batch` (expiry, for grocery) · `SerialNumber` (electronics)                                                                                         | UK `(tenant, variant, location)`. Levels derived from movements; reservations prevent overselling (row locks or conditional updates).        |
 | **Pricing and promotions** (04 prices; 07 basic coupon; 12 promotion engine) | `PriceList` · `Price` → Variant · `Coupon` (07) · `CouponRedemption` → Coupon, Order · `Campaign` · `FlashSale` · `LoyaltyAccount` / `LoyaltyLedger`                                                                                                                                             | UK `(tenant, coupon.code)`. Phase 07 calculates but does not redeem; order redemption and broader promotions are later.                      |
 | **Cart and checkout** (07, implemented)                                      | `Cart` → User? (hashed guest token) · `CartItem` → Cart, Variant · `CheckoutSession` → Cart · `CheckoutLine` snapshot · `CheckoutReservation` → inventory operation · `ShippingMethod` · `TaxRate` · `DeliverySlot`                                                                              | One active customer cart; unique guest digest; unique variant per cart; sessions and holds expire; reviewed idempotency key stored hashed.   |
-| **Orders** (08)                                                              | `Order` (number, state machine, totals, currency) · `OrderItem` (price and product snapshot) · `OrderStatusEvent` (append-only) · `OrderAllocation` · `DocumentSequence` · `Invoice`                                                                                                             | UK `(tenant, number)`, `(tenant, checkout)`, `(tenant, invoice.number)`; see ORDERS.md (08).                                                 |
+| **Orders** (08)                                                              | `Order` (number, source, state machine, totals, currency) · `AssistedOrder` (11) · `OrderItem` (price and product snapshot) · `OrderStatusEvent` (append-only) · `OrderAllocation` · `DocumentSequence` · `Invoice`                                                                              | UK `(tenant, number)`, `(tenant, checkout)`, `(tenant, invoice.number)`; see ORDERS.md (08).                                                 |
 | **Payments and refunds** (08)                                                | `PaymentIntent` → Order · `PaymentTransaction` (provider, provider_ref, status, sanitised evidence) · `Refund` → Transaction · `ProviderCallback` (dedup log, digest)                                                                                                                            | UK `(tenant, provider, provider_ref)`. No card data stored. Callbacks verified and deduplicated.                                             |
 | **Fulfilment and couriers** (09, implemented)                                | `Shipment` → Order · `ShipmentItem` → OrderItem · `CourierBooking` · `CourierCallback` · `TrackingEvent` (append-only) · `CourierCodRecord` · `FraudAssessment` → Order · `FraudFlag` · `FraudReview` (append-only)                                                                              | One shipment/COD record/assessment per order; provider refs and events tenant-unique. No credential table until a real provider is approved. |
 | **After-sales** (10)                                                         | `Review` → Product, User · `ReturnRequest` → Order · `ReturnItem` · `Exchange` · `WarrantyClaim` · `DigitalEntitlement` → OrderItem, MediaAsset                                                                                                                                                  | One review per (user, product). Digital downloads via signed, expiring URLs.                                                                 |
@@ -310,3 +310,19 @@ Exchange provenance uses the existing `replacement_order` one-to-one
 field; it is bound while still undispatched and confirmed delivered before
 resolution. Historical `DigitalEntitlement.asset` references remain
 immutable and private even when `DigitalProductAsset.asset` is replaced.
+
+## Phase 11 merchant-assisted order schema
+
+`checkout.0002_assisted_owner` adds `assisted_by` (staff `User`, PROTECT, same-tenant constraint)
+to `Cart` and `CheckoutSession`. The owner constraints now require exactly one of customer,
+guest-credential digest or assisting staff member; storefront lookups by customer or guest digest
+can never match an assisted cart or session.
+
+`orders.0003_assisted_orders` adds `Order.source` (`storefront` default for every existing and
+website order; `facebook`, `whatsapp`, `phone`, `in_store`, `other` for assisted orders, checked)
+and the `(tenant, placed_at)` index used by date-bounded reports. `orders_order_one_owner` also
+accepts an order with neither customer nor guest credential, but only for a non-storefront source.
+`AssistedOrder` (one-to-one with `Order`) records `created_by`, `created_at`, optional
+`source_reference`, `customer_request_attested` (checked true), the request key digest (unique per
+tenant, the idempotency guard) and a request fingerprint. `orders.0004` makes it immutable with a
+PostgreSQL trigger (UPDATE and DELETE raise), matching order history.

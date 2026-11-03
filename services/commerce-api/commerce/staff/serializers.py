@@ -73,6 +73,10 @@ class StaffSessionSerializer(serializers.Serializer[dict[str, Any]]):
     permissions = serializers.ListField(child=serializers.ChoiceField(choices=Permission.choices))
     store_name = serializers.CharField()
     mfa_enabled = serializers.BooleanField()
+    store_preset = serializers.CharField()
+    store_country = serializers.CharField()
+    store_currency = serializers.CharField()
+    store_timezone = serializers.CharField()
 
 
 class RoleSerializer(serializers.Serializer[dict[str, Any]]):

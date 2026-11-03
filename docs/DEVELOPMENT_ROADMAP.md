@@ -15,8 +15,8 @@
 | 07  | Cart & Checkout                             | B — Commerce Application      | **Accepted and closed**, including 07.1 (`12f2d5b`, CI 40366676323: 4/4, 1,007 tests).    |
 | 08  | Orders, Payments & Invoices                 | B — Commerce Application      | **Accepted and closed**, including 08.1 (`b2eb55f`, CI passed 4/4)                        |
 | 09  | Fulfillment & Courier                       | B — Commerce Application      | **Accepted and closed**, including 09.1 (`1ffdf36`, CI passed 4/4)                        |
-| 10  | Customer Accounts & After-sales             | B — Commerce Application      | **Implemented, CI verified**, PR #1; owner review pending (1,080 tests)                   |
-| 11  | Merchant Management Dashboard               | B — Commerce Application      | Pending                                                                                   |
+| 10  | Customer Accounts & After-sales             | B — Commerce Application      | **Accepted and closed**, including 10.1 (`6fe1a8c`, CI 41115310035: 4/4, 1,085 tests).    |
+| 11  | Merchant Management Dashboard               | B — Commerce Application      | **Implemented locally** (1,131 tests); owner review, commit and CI pending                |
 | 12  | Marketing, SEO & Analytics                  | C — Growth & Integrations     | Pending                                                                                   |
 | 13  | Mail & Notification Engine                  | C — Growth & Integrations     | Pending                                                                                   |
 | 14  | Social Commerce & Unified Inbox             | C — Growth & Integrations     | Pending                                                                                   |
@@ -164,16 +164,25 @@ Implemented locally (D-074, `docs/SHIPPING.md`): controlled physical fulfillment
 deduction at dispatch through the Phase 08 handoff; manual shipment/tracking operations; an
 idempotent provider-neutral booking/callback boundary; authenticated append-only tracking;
 courier COD collection/remittance reconciliation; and conservative explainable fraud review.
-Customer order details show truthful shipment progress. No real courier is selected or configured,
-and no Phase 11 merchant UI was added. Pending owner commit/push, CI and independent review.
+Customer order details show truthful shipment progress. No real courier is selected or configured.
+Accepted and closed with Correction 09.1 (`1ffdf36`, GitHub CI 4/4).
 
 ### Phase 10 — Customer Accounts & After-sales
 
 Accounts, order history, reviews, returns, exchanges, warranties, support, digital product fulfilment and buyer libraries.
 
+Accepted and closed with Correction 10.1 at `6fe1a8c46643fb16463fb7d92264043e3447ec98` (PR #1 and #2,
+GitHub Actions 41115310035, 4/4 jobs, 1,085 tests).
+
 ### Phase 11 — Merchant Management Dashboard
 
 Production merchant interface: operations, products, orders, inventory, customers, reports, staff and settings.
+The owner added merchant-assisted (manual) order creation to this phase.
+
+Implemented locally (D-077 to D-079): operational dashboard, orders with manual order creation through
+the existing checkout and placement services, shipments, products and catalogue, inventory, customers,
+after-sales, reports and settings in `/manage`, with permission-aware navigation. Pending owner review,
+commit/push, GitHub CI and independent acceptance.
 
 ## Stage C — Growth & Integrations
 

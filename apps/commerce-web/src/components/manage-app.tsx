@@ -19,9 +19,20 @@ import {
   errorMessage,
 } from '@matecart/shared-ui';
 import { authApi as api } from '@/lib/auth-client';
+import { navigation, requiredPermission } from '@/lib/manage-routes';
 import { AppearanceSettings } from './appearance-app';
 import { ContentSettings } from './content-app';
-import { AfterSalesManage } from './after-sales-manage';
+import { AfterSalesWorkspace } from './manage/aftersales';
+import { AssistedOrderForm } from './manage/assisted-order';
+import { CatalogManager } from './manage/catalog';
+import { CustomerList, CustomerProfile } from './manage/customers';
+import { InventoryManager } from './manage/inventory';
+import { OrderDetail, OrderInvoice, OrderList } from './manage/orders';
+import { Overview } from './manage/overview';
+import { ProductCreate, ProductEditor, ProductList } from './manage/products';
+import { Reports } from './manage/reports';
+import { SettingsHub } from './manage/settings';
+import { ShipmentDetail, ShipmentList } from './manage/shipments';
 
 function TeamSettings() {
   const [data, setData] = useState<Team | null>(null);
@@ -308,6 +319,47 @@ function TeamSettings() {
   );
 }
 
+function Section({ path, session }: { path: string; session: StaffSession }) {
+  const can = (permission: string) => session.permissions.includes(permission);
+  const [first = '', second = '', third = ''] = path.split('/');
+  if (path === '') return <Overview session={session} />;
+  switch (first) {
+    case 'orders':
+      if (second === 'new') return <AssistedOrderForm session={session} />;
+      if (third === 'invoice') return <OrderInvoice id={second} />;
+      return second ? <OrderDetail id={second} session={session} /> : <OrderList />;
+    case 'shipments':
+      return second ? <ShipmentDetail id={second} session={session} /> : <ShipmentList />;
+    case 'products':
+      if (second === 'new') return <ProductCreate session={session} />;
+      return second ? (
+        <ProductEditor id={second} session={session} />
+      ) : (
+        <ProductList session={session} />
+      );
+    case 'catalog':
+      return <CatalogManager />;
+    case 'inventory':
+      return <InventoryManager />;
+    case 'customers':
+      return second ? <CustomerProfile id={second} /> : <CustomerList />;
+    case 'aftersales':
+      return <AfterSalesWorkspace />;
+    case 'reports':
+      return <Reports />;
+    case 'settings':
+      return <SettingsHub session={session} />;
+    case 'appearance':
+      return <AppearanceSettings canManageSettings={can('store.settings')} />;
+    case 'content':
+      return <ContentSettings />;
+    case 'team':
+      return <TeamSettings />;
+    default:
+      return <SecuritySettings api={api} base="/api/manage/account" />;
+  }
+}
+
 function ProtectedManagement({ path }: { path: string }) {
   const [session, setSession] = useState<StaffSession | null>(null);
   const [error, setError] = useState('');
@@ -337,95 +389,24 @@ function ProtectedManagement({ path }: { path: string }) {
     ) : (
       <Loading>Checking your team access…</Loading>
     );
-  const canManage = session.permissions.includes('staff.manage');
-  const canEditContent = session.permissions.includes('content.manage');
-  const canManageSettings = session.permissions.includes('store.settings');
-  const canHandleOrders = session.permissions.includes('orders.manage');
-  const denied = (
-    <Alert>You do not have permission to change this. Ask your store owner for help.</Alert>
-  );
+  const required = requiredPermission(path);
+  const allowed = !required || session.permissions.includes(required);
   return (
     <DashboardShell
       realm="staff"
       name={session.store_name}
       subtitle={`${session.user.full_name} · ${session.role_label}`}
-      team={canManage}
-      links={[
-        ...(canEditContent
-          ? [
-              { href: '/manage/appearance', label: 'Appearance' },
-              { href: '/manage/content', label: 'Content' },
-            ]
-          : []),
-        ...(canHandleOrders ? [{ href: '/manage/aftersales', label: 'Customer requests' }] : []),
-      ]}
+      groups={navigation(session.permissions)}
+      current={`/manage${path ? `/${path}` : ''}`}
       onLogout={async () => {
         await api.post('/api/manage/auth/logout/');
         window.location.assign('/manage/sign-in');
       }}
     >
-      {path === 'aftersales' ? (
-        canHandleOrders ? (
-          <AfterSalesManage />
-        ) : (
-          denied
-        )
-      ) : path === 'appearance' ? (
-        canEditContent ? (
-          <AppearanceSettings canManageSettings={canManageSettings} />
-        ) : (
-          denied
-        )
-      ) : path === 'content' ? (
-        canEditContent ? (
-          <ContentSettings />
-        ) : (
-          denied
-        )
-      ) : path === 'account/security' ? (
-        <SecuritySettings api={api} base="/api/manage/account" />
-      ) : path === 'team' ? (
-        canManage ? (
-          <TeamSettings />
-        ) : (
-          <Alert>
-            You do not have permission to manage this team. Ask your store owner for help.
-          </Alert>
-        )
+      {allowed ? (
+        <Section path={path} session={session} />
       ) : (
-        <div>
-          <p className="text-xs font-bold tracking-widest text-brand-deep uppercase">
-            Your workspace
-          </p>
-          <h1 className="mt-2 text-[28px] font-bold tracking-tight">
-            Welcome back, {session.user.full_name || 'team member'}.
-          </h1>
-          <p className="mt-3 text-sm leading-6 text-muted">
-            Your store account is ready. Take care of your team and keep your sign-in secure.
-          </p>
-          <div className="mt-8 grid max-w-3xl gap-5 md:grid-cols-2">
-            <a
-              href="/manage/account/security"
-              className="rounded-base border border-line bg-surface p-6 hover:border-ink"
-            >
-              <span className="text-lg font-bold">Account security →</span>
-              <p className="mt-3 text-sm leading-6 text-muted">
-                Manage your password, authenticator app, email codes and recovery options.
-              </p>
-            </a>
-            {canManage && (
-              <a
-                href="/manage/team"
-                className="rounded-base border border-line bg-surface p-6 hover:border-ink"
-              >
-                <span className="text-lg font-bold">Team & access →</span>
-                <p className="mt-3 text-sm leading-6 text-muted">
-                  Invite staff and manage their access to your store.
-                </p>
-              </a>
-            )}
-          </div>
-        </div>
+        <Alert>You do not have permission to open this page. Ask your store owner for help.</Alert>
       )}
     </DashboardShell>
   );

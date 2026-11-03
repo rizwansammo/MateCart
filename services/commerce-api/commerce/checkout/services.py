@@ -564,7 +564,11 @@ def create_checkout(*, cart: Cart) -> CheckoutSession:
         quote = quote_cart(cart)
         if not quote.valid:
             raise ConflictError("Resolve unavailable cart items before checkout.", "cart_invalid")
-        owner = {"customer": cart.customer, "guest_token_hash": cart.guest_token_hash}
+        owner = {
+            "customer": cart.customer,
+            "guest_token_hash": cart.guest_token_hash,
+            "assisted_by": cart.assisted_by,
+        }
         session = CheckoutSession.objects.create(
             cart=cart,
             expires_at=timezone.now() + CHECKOUT_LIFETIME,

@@ -54,6 +54,7 @@ from .models import (
     OrderAllocation,
     OrderItem,
     OrderPaymentStatus,
+    OrderSource,
     OrderStatus,
     OrderStatusEvent,
     PaymentIntent,
@@ -335,7 +336,12 @@ def _event(
 
 
 def _place(
-    session: CheckoutSession, method: str, digest: str, actor: User | None
+    session: CheckoutSession,
+    method: str,
+    digest: str,
+    actor: User | None,
+    *,
+    source: str = OrderSource.STOREFRONT,
 ) -> tuple[Order, bool]:
     Cart.objects.select_for_update().get(pk=session.cart_id)
     target = CheckoutSession.objects.select_for_update().get(pk=session.pk)
@@ -361,8 +367,10 @@ def _place(
     _check_shipping(target)
     lines = _lock_and_check_items(target)
     online = method == PaymentMethod.ONLINE
+    assisted = source != OrderSource.STOREFRONT
     order = Order(
         checkout=target,
+        source=source,
         placement_key_hash=digest,
         customer=target.customer,
         status=OrderStatus.PENDING_PAYMENT if online else OrderStatus.PLACED,
@@ -388,7 +396,10 @@ def _place(
         shipping_method=target.shipping_method,
         shipping_method_name=target.shipping_method.name if target.shipping_method else "",
         coupon_code=target.coupon_code,
-        guest_access_hash="" if target.customer_id else key_hash(secrets.token_urlsafe(32)),
+        # An assisted order is never reachable with a browser credential (D-077).
+        guest_access_hash=""
+        if target.customer_id or assisted
+        else key_hash(secrets.token_urlsafe(32)),
     )
     _book_slot(target, order)
     order.number = _next_number("order", "ORD")
@@ -431,6 +442,7 @@ def _place(
         actor_label=_actor_label(actor),
         changes={
             "number": order.number,
+            "source": order.source,
             "status": order.status,
             "payment_method": method,
             "currency": order.currency,

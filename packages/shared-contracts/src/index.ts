@@ -10,3 +10,4 @@ export * from './checkout';
 export * from './orders';
 
 export * from './after-sales';
+export * from './manage';

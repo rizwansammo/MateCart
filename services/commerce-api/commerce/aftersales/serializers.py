@@ -3,9 +3,18 @@
 from decimal import Decimal
 from typing import Any
 
+from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
 
-from .models import AfterSalesCase, CaseKind, CaseMessage, CaseStatus, ProductReview, ReviewStatus
+from .models import (
+    AfterSalesCase,
+    CaseKind,
+    CaseMessage,
+    CaseStatus,
+    ProductReview,
+    ReturnRefundEvidence,
+    ReviewStatus,
+)
 
 
 class ReviewInputSerializer(serializers.Serializer[Any]):
@@ -22,8 +31,16 @@ class ReviewDecisionSerializer(serializers.Serializer[Any]):
 class ProductReviewSerializer(serializers.ModelSerializer[ProductReview]):
     class Meta:
         model = ProductReview
-        fields = ("id", "order_item", "rating", "body", "status", "decision_reason", "created_at")
-        read_only_fields = fields
+        fields: tuple[str, ...] = (
+            "id",
+            "order_item",
+            "rating",
+            "body",
+            "status",
+            "decision_reason",
+            "created_at",
+        )
+        read_only_fields: tuple[str, ...] = fields
 
 
 class PublicReviewSerializer(serializers.ModelSerializer[ProductReview]):
@@ -70,7 +87,7 @@ class AfterSalesCaseSerializer(serializers.ModelSerializer[AfterSalesCase]):
 
     class Meta:
         model = AfterSalesCase
-        fields = (
+        fields: tuple[str, ...] = (
             "id",
             "kind",
             "status",
@@ -85,4 +102,105 @@ class AfterSalesCaseSerializer(serializers.ModelSerializer[AfterSalesCase]):
             "updated_at",
             "messages",
         )
+        read_only_fields: tuple[str, ...] = fields
+
+
+# --- Merchant views (Phase 11) --------------------------------------------------------------------
+
+
+def next_statuses(case: AfterSalesCase) -> list[str]:
+    """The decisions the case state machine accepts now. Return and exchange resolution also
+    needs its evidence step first; the service enforces every rule again on submission."""
+    from .services import TRANSITIONS
+
+    allowed = TRANSITIONS.get(case.status, frozenset())
+    result: list[str] = []
+    for status in CaseStatus.values:
+        if status not in allowed:
+            continue
+        if status == CaseStatus.AWAITING_REFUND and case.kind != CaseKind.RETURN:
+            continue
+        if status == CaseStatus.REPLACEMENT_PENDING and case.kind != CaseKind.EXCHANGE:
+            continue
+        if status == CaseStatus.RESOLVED and (
+            (case.kind == CaseKind.RETURN and case.status != CaseStatus.AWAITING_REFUND)
+            or (case.kind == CaseKind.EXCHANGE and case.status != CaseStatus.REPLACEMENT_PENDING)
+        ):
+            continue
+        result.append(status)
+    return result
+
+
+class AttributedRefundSerializer(serializers.Serializer[Any]):
+    id = serializers.UUIDField(source="refund.id")
+    amount = serializers.DecimalField(source="refund.amount", max_digits=19, decimal_places=4)
+    currency = serializers.CharField(source="refund.currency")
+    status = serializers.CharField(source="refund.status")
+
+
+class MerchantCaseSerializer(AfterSalesCaseSerializer):
+    order_id = serializers.UUIDField(source="order_item.order_id", allow_null=True, default=None)
+    order_number = serializers.CharField(
+        source="order_item.order.number", allow_null=True, default=None
+    )
+    product_name = serializers.CharField(
+        source="order_item.product_name", allow_null=True, default=None
+    )
+    sku = serializers.CharField(source="order_item.sku", allow_null=True, default=None)
+    currency = serializers.CharField(
+        source="order_item.order.currency", allow_null=True, default=None
+    )
+    customer_name = serializers.CharField(source="customer.full_name")
+    next_statuses = serializers.SerializerMethodField()
+    required_refund = serializers.SerializerMethodField()
+    attributed_refunds = serializers.SerializerMethodField()
+
+    class Meta(AfterSalesCaseSerializer.Meta):
+        fields = (
+            *AfterSalesCaseSerializer.Meta.fields,
+            "order_id",
+            "order_number",
+            "product_name",
+            "sku",
+            "currency",
+            "customer_name",
+            "next_statuses",
+            "required_refund",
+            "attributed_refunds",
+        )
         read_only_fields = fields
+
+    @extend_schema_field(serializers.ListField(child=serializers.CharField()))
+    def get_next_statuses(self, case: AfterSalesCase) -> list[str]:
+        return next_statuses(case)
+
+    @extend_schema_field(serializers.DecimalField(max_digits=19, decimal_places=4, allow_null=True))
+    def get_required_refund(self, case: AfterSalesCase) -> str | None:
+        from .services import required_return_refund
+
+        if case.kind != CaseKind.RETURN or case.order_item_id is None:
+            return None
+        return f"{required_return_refund(case):.4f}"
+
+    @extend_schema_field(AttributedRefundSerializer(many=True))
+    def get_attributed_refunds(self, case: AfterSalesCase) -> list[dict[str, Any]]:
+        rows = ReturnRefundEvidence.objects.select_related("refund").filter(case=case)
+        return list(AttributedRefundSerializer(rows.order_by("pk"), many=True).data)
+
+
+class MerchantReviewSerializer(ProductReviewSerializer):
+    product_name = serializers.CharField(source="order_item.product_name")
+    customer_name = serializers.CharField(source="customer.full_name")
+
+    class Meta(ProductReviewSerializer.Meta):
+        fields = (*ProductReviewSerializer.Meta.fields, "product_name", "customer_name")
+        read_only_fields = fields
+
+
+class CaseQuerySerializer(serializers.Serializer[Any]):
+    status = serializers.ChoiceField(choices=CaseStatus.choices, required=False)
+    kind = serializers.ChoiceField(choices=CaseKind.choices, required=False)
+
+
+class ReviewQuerySerializer(serializers.Serializer[Any]):
+    status = serializers.ChoiceField(choices=ReviewStatus.choices, required=False)

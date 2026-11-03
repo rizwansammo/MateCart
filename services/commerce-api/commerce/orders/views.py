@@ -2,6 +2,7 @@
 
 from typing import Any, cast
 
+from django.db.models import Count, OuterRef, Q, Subquery
 from django.utils.decorators import method_decorator
 from django.views.decorators.cache import never_cache
 from drf_spectacular.utils import extend_schema
@@ -14,18 +15,26 @@ from rest_framework.views import APIView
 
 from commerce.checkout.views import CheckoutOwnerMixin, StorefrontAPIView
 from commerce.core.pagination import paginate, paginated
+from commerce.fulfillment.models import Shipment
 from commerce.identity import sessions
 from commerce.identity.auth import HasStaffPermission
 from commerce.identity.models import User
 from commerce.staff.permissions import Permission
 from commerce.staff.views import StaffView
 
-from . import payments, services
+from . import assisted, payments, reports, services
 from .models import Invoice, Order
 from .serializers import (
+    AssistedOrderInputSerializer,
+    AssistedQuoteInputSerializer,
+    AssistedQuoteSerializer,
+    AssistedSearchQuerySerializer,
+    AssistedVariantSerializer,
     CallbackResultSerializer,
     InvoiceSerializer,
-    MerchantOrderSerializer,
+    MerchantOrderDetailSerializer,
+    MerchantOrderQuerySerializer,
+    MerchantOrderSummarySerializer,
     OrderSerializer,
     OrderSummarySerializer,
     PaymentStartSerializer,
@@ -184,19 +193,45 @@ class ManageOrderListView(OrdersStaffView):
     @extend_schema(
         operation_id="manage_order_list",
         tags=MANAGE_TAG,
-        responses={200: paginated(OrderSummarySerializer)},
+        parameters=[MerchantOrderQuerySerializer],
+        responses={200: paginated(MerchantOrderSummarySerializer)},
     )
     def get(self, request: Request) -> Response:
-        items, meta = paginate(Order.objects.order_by("-placed_at", "-pk"), request)
-        return Response({**meta, "results": OrderSummarySerializer(items, many=True).data})
+        params = _data(MerchantOrderQuerySerializer(data=request.query_params))
+        rows = Order.objects.annotate(
+            item_count=Count("items"),
+            shipment_status=Subquery(
+                Shipment.objects.filter(order=OuterRef("pk")).values("status")[:1]
+            ),
+        )
+        for field in ("status", "payment_status", "source"):
+            if params.get(field):
+                rows = rows.filter(**{field: params[field]})
+        if params.get("placed_from") or params.get("placed_to"):
+            start, end = reports.date_range(params.get("placed_from"), params.get("placed_to"))
+            since, until = reports.day_bounds(start, end)
+            rows = rows.filter(placed_at__gte=since, placed_at__lt=until)
+        text = (params.get("q") or "").strip()
+        if text:
+            rows = rows.filter(
+                Q(number__iexact=text)
+                | Q(number__icontains=text)
+                | Q(recipient_name__icontains=text)
+                | Q(contact_phone__icontains=text)
+                | Q(contact_email__icontains=text)
+            )
+        items, meta = paginate(rows.order_by("-placed_at", "-pk"), request)
+        return Response({**meta, "results": MerchantOrderSummarySerializer(items, many=True).data})
 
 
 class ManageOrderView(OrdersStaffView):
     @extend_schema(
-        operation_id="manage_order_get", tags=MANAGE_TAG, responses={200: MerchantOrderSerializer}
+        operation_id="manage_order_get",
+        tags=MANAGE_TAG,
+        responses={200: MerchantOrderDetailSerializer},
     )
     def get(self, request: Request, order_id: Any) -> Response:
-        return Response(MerchantOrderSerializer(self.target(order_id)).data)
+        return Response(MerchantOrderDetailSerializer(self.target(order_id)).data)
 
 
 class ManageOrderTransitionView(OrdersStaffView):
@@ -204,7 +239,7 @@ class ManageOrderTransitionView(OrdersStaffView):
         operation_id="manage_order_transition",
         tags=MANAGE_TAG,
         request=TransitionSerializer,
-        responses={200: MerchantOrderSerializer},
+        responses={200: MerchantOrderDetailSerializer},
     )
     def post(self, request: Request, order_id: Any) -> Response:
         values = _data(TransitionSerializer(data=request.data))
@@ -214,7 +249,7 @@ class ManageOrderTransitionView(OrdersStaffView):
             actor=self.user,
             reason=values.get("reason", ""),
         )
-        return Response(MerchantOrderSerializer(order).data)
+        return Response(MerchantOrderDetailSerializer(order).data)
 
 
 class ManageCodCollectionView(OrdersStaffView):
@@ -222,11 +257,71 @@ class ManageCodCollectionView(OrdersStaffView):
         operation_id="manage_order_cod_collected",
         tags=MANAGE_TAG,
         request=None,
-        responses={200: MerchantOrderSerializer},
+        responses={200: MerchantOrderDetailSerializer},
     )
     def post(self, request: Request, order_id: Any) -> Response:
         order = payments.record_cod_collection(order_id=self.target(order_id).pk, actor=self.user)
-        return Response(MerchantOrderSerializer(order).data)
+        return Response(MerchantOrderDetailSerializer(order).data)
+
+
+class ManageOrderInvoiceView(OrdersStaffView):
+    @extend_schema(
+        operation_id="manage_order_invoice", tags=MANAGE_TAG, responses={200: InvoiceSerializer}
+    )
+    def get(self, request: Request, order_id: Any) -> Response:
+        invoice = (
+            Invoice.objects.select_related("order").filter(order=self.target(order_id)).first()
+        )
+        if invoice is None:
+            raise NotFound("This order has no invoice.")
+        return Response(InvoiceSerializer(invoice).data)
+
+
+class ManageAssistedVariantsView(OrdersStaffView):
+    """Products staff can add to an assisted order, with price and sellable stock. Order
+    handlers have no catalogue access, so this read-only lookup lives under orders."""
+
+    @extend_schema(
+        operation_id="manage_assisted_order_variants",
+        tags=MANAGE_TAG,
+        parameters=[AssistedSearchQuerySerializer],
+        responses={200: AssistedVariantSerializer(many=True)},
+    )
+    def get(self, request: Request) -> Response:
+        params = _data(AssistedSearchQuerySerializer(data=request.query_params))
+        rows = assisted.search_variants(params.get("q") or "")
+        return Response(AssistedVariantSerializer(rows, many=True).data)
+
+
+class ManageAssistedQuoteView(OrdersStaffView):
+    @extend_schema(
+        operation_id="manage_assisted_order_quote",
+        tags=MANAGE_TAG,
+        request=AssistedQuoteInputSerializer,
+        responses={200: AssistedQuoteSerializer},
+    )
+    def post(self, request: Request) -> Response:
+        values = _data(AssistedQuoteInputSerializer(data=request.data))
+        quote = assisted.quote_assisted_order(data=values, actor=self.user)
+        return Response(AssistedQuoteSerializer(quote).data)
+
+
+class ManageAssistedOrderView(OrdersStaffView):
+    """Create an order a customer requested by phone, chat or in person (D-077)."""
+
+    @extend_schema(
+        operation_id="manage_assisted_order_create",
+        tags=MANAGE_TAG,
+        request=AssistedOrderInputSerializer,
+        responses={201: MerchantOrderDetailSerializer, 200: MerchantOrderDetailSerializer},
+    )
+    def post(self, request: Request) -> Response:
+        values = _data(AssistedOrderInputSerializer(data=request.data))
+        placement = assisted.place_assisted_order(data=values, actor=self.user)
+        return Response(
+            MerchantOrderDetailSerializer(placement.order).data,
+            status=status.HTTP_200_OK if placement.replayed else status.HTTP_201_CREATED,
+        )
 
 
 class ManageRefundView(OrdersStaffView):

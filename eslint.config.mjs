@@ -25,7 +25,13 @@ export default defineConfig([
   {
     // Auth navigation intentionally reloads the document to discard transient setup secrets,
     // recovery codes and stale realm state. shared-ui is also independent of the Next router.
-    files: ['packages/shared-ui/src/**/*.tsx', 'apps/*/src/components/*-app.tsx'],
+    // Merchant workspace sections are client views of one catch-all route that re-checks the
+    // staff session on every document load.
+    files: [
+      'packages/shared-ui/src/**/*.tsx',
+      'apps/*/src/components/*-app.tsx',
+      'apps/commerce-web/src/components/manage/*.tsx',
+    ],
     rules: {
       '@next/next/no-html-link-for-pages': 'off',
       '@next/next/no-location-assign-relative-destination': 'off',

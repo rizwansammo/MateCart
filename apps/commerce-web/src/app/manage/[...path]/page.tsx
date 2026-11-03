@@ -1,22 +1,8 @@
 import { notFound } from 'next/navigation';
 import { ManageApp } from '@/components/manage-app';
+import { isManagePath } from '@/lib/manage-routes';
 export default async function ManagePage({ params }: { params: Promise<{ path?: string[] }> }) {
   const path = (await params).path?.join('/') ?? '';
-  if (
-    ![
-      '',
-      'sign-in',
-      'sign-in/verify',
-      'forgot-password',
-      'reset-password',
-      'invitation',
-      'team',
-      'account/security',
-      'appearance',
-      'content',
-      'aftersales',
-    ].includes(path)
-  )
-    notFound();
+  if (!isManagePath(path)) notFound();
   return <ManageApp path={path} />;
 }

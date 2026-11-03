@@ -37,6 +37,9 @@ urlpatterns: list[URLPattern | URLResolver] = [
     path("api/manage/aftersales/", include("commerce.aftersales.manage_urls")),
     path("api/", include("commerce.aftersales.digital_urls")),
     path("api/manage/digital/", include("commerce.aftersales.digital_manage_urls")),
+    # Phase 11 merchant dashboard: overview, reports and customer records.
+    path("api/manage/", include("commerce.orders.report_urls")),
+    path("api/manage/customers/", include("commerce.identity.manage_urls")),
 ]
 
 if settings.API_SCHEMA_ENABLED:

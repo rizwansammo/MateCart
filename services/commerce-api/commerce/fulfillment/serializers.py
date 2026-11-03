@@ -3,6 +3,7 @@
 from decimal import Decimal
 from typing import Any
 
+from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
 
 from .models import (
@@ -231,7 +232,13 @@ class FraudAssessmentSerializer(serializers.ModelSerializer[FraudAssessment]):
         return list(FraudReviewSerializer(rows, many=True).data)
 
 
+class ShipmentQuerySerializer(serializers.Serializer[Any]):
+    status = serializers.MultipleChoiceField(choices=ShipmentStatus.choices, required=False)
+    q = serializers.CharField(max_length=100, required=False, allow_blank=True)
+
+
 class ShipmentSummarySerializer(serializers.ModelSerializer[Shipment]):
+    order_id = serializers.UUIDField()
     order_number = serializers.CharField(source="order.number")
     fraud_status = serializers.SerializerMethodField()
 
@@ -240,7 +247,10 @@ class ShipmentSummarySerializer(serializers.ModelSerializer[Shipment]):
         fields = (
             "id",
             "reference",
+            "order_id",
             "order_number",
+            "recipient_name",
+            "city",
             "status",
             "courier_name",
             "tracking_number",
@@ -256,6 +266,12 @@ class ShipmentSummarySerializer(serializers.ModelSerializer[Shipment]):
         )
 
 
+class SerialAllocationSerializer(serializers.Serializer[Any]):
+    allocation = serializers.UUIDField(source="pk")
+    sku = serializers.CharField(source="variant.sku")
+    quantity = serializers.DecimalField(max_digits=14, decimal_places=3)
+
+
 class MerchantShipmentSerializer(PublicShipmentSerializer):
     id = serializers.UUIDField()
     order_id = serializers.UUIDField()
@@ -266,6 +282,10 @@ class MerchantShipmentSerializer(PublicShipmentSerializer):
     cod = serializers.SerializerMethodField()
     fraud = serializers.SerializerMethodField()
     operational_notes = serializers.CharField()
+    payment_method = serializers.CharField(source="order.payment_method")
+    next_statuses = serializers.SerializerMethodField()
+    serial_allocations = serializers.SerializerMethodField()
+    courier_booking_available = serializers.SerializerMethodField()
 
     class Meta(PublicShipmentSerializer.Meta):
         fields: tuple[str, ...] = (
@@ -278,7 +298,43 @@ class MerchantShipmentSerializer(PublicShipmentSerializer):
             "bookings",
             "cod",
             "fraud",
+            "payment_method",
+            "next_statuses",
+            "serial_allocations",
+            "courier_booking_available",
         )
+
+    @extend_schema_field(serializers.ListField(child=serializers.CharField()))
+    def get_next_statuses(self, shipment: Shipment) -> list[str]:
+        """Staff moves the state machine accepts now. Cancellation before dispatch goes through
+        the order (D-074, Phase 09.1), so it is never offered here."""
+        from .services import TRANSITIONS
+
+        allowed = TRANSITIONS.get(shipment.status, frozenset())
+        return [
+            value
+            for value, _ in TRANSITION_TARGETS
+            if value in allowed and value != ShipmentStatus.CANCELLED
+        ]
+
+    @extend_schema_field(SerialAllocationSerializer(many=True))
+    def get_serial_allocations(self, shipment: Shipment) -> list[dict[str, Any]]:
+        """Serial-tracked stock the order still holds: dispatch needs the shipped serials."""
+        from commerce.orders.models import AllocationStatus, OrderAllocation
+
+        rows = OrderAllocation.objects.filter(
+            order_id=shipment.order_id,
+            status=AllocationStatus.ALLOCATED,
+            variant__product__tracking_mode="serial",
+        ).select_related("variant")
+        return list(SerialAllocationSerializer(rows.order_by("pk"), many=True).data)
+
+    def get_courier_booking_available(self, shipment: Shipment) -> bool:
+        from commerce.stores.modules import enabled_modules
+
+        from .providers import courier_provider
+
+        return courier_provider() is not None and "courier_booking" in enabled_modules()
 
     def get_items(self, shipment: Shipment) -> list[dict[str, Any]]:
         rows = ShipmentItem.objects.filter(shipment=shipment).select_related("order_item")

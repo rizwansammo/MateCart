@@ -34,6 +34,7 @@ from commerce.identity.serializers import (
     PasswordResetSerializer,
     mask_email,
 )
+from commerce.stores.models import StoreSettings
 from commerce.stores.services import current_store
 
 from . import services, signin
@@ -228,14 +229,21 @@ class SessionView(StaffView):
     def get(self, request: Request) -> Response:
         membership = self.staff.membership
         role = StaffRole(membership.role)
+        store = current_store()
+        settings_row = StoreSettings.objects.only("preset", "default_currency", "timezone").first()
         return Response(
             {
                 "user": StaffUserSerializer(self.user).data,
                 "role": role.value,
                 "role_label": role.label,
                 "permissions": sorted(self.staff.permissions),
-                "store_name": current_store().name,
+                "store_name": store.name,
                 "mfa_enabled": self.user.mfa_enabled,
+                # Store facts the dashboard needs to format and prefill forms (Phase 11).
+                "store_preset": settings_row.preset if settings_row else "",
+                "store_country": store.country,
+                "store_currency": settings_row.default_currency if settings_row else "",
+                "store_timezone": settings_row.timezone if settings_row else "",
             }
         )
 

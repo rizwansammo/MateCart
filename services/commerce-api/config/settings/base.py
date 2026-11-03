@@ -255,6 +255,8 @@ SPECTACULAR_SETTINGS = {
         "CheckoutStatusEnum": "commerce.checkout.models.CheckoutStatus",
         "CouponDiscountTypeEnum": "commerce.checkout.models.CouponDiscountType",
         "OrderStatusEnum": "commerce.orders.models.OrderStatus",
+        "OrderSourceEnum": "commerce.orders.models.OrderSource",
+        "AssistedOrderSourceEnum": "commerce.orders.serializers.ASSISTED_SOURCE_CHOICES",
         "OrderPaymentStatusEnum": "commerce.orders.models.OrderPaymentStatus",
         "PaymentMethodEnum": "commerce.orders.models.PaymentMethod",
         "RefundStatusEnum": "commerce.orders.models.RefundStatus",

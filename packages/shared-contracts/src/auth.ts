@@ -88,12 +88,20 @@ export function userSummary(value: unknown): UserSummary {
   const o = object(value);
   return { id: string(o.id), full_name: string(o.full_name), email: nullableString(o.email) };
 }
+function optionalString(value: unknown): string {
+  return value === undefined ? '' : string(value);
+}
 export interface StaffSession {
   user: UserSummary;
   role: string;
   role_label: string;
   permissions: string[];
   store_name: string;
+  /** Store facts for formatting and form defaults; empty when an older API omits them. */
+  store_preset: string;
+  store_country: string;
+  store_currency: string;
+  store_timezone: string;
 }
 export function staffSession(value: unknown): StaffSession {
   const o = object(value);
@@ -103,6 +111,10 @@ export function staffSession(value: unknown): StaffSession {
     role_label: string(o.role_label),
     permissions: strings(o.permissions),
     store_name: string(o.store_name),
+    store_preset: optionalString(o.store_preset),
+    store_country: optionalString(o.store_country),
+    store_currency: optionalString(o.store_currency),
+    store_timezone: optionalString(o.store_timezone),
   };
 }
 export interface SecurityStatus {

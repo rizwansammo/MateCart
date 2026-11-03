@@ -92,8 +92,26 @@ class OrderPaymentStatus(models.TextChoices):
     FAILED = "failed", "Payment not completed"
 
 
+class OrderSource(models.TextChoices):
+    """Where the order request came from. Storefront orders are placed by the buyer's browser;
+    every other source is a merchant-assisted order entered by staff (D-077)."""
+
+    STOREFRONT = "storefront", "Online store"
+    FACEBOOK = "facebook", "Facebook"
+    WHATSAPP = "whatsapp", "WhatsApp"
+    PHONE = "phone", "Phone call"
+    IN_STORE = "in_store", "In store"
+    OTHER = "other", "Other"
+
+
+ASSISTED_SOURCES = tuple(value for value in OrderSource.values if value != OrderSource.STOREFRONT)
+
+
 class Order(TenantOwnedModel, TimestampedModel):
     number = models.CharField(max_length=20, validators=[RegexValidator(ORDER_NUMBER_PATTERN)])
+    source = models.CharField(
+        max_length=16, choices=OrderSource.choices, default=OrderSource.STOREFRONT
+    )
     checkout = models.ForeignKey(CheckoutSession, on_delete=models.PROTECT, related_name="+")
     placement_key_hash = models.CharField(
         max_length=64, validators=[RegexValidator(SHA256_HEX_PATTERN)]
@@ -163,10 +181,19 @@ class Order(TenantOwnedModel, TimestampedModel):
             models.CheckConstraint(
                 condition=Q(number__regex=ORDER_NUMBER_PATTERN), name="orders_order_number_format"
             ),
+            # A storefront order belongs to its customer or its guest credential. An assisted
+            # order without a customer has no credential at all: staff never mint one (D-077).
             models.CheckConstraint(
                 condition=(Q(customer__isnull=False, guest_access_hash=""))
-                | (Q(customer__isnull=True) & ~Q(guest_access_hash="")),
+                | (Q(customer__isnull=True) & ~Q(guest_access_hash=""))
+                | (
+                    Q(customer__isnull=True, guest_access_hash="")
+                    & ~Q(source=OrderSource.STOREFRONT)
+                ),
                 name="orders_order_one_owner",
+            ),
+            models.CheckConstraint(
+                condition=Q(source__in=OrderSource.values), name="orders_order_source_valid"
             ),
             models.CheckConstraint(
                 condition=Q(status__in=OrderStatus.values), name="orders_order_status_valid"
@@ -206,6 +233,8 @@ class Order(TenantOwnedModel, TimestampedModel):
         indexes = [
             models.Index(fields=["tenant", "status", "placed_at"], name="orders_order_status"),
             models.Index(fields=["tenant", "customer", "placed_at"], name="orders_order_customer"),
+            # Date-bounded dashboard and report queries.
+            models.Index(fields=["tenant", "placed_at"], name="orders_order_placed"),
         ]
 
 
@@ -243,6 +272,48 @@ class OrderItem(TenantOwnedModel):
         if not self._state.adding:
             raise ImmutableRecordError("Order items are historical snapshots.")
         super().save(*args, **kwargs)
+
+
+class AssistedOrder(TenantOwnedModel):
+    """Immutable provenance of a merchant-assisted order (D-077): who entered it, from which
+    channel, and the staff member's attestation that the customer asked for it.
+
+    The attestation is the staff member's statement, not a customer signature or a verified
+    confirmation. The request key makes placement idempotent per store.
+    """
+
+    order = models.OneToOneField(Order, on_delete=models.PROTECT, related_name="assisted")
+    created_by = models.ForeignKey(User, on_delete=models.PROTECT, related_name="+")
+    created_at = models.DateTimeField(default=timezone.now)
+    source_reference = models.CharField(max_length=120, blank=True)
+    customer_request_attested = models.BooleanField()
+    request_key_hash = models.CharField(
+        max_length=64, validators=[RegexValidator(SHA256_HEX_PATTERN)]
+    )
+    request_fingerprint = models.CharField(
+        max_length=64, validators=[RegexValidator(SHA256_HEX_PATTERN)]
+    )
+
+    class Meta(TenantOwnedModel.Meta):
+        constraints = [
+            *TenantOwnedModel.Meta.constraints,
+            TenantForeignKeyConstraint(field="order", name="orders_assisted_order_tenant"),
+            TenantForeignKeyConstraint(field="created_by", name="orders_assisted_staff_tenant"),
+            models.UniqueConstraint(
+                fields=["tenant", "request_key_hash"], name="orders_assisted_key_unique"
+            ),
+            models.CheckConstraint(
+                condition=Q(customer_request_attested=True), name="orders_assisted_attested"
+            ),
+        ]
+
+    def save(self, *args: Any, **kwargs: Any) -> None:
+        if not self._state.adding:
+            raise ImmutableRecordError("Assisted order provenance is immutable.")
+        super().save(*args, **kwargs)
+
+    def delete(self, *args: Any, **kwargs: Any) -> NoReturn:
+        raise ImmutableRecordError("Assisted order provenance is immutable.")
 
 
 class OrderStatusEvent(TenantOwnedModel):

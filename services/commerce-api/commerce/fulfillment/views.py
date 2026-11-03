@@ -2,6 +2,7 @@
 
 from typing import Any, cast
 
+from django.db.models import Q
 from django.utils.decorators import method_decorator
 from django.views.decorators.cache import never_cache
 from drf_spectacular.utils import extend_schema
@@ -33,6 +34,7 @@ from .serializers import (
     ManualCourierSerializer,
     MerchantShipmentSerializer,
     PrepareShipmentSerializer,
+    ShipmentQuerySerializer,
     ShipmentSummarySerializer,
     ShipmentTransitionSerializer,
 )
@@ -63,10 +65,22 @@ class ManageShipmentListView(FulfillmentStaffView):
     @extend_schema(
         operation_id="manage_shipment_list",
         tags=MANAGE_TAG,
+        parameters=[ShipmentQuerySerializer],
         responses={200: paginated(ShipmentSummarySerializer)},
     )
     def get(self, request: Request) -> Response:
+        params = _data(ShipmentQuerySerializer(data=request.query_params))
         queryset = Shipment.objects.select_related("order").order_by("-created_at", "-pk")
+        if params.get("status"):
+            queryset = queryset.filter(status__in=params["status"])
+        text = (params.get("q") or "").strip()
+        if text:
+            queryset = queryset.filter(
+                Q(reference__icontains=text)
+                | Q(order__number__icontains=text)
+                | Q(tracking_number__icontains=text)
+                | Q(recipient_name__icontains=text)
+            )
         items, meta = paginate(queryset, request)
         return Response({**meta, "results": ShipmentSummarySerializer(items, many=True).data})
 

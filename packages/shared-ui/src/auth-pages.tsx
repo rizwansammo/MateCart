@@ -415,6 +415,19 @@ export function ActivationForm({ api, realm }: { api: ApiClient; realm: StaffRea
   );
 }
 
+export interface NavLink {
+  href: string;
+  label: string;
+}
+export interface NavGroup {
+  heading?: string;
+  links: NavLink[];
+}
+
+function navClass(active: boolean): string {
+  return `block rounded-base px-4 py-2.5 text-sm font-semibold ${active ? 'bg-ink text-surface' : 'hover:bg-canvas'}`;
+}
+
 export function DashboardShell({
   children,
   realm,
@@ -422,6 +435,8 @@ export function DashboardShell({
   subtitle,
   team = false,
   links = [],
+  groups,
+  current,
   onLogout,
 }: {
   children: ReactNode;
@@ -431,56 +446,79 @@ export function DashboardShell({
   team?: boolean;
   /** Extra sections the signed-in person may open (for example Appearance, Content). */
   links?: { href: string; label: string }[];
+  /** Grouped navigation; replaces the default links when given. Only pass permitted links. */
+  groups?: NavGroup[];
+  /** The current path, so its link is marked as the open page. */
+  current?: string;
   onLogout: () => Promise<void>;
 }) {
   const paths = authPaths(realm);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const [menuOpen, setMenuOpen] = useState(false);
+  const isActive = (href: string) =>
+    current !== undefined &&
+    (href === paths.home ? current === href : current === href || current.startsWith(`${href}/`));
+  const defaultGroups: NavGroup[] = [
+    {
+      links: [
+        { href: paths.home, label: 'Overview' },
+        ...links,
+        ...(team ? [{ href: '/manage/team', label: 'Team & access' }] : []),
+        { href: paths.security, label: 'Account security' },
+      ],
+    },
+  ];
   return (
-    <div className="min-h-dvh bg-canvas lg:pl-[248px]">
-      <aside className="border-b border-line bg-surface lg:fixed lg:inset-y-0 lg:left-0 lg:w-[248px] lg:border-r lg:border-b-0">
-        <a href={paths.home} className="flex h-16 items-center gap-3 border-b border-line px-6">
-          <Wordmark className="text-2xl" />
-          {realm === 'console' && <span className="text-xs text-muted">Console</span>}
-        </a>
-        <nav aria-label="Management" className="flex flex-wrap gap-1 p-4 lg:flex-col">
-          <a
-            className="rounded-base px-4 py-3 text-sm font-semibold hover:bg-canvas"
-            href={paths.home}
-          >
-            Overview
+    <div className="min-h-dvh bg-canvas lg:pl-[248px] print:bg-surface print:pl-0">
+      <aside className="border-b border-line bg-surface lg:fixed lg:inset-y-0 lg:left-0 lg:w-[248px] lg:overflow-y-auto lg:border-r lg:border-b-0 print:hidden">
+        <div className="flex h-16 items-center justify-between gap-3 border-b border-line px-6">
+          <a href={paths.home} className="flex items-center gap-3">
+            <Wordmark className="text-2xl" />
+            {realm === 'console' && <span className="text-xs text-muted">Console</span>}
           </a>
-          {links.map((link) => (
-            <a
-              key={link.href}
-              className="rounded-base px-4 py-3 text-sm font-semibold hover:bg-canvas"
-              href={link.href}
-            >
-              {link.label}
-            </a>
+          <button
+            type="button"
+            className="rounded-base border border-line-strong px-3 py-1.5 text-sm font-semibold lg:hidden"
+            aria-expanded={menuOpen}
+            aria-controls="management-nav"
+            onClick={() => setMenuOpen((open) => !open)}
+          >
+            {menuOpen ? 'Close' : 'Menu'}
+          </button>
+        </div>
+        <nav
+          id="management-nav"
+          aria-label="Management"
+          className={`${menuOpen ? 'grid' : 'hidden'} gap-4 p-4 lg:grid`}
+        >
+          {(groups ?? defaultGroups).map((group, index) => (
+            <div key={group.heading ?? index} className="grid gap-0.5">
+              {group.heading && (
+                <p className="px-4 pb-1 text-[11px] font-bold tracking-widest text-muted uppercase">
+                  {group.heading}
+                </p>
+              )}
+              {group.links.map((link) => (
+                <a
+                  key={link.href}
+                  className={navClass(isActive(link.href))}
+                  aria-current={isActive(link.href) ? 'page' : undefined}
+                  href={link.href}
+                >
+                  {link.label}
+                </a>
+              ))}
+            </div>
           ))}
-          {team && (
-            <a
-              className="rounded-base px-4 py-3 text-sm font-semibold hover:bg-canvas"
-              href="/manage/team"
-            >
-              Team & access
-            </a>
-          )}
-          <a
-            className="rounded-base px-4 py-3 text-sm font-semibold hover:bg-canvas"
-            href={paths.security}
-          >
-            Account security
-          </a>
           {realm === 'staff' && (
-            <a className="px-4 py-3 text-sm text-muted" href="/">
+            <a className="px-4 py-2 text-sm text-muted" href="/">
               View store ↗
             </a>
           )}
         </nav>
       </aside>
-      <header className="flex min-h-16 flex-wrap items-center justify-between gap-3 border-b border-line bg-surface px-6 py-3">
+      <header className="flex min-h-16 flex-wrap items-center justify-between gap-3 border-b border-line bg-surface px-6 py-3 print:hidden">
         <div>
           <p className="text-sm font-semibold">{name}</p>
           <p className="text-xs text-muted">{subtitle}</p>
