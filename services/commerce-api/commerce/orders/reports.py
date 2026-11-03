@@ -93,7 +93,7 @@ def _by_currency(rows: Iterable[dict[str, Any]], field: str = "total") -> dict[s
     return {row["currency"]: row[field] or Decimal(0) for row in rows}
 
 
-def _sum_by_currency(queryset: QuerySet[Any], amount: str) -> dict[str, Decimal]:
+def _sum_by_currency(queryset: QuerySet[Any, Any], amount: str) -> dict[str, Decimal]:
     return _by_currency(queryset.values("currency").annotate(total=Sum(amount)).order_by())
 
 
@@ -109,7 +109,7 @@ def _money_rows(*named: tuple[str, dict[str, Decimal]]) -> list[dict[str, Any]]:
     ]
 
 
-def _placed(start: datetime, end: datetime) -> QuerySet[Order]:
+def _placed(start: datetime, end: datetime) -> QuerySet[Order, Order]:
     return Order.objects.filter(placed_at__gte=start, placed_at__lt=end)
 
 
@@ -232,7 +232,7 @@ def _aftersales() -> dict[str, int]:
     }
 
 
-def low_stock_levels() -> QuerySet[StockLevel]:
+def low_stock_levels() -> QuerySet[StockLevel, StockLevel]:
     return StockLevel.objects.filter(
         low_stock_threshold__isnull=False, available__lte=F("low_stock_threshold")
     )
@@ -278,7 +278,7 @@ def dashboard(*, permissions: frozenset[str], start: date, end: date) -> dict[st
     }
 
 
-def _grouped(queryset: QuerySet[Order], field: str) -> list[dict[str, Any]]:
+def _grouped(queryset: QuerySet[Order, Order], field: str) -> list[dict[str, Any]]:
     rows = (
         queryset.values(field, "currency")
         .annotate(orders=Count("pk"), value=Sum("grand_total"))
