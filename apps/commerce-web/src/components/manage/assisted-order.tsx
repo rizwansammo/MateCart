@@ -8,7 +8,7 @@ import {
   assistedVariant,
   merchantOrderDetail,
 } from '@matecart/shared-contracts';
-import { Alert, Button, PhoneField, TextField, errorMessage } from '@matecart/shared-ui';
+import { Alert, ApiError, Button, PhoneField, TextField, errorMessage } from '@matecart/shared-ui';
 import { TextArea } from '../appearance-app';
 import { toUnits } from '@/lib/money';
 import {
@@ -27,6 +27,13 @@ import {
 interface Line {
   variant: AssistedVariant;
   quantity: string;
+}
+
+/** A server quote and the exact pricing inputs (serialized) it was calculated from. */
+interface Quoted {
+  key: string;
+  quote: AssistedQuote | null;
+  error: string;
 }
 
 const ISSUE: Record<string, string> = {
@@ -141,37 +148,43 @@ export function AssistedOrderForm({ session }: { session: StaffSession }) {
   const [source, setSource] = useState<string>('phone');
   const [reference, setReference] = useState('');
   const [attested, setAttested] = useState(false);
-  const [latestQuote, setQuote] = useState<AssistedQuote | null>(null);
-  const [quoteError, setQuoteError] = useState('');
+  const [quoted, setQuoted] = useState<Quoted | null>(null);
+  const [requote, setRequote] = useState(0);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   // One key per order being entered: a retry or double click can only ever create one order.
   const key = useRef(newKey('assisted'));
-  const pricing = useDebounced(
-    JSON.stringify({
-      items: lines.map((line) => ({ variant: line.variant.id, quantity: line.quantity })),
-      country: details.country,
-      region: details.region,
-      coupon_code: details.coupon_code,
-      shipping_method: shippingMethod || null,
-      delivery_slot: slot || null,
-    }),
-    400,
-  );
+  // Everything that changes the price, delivery options or eligibility. A quote is shown and
+  // can be placed only while the form still holds the exact inputs it was calculated from.
+  const pricing = {
+    items: lines.map((line) => ({ variant: line.variant.id, quantity: line.quantity })),
+    country: details.country,
+    region: details.region,
+    coupon_code: details.coupon_code,
+    shipping_method: shippingMethod || null,
+    delivery_slot: slot || null,
+  };
+  const pricingKey = JSON.stringify(pricing);
+  const requested = useDebounced(pricingKey, 400);
+  const pricingNow = useRef(pricingKey);
+  useEffect(() => {
+    pricingNow.current = pricingKey;
+  });
 
   useEffect(() => {
-    const body = JSON.parse(pricing) as { items: unknown[] };
+    const body = JSON.parse(requested) as { items: unknown[] };
     if (!body.items.length) return;
+    // Only the response to the latest request is kept; a slower, older one is dropped.
     let live = true;
     void api
       .post<unknown>('/api/manage/orders/assisted/quote/', body)
       .then((value) => {
         if (!live) return;
         const next = assistedQuote(value);
-        setQuote(next);
-        setQuoteError('');
+        setQuoted({ key: requested, quote: next, error: '' });
         // A method that stopped being eligible is cleared rather than kept silently; a single
-        // eligible method is preselected.
+        // eligible method is preselected. Never over a choice made after this request.
+        if (pricingNow.current !== requested) return;
         setShippingMethod((current) =>
           next.shipping_methods.some((m) => m.id === current)
             ? current
@@ -181,38 +194,58 @@ export function AssistedOrderForm({ session }: { session: StaffSession }) {
         );
       })
       .catch((e: unknown) => {
-        if (live) setQuoteError(errorMessage(e));
+        if (live) setQuoted({ key: requested, quote: null, error: errorMessage(e) });
       });
     return () => {
       live = false;
     };
-  }, [pricing]);
+  }, [requested, requote]);
 
   const set = (name: keyof typeof details) => (e: { target: { value: string } }) =>
     setDetails((current) => ({ ...current, [name]: e.target.value }));
-  const quote = lines.length ? latestQuote : null;
+  // `options` (delivery methods, slots) may come from the previous inputs while a new quote is
+  // calculated; `quote` (prices, totals, validity) only ever matches the current inputs.
+  const options = lines.length ? (quoted?.quote ?? null) : null;
+  const current = lines.length && quoted?.key === pricingKey ? quoted : null;
+  const quote = current?.quote ?? null;
+  const updating = lines.length > 0 && !current;
   const cod = quote?.payment_methods.includes('cod') ?? false;
   const chosen = new Set(lines.map((line) => line.variant.id));
 
   async function submit() {
+    const totals = quote?.valid ? quote.totals : null;
+    if (!totals) return;
     setBusy(true);
     setError('');
     try {
       const order = merchantOrderDetail(
         await api.post<unknown>('/api/manage/orders/assisted/', {
-          items: lines.map((line) => ({ variant: line.variant.id, quantity: line.quantity })),
           ...details,
-          shipping_method: shippingMethod || null,
-          delivery_slot: slot || null,
+          ...pricing,
           payment_method: 'cod',
           source,
           source_reference: reference,
           customer_request_attested: attested,
           idempotency_key: key.current,
+          // The server refuses the order if its own totals differ from the ones reviewed here.
+          expected_totals: {
+            currency: totals.currency,
+            item_subtotal: totals.item_subtotal,
+            discount_total: totals.discount_total,
+            shipping_total: totals.shipping_total,
+            tax_total: totals.tax_total,
+            grand_total: totals.grand_total,
+          },
         }),
       );
       window.location.assign(`/manage/orders/${order.id}`);
     } catch (e) {
+      if (e instanceof ApiError && e.code === 'quote_changed') {
+        // The reviewed total is no longer the store's price: drop it and fetch the new one,
+        // which the merchant has to review before placing again.
+        setQuoted((last) => last && { ...last, key: '' });
+        setRequote((n) => n + 1);
+      }
       setError(errorMessage(e));
       setBusy(false);
     }
@@ -411,13 +444,13 @@ export function AssistedOrderForm({ session }: { session: StaffSession }) {
               </p>
             ) : (
               <div className="grid gap-4">
-                {quoteError && <Alert>{quoteError}</Alert>}
+                {current?.error && <Alert>{current.error}</Alert>}
                 {quote && !quote.valid && (
                   <Alert>
                     Some items cannot be ordered as entered. Adjust the quantities marked above.
                   </Alert>
                 )}
-                {quote?.valid && (
+                {options?.valid && (
                   <>
                     <SelectField
                       label="Delivery method"
@@ -427,11 +460,11 @@ export function AssistedOrderForm({ session }: { session: StaffSession }) {
                       options={[
                         {
                           value: '',
-                          label: quote.shipping_methods.length
+                          label: options.shipping_methods.length
                             ? 'Choose a delivery method'
                             : 'No method serves this address',
                         },
-                        ...quote.shipping_methods.map((m) => ({
+                        ...options.shipping_methods.map((m) => ({
                           value: m.id,
                           label: `${m.name} · ${money(m.amount, m.currency)}`,
                         })),
@@ -440,7 +473,7 @@ export function AssistedOrderForm({ session }: { session: StaffSession }) {
                         details.country ? undefined : 'Enter the country to see delivery methods.'
                       }
                     />
-                    {quote.delivery_slots.length > 0 && (
+                    {options.delivery_slots.length > 0 && (
                       <SelectField
                         label="Delivery time"
                         required
@@ -448,7 +481,7 @@ export function AssistedOrderForm({ session }: { session: StaffSession }) {
                         onChange={(e) => setSlot(e.target.value)}
                         options={[
                           { value: '', label: 'Choose a time' },
-                          ...quote.delivery_slots.map((s) => ({ value: s.id, label: s.label })),
+                          ...options.delivery_slots.map((s) => ({ value: s.id, label: s.label })),
                         ]}
                       />
                     )}
@@ -461,7 +494,7 @@ export function AssistedOrderForm({ session }: { session: StaffSession }) {
                       }
                       hint="Only your store's active coupons apply. Prices cannot be edited here."
                     />
-                    {quote.totals && (
+                    {quote?.totals && (
                       <dl className="grid gap-1.5 rounded-base bg-canvas p-4 text-sm">
                         {(
                           [
@@ -486,7 +519,7 @@ export function AssistedOrderForm({ session }: { session: StaffSession }) {
                     )}
                     <div className="rounded-base border border-line p-3 text-sm">
                       <p className="font-semibold">Payment</p>
-                      {cod ? (
+                      {(quote ?? options).payment_methods.includes('cod') ? (
                         <p className="mt-1 text-muted">
                           Cash on delivery. The order stays unpaid until the cash is collected and
                           recorded.
@@ -500,16 +533,22 @@ export function AssistedOrderForm({ session }: { session: StaffSession }) {
                     </div>
                   </>
                 )}
+                {updating && (
+                  <p role="status" className="rounded-base bg-canvas p-4 text-sm text-muted">
+                    Calculating the total for your changes…
+                  </p>
+                )}
                 <Button
                   type="submit"
                   busy={busy}
-                  disabled={!quote?.valid || !cod || !shippingMethod || !attested}
+                  disabled={!quote?.valid || !quote.totals || !cod || !shippingMethod || !attested}
                 >
                   Place order
                 </Button>
                 <p className="text-xs leading-5 text-muted">
-                  Stock is checked again and reserved when you place the order. Submitting twice
-                  creates only one order.
+                  Stock is checked again and reserved when you place the order. If the store&apos;s
+                  price or delivery charge changed since this total, nothing is placed and you see
+                  the new total first. Submitting twice creates only one order.
                 </p>
               </div>
             )}

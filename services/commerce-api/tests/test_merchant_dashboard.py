@@ -105,9 +105,40 @@ def eligible_method() -> str:
     return str(method.pk)
 
 
+TOTALS = (
+    "currency",
+    "item_subtotal",
+    "discount_total",
+    "shipping_total",
+    "tax_total",
+    "grand_total",
+)
+
+
+def quoted_totals(client: APIClient, body: dict[str, Any]) -> dict[str, str]:
+    """The totals staff reviewed: the server quote for the same request. A request the quote
+    cannot price is refused before totals matter, so it gets placeholder totals."""
+    quote = client.post(f"{ASSISTED}quote/", body, format="json")
+    totals = quote.data.get("totals") if quote.status_code == 200 else None
+    if not totals:
+        return {"currency": "BDT", **dict.fromkeys(TOTALS[1:], "0")}
+    return {field: totals[field] for field in TOTALS}
+
+
+def service_totals(data: dict[str, Any], actor: User) -> dict[str, Any]:
+    """``quoted_totals`` for direct service calls (inside the tenant context)."""
+    from commerce.orders import assisted
+
+    totals = assisted.quote_assisted_order(data=data, actor=actor).totals
+    assert totals is not None
+    return {field: getattr(totals, field) for field in TOTALS}
+
+
 def create(client: APIClient, items: list[dict[str, str]], **overrides: Any) -> Any:
     overrides.setdefault("shipping_method", eligible_method())
-    return client.post(ASSISTED, {"items": items, **details(**overrides)}, format="json")
+    body = {"items": items, **details(**overrides)}
+    body.setdefault("expected_totals", quoted_totals(client, body))
+    return client.post(ASSISTED, body, format="json")
 
 
 # --- Merchant-assisted orders ---------------------------------------------------------------------
@@ -180,6 +211,7 @@ def test_assisted_order_is_idempotent_per_request(store: Any) -> None:
         **details(idempotency_key="same-request-001"),
         "shipping_method": eligible_method(),
     }
+    body["expected_totals"] = quoted_totals(owner, body)
 
     first = owner.post(ASSISTED, body, format="json")
     replay = owner.post(ASSISTED, body, format="json")
@@ -394,12 +426,18 @@ def test_concurrent_assisted_orders_never_oversell(deployment_tenant: Tenant) ->
     method = eligible_method()
     from commerce.orders import assisted
 
-    def attempt(index: int) -> Any:
-        data = {
+    def request(index: int) -> dict[str, Any]:
+        return {
             "items": [{"variant": str(variant.pk), "quantity": Decimal(1)}],
             **details(idempotency_key=f"race-{index}-key"),
+            "shipping_method": method,
         }
-        data["shipping_method"] = method
+
+    with tenant_context(deployment_tenant):
+        expected = service_totals(request(0), staff)
+
+    def attempt(index: int) -> Any:
+        data = {**request(index), "expected_totals": expected}
         return assisted.place_assisted_order(data=data, actor=staff).order
 
     results = run_concurrently(deployment_tenant, 4, attempt)
@@ -426,6 +464,8 @@ def test_concurrent_duplicates_of_one_request_create_one_order(deployment_tenant
         **details(idempotency_key="one-request-key"),
         "shipping_method": eligible_method(),
     }
+    with tenant_context(deployment_tenant):
+        data["expected_totals"] = service_totals(data, staff)
     results = run_concurrently(
         deployment_tenant,
         3,
@@ -614,6 +654,8 @@ def test_dashboard_inventory_lists_low_stock(store: Any) -> None:
     assert data["inventory"]["low_stock"] == 1
     assert data["inventory"]["low_stock_items"][0]["sku"] == variant.sku
     assert data["inventory"]["low_stock_items"][0]["available"] == "2.000"
+    assert data["inventory"]["low_stock_items"][0]["sellable"] == "2.000"
+    assert data["inventory"]["low_stock_items"][0]["on_hand"] == "2.000"
 
 
 # --- Customers ------------------------------------------------------------------------------------

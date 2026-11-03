@@ -1,10 +1,12 @@
 import type { StaffSession } from '@matecart/shared-contracts';
+import { ApiError } from '@matecart/shared-ui';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { isManagePath, navigation } from '@/lib/manage-routes';
 import { AssistedOrderForm } from './assisted-order';
+import { OrderDetail } from './orders';
 import { Overview } from './overview';
 
 const api = vi.hoisted(() => ({
@@ -156,7 +158,7 @@ describe('manual order creation', () => {
     expect(place).toBeDisabled();
 
     await user.click(screen.getByRole('checkbox'));
-    expect(place).toBeEnabled();
+    await waitFor(() => expect(place).toBeEnabled());
     await user.click(place);
     await screen.findByRole('alert');
     await user.click(place);
@@ -176,6 +178,254 @@ describe('manual order creation', () => {
     });
     expect(first).not.toHaveProperty('grand_total');
     expect(first).not.toHaveProperty('unit_price');
+    expect(first?.expected_totals).toEqual({
+      currency: 'BDT',
+      item_subtotal: '42000.0000',
+      discount_total: '0.0000',
+      shipping_total: '60.0000',
+      tax_total: '0.0000',
+      grand_total: '42060.0000',
+    });
+  });
+});
+
+const confirmedCod = {
+  id: ORDER_ID,
+  number: 'ORD-000042',
+  status: 'confirmed',
+  payment_method: 'cod',
+  payment_status: 'unpaid',
+  payment_due_at: null,
+  currency: 'BDT',
+  item_subtotal: '1200.0000',
+  discount_total: '0.0000',
+  shipping_total: '60.0000',
+  tax_total: '0.0000',
+  grand_total: '1260.0000',
+  amount_paid: '0.0000',
+  amount_refunded: '0.0000',
+  contact_email: '',
+  contact_phone: '+8801712345678',
+  requires_shipping: true,
+  recipient_name: 'Rahim',
+  address_line_1: '1 Road',
+  address_line_2: '',
+  city: 'Dhaka',
+  region: '',
+  postal_code: '',
+  country: 'BD',
+  delivery_notes: '',
+  shipping_method_name: 'Inside Dhaka',
+  delivery_slot_label: '',
+  delivery_slot_starts_at: null,
+  delivery_slot_ends_at: null,
+  coupon_code: '',
+  placed_at: '2026-11-03T10:00:00Z',
+  cancelled_at: null,
+  cancel_reason: '',
+  items: [],
+  invoice_number: 'INV-000042',
+  can_cancel: false,
+  can_pay: false,
+  shipment: null,
+  events: [],
+  refunds: [],
+  source: 'phone',
+  assisted: null,
+  customer: null,
+  payments: [],
+  shipment_id: null,
+  fraud: null,
+  cases: [],
+  allowed_transitions: ['processing', 'cancelled'],
+  can_record_cod: true,
+  refundable_amount: '0.0000',
+};
+
+describe('cash on delivery collection', () => {
+  beforeEach(() => {
+    api.get.mockResolvedValue(confirmedCod);
+    api.post.mockImplementation((path: string) =>
+      Promise.resolve(
+        path.endsWith('/cod-collection/')
+          ? {
+              ...confirmedCod,
+              payment_status: 'paid',
+              amount_paid: '1260.0000',
+              can_record_cod: false,
+            }
+          : {},
+      ),
+    );
+  });
+
+  it('records cash only after an explicit, password-confirmed statement', async () => {
+    const user = userEvent.setup();
+    render(<OrderDetail id={ORDER_ID} session={session(['orders.manage'])} />);
+
+    await user.click(await screen.findByRole('button', { name: 'Record cash received…' }));
+    const dialog = await screen.findByRole('dialog');
+    expect(dialog).toHaveTextContent('ORD-000042');
+    expect(dialog).toHaveTextContent('৳1,260');
+    expect(dialog).toHaveTextContent('(BDT)');
+    expect(dialog).toHaveTextContent(/actually received this money/);
+    expect(api.post).not.toHaveBeenCalled();
+
+    await user.click(screen.getByRole('button', { name: 'Cancel' }));
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(api.post).not.toHaveBeenCalled();
+
+    await user.click(screen.getByRole('button', { name: 'Record cash received…' }));
+    await user.type(screen.getByLabelText('Your password'), 'staff-passphrase');
+    await user.click(screen.getByRole('button', { name: 'Record cash received' }));
+
+    expect(await screen.findByText('Cash collection recorded.')).toBeInTheDocument();
+    expect(api.post.mock.calls.map(([path]) => path)).toEqual([
+      '/api/manage/account/reauthenticate/',
+      `/api/manage/orders/${ORDER_ID}/cod-collection/`,
+    ]);
+    expect(screen.queryByRole('button', { name: 'Record cash received…' })).not.toBeInTheDocument();
+  });
+});
+
+interface Deferred {
+  body: { items: { quantity: string }[]; shipping_method: string | null };
+  resolve: (value: unknown) => void;
+}
+
+/** A server quote priced from the request: `unit` per item plus 60 for a chosen method. */
+function priced(body: Deferred['body'], unit = 42000) {
+  const items = unit * (Number(body.items[0]?.quantity) || 0);
+  const delivery = body.shipping_method ? 60 : 0;
+  const amount = (value: number) => `${value}.0000`;
+  return {
+    ...quote,
+    totals: {
+      ...quote.totals,
+      item_subtotal: amount(items),
+      shipping_total: amount(delivery),
+      grand_total: amount(items + delivery),
+      shipping_method: body.shipping_method,
+    },
+  };
+}
+
+describe('manual order quote consistency', () => {
+  let unit = 42000;
+  let held: Deferred[] = [];
+  let holdQuantity = '';
+  let placement: () => Promise<unknown> = () => Promise.reject(new Error('Not now.'));
+
+  beforeEach(() => {
+    unit = 42000;
+    held = [];
+    holdQuantity = '';
+    placement = () => Promise.reject(new Error('Not now.'));
+    api.get.mockResolvedValue([variant]);
+    api.post.mockImplementation((path: string, raw: unknown) => {
+      if (!path.endsWith('/quote/')) return placement();
+      const body = raw as Deferred['body'];
+      if (body.items[0]?.quantity === holdQuantity) {
+        return new Promise((resolve) => held.push({ body, resolve }));
+      }
+      return Promise.resolve(priced(body, unit));
+    });
+  });
+
+  async function ready() {
+    const user = userEvent.setup();
+    render(<AssistedOrderForm session={session(['orders.manage'])} />);
+    await user.click(await screen.findByRole('button', { name: 'Add' }));
+    await user.type(screen.getByLabelText('Customer name'), 'Rahim');
+    await user.type(screen.getByLabelText('Phone number'), '01712345678');
+    await user.type(screen.getByLabelText('Address'), 'House 7');
+    await user.type(screen.getByLabelText('City'), 'Dhaka');
+    await user.click(screen.getByRole('checkbox'));
+    const place = screen.getByRole('button', { name: 'Place order' });
+    await waitFor(() => expect(place).toBeEnabled());
+    expect(screen.getByText('৳42,060')).toBeInTheDocument();
+    return { user, place, quantity: screen.getByLabelText('Quantity') };
+  }
+
+  function quoteCalls(quantity: string) {
+    return api.post.mock.calls.filter(
+      ([path, body]) =>
+        path.endsWith('/quote/') && (body as Deferred['body']).items[0]?.quantity === quantity,
+    ).length;
+  }
+
+  it('drops the shown total and blocks placement as soon as a price input changes', async () => {
+    const { user, place, quantity } = await ready();
+
+    await user.clear(quantity);
+    await user.type(quantity, '2');
+
+    // Before any new answer: the old total is gone and the order cannot be placed.
+    expect(screen.queryByText('৳42,060')).not.toBeInTheDocument();
+    expect(screen.getByText(/Calculating the total/)).toBeInTheDocument();
+    expect(place).toBeDisabled();
+
+    expect(await screen.findByText('৳84,060')).toBeInTheDocument();
+    await waitFor(() => expect(place).toBeEnabled());
+  });
+
+  it('never restores a total from an older, slower answer', async () => {
+    holdQuantity = '3';
+    const { user, place, quantity } = await ready();
+
+    await user.clear(quantity);
+    await user.type(quantity, '3');
+    await waitFor(() => expect(quoteCalls('3')).toBe(1));
+    await user.clear(quantity);
+    await user.type(quantity, '2');
+    expect(await screen.findByText('৳84,060')).toBeInTheDocument();
+
+    // The answer for 3 arrives last; it belongs to inputs that are no longer on the form.
+    const late = held[0];
+    expect(late).toBeDefined();
+    late?.resolve(priced(late.body));
+    await new Promise((resolve) => setTimeout(resolve, 50));
+
+    expect(screen.queryByText('৳126,060')).not.toBeInTheDocument();
+    expect(screen.getByText('৳84,060')).toBeInTheDocument();
+    expect(place).toBeEnabled();
+    await user.click(place);
+    const submitted = api.post.mock.calls.find(([path]) => path === '/api/manage/orders/assisted/');
+    expect(submitted?.[1]).toMatchObject({
+      items: [{ variant: 'v1', quantity: '2' }],
+      expected_totals: { grand_total: '84060.0000' },
+    });
+  });
+
+  it('makes the merchant review a total that changed during placement', async () => {
+    const { user, place } = await ready();
+    unit = 43000;
+    placement = () =>
+      Promise.reject(
+        new ApiError(
+          409,
+          'quote_changed',
+          'The total for this order changed after it was calculated. Review the new total and place the order again.',
+        ),
+      );
+
+    await user.click(place);
+
+    expect(await screen.findByText(/changed after it was calculated/)).toBeInTheDocument();
+    expect(await screen.findByText('৳43,060')).toBeInTheDocument();
+    expect(screen.queryByText('৳42,060')).not.toBeInTheDocument();
+    await waitFor(() => expect(place).toBeEnabled());
+
+    placement = () => Promise.reject(new Error('Not now.'));
+    await user.click(place);
+
+    const submissions = api.post.mock.calls
+      .filter(([path]) => path === '/api/manage/orders/assisted/')
+      .map(([, body]) => body as Record<string, { grand_total?: string } | string>);
+    expect(submissions).toHaveLength(2);
+    expect(submissions[0]?.expected_totals).toMatchObject({ grand_total: '42060.0000' });
+    expect(submissions[1]?.expected_totals).toMatchObject({ grand_total: '43060.0000' });
+    expect(submissions[0]?.idempotency_key).toBe(submissions[1]?.idempotency_key);
   });
 });
 

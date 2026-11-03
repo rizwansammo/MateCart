@@ -30,10 +30,23 @@ from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field, replace
 from datetime import date
 from decimal import Decimal, InvalidOperation
-from typing import Any
+from typing import TYPE_CHECKING, Any, TypedDict
 
 from django.db import IntegrityError, transaction
-from django.db.models import Count, Q, Sum
+from django.db.models import (
+    Case,
+    Count,
+    DecimalField,
+    F,
+    OuterRef,
+    Q,
+    QuerySet,
+    Subquery,
+    Sum,
+    Value,
+    When,
+)
+from django.db.models.functions import Coalesce, Greatest
 from django.utils import timezone
 from rest_framework.exceptions import ValidationError
 
@@ -1190,6 +1203,56 @@ def sellable_quantities(variants: Sequence[ProductVariant]) -> dict[Any, Decimal
 
 def sellable_quantity(variant: ProductVariant) -> Decimal:
     return sellable_quantities([variant])[variant.pk]
+
+
+if TYPE_CHECKING:
+    from django_stubs_ext import WithAnnotations
+
+    # The typed form of ``with_sellable`` rows, so lookups on ``sellable`` type-check.
+    class Sellable(TypedDict):
+        sellable: Decimal
+
+    SellableLevel = WithAnnotations[StockLevel, Sellable]
+
+
+def with_sellable(
+    levels: QuerySet[StockLevel, StockLevel],
+) -> "QuerySet[SellableLevel, SellableLevel]":
+    """``levels`` at active locations, annotated with ``sellable``: the per-location figure
+    ``sellable_quantities`` adds up, computed in SQL so a whole catalogue is one query. Batch
+    tracking counts unexpired batch stock minus the location's whole reservation; other modes use
+    ``available``. Never negative: zero means nothing can be promised there."""
+    batch_stock = (
+        BatchLevel.objects.filter(
+            batch__variant_id=OuterRef("variant_id"),
+            location_id=OuterRef("location_id"),
+            on_hand__gt=0,
+        )
+        .filter(Q(batch__expires_on__isnull=True) | Q(batch__expires_on__gte=store_today()))
+        .order_by()
+        .values("location_id")
+        .annotate(total=Sum("on_hand"))
+        .values("total")
+    )
+    return levels.filter(location__is_active=True).annotate(
+        sellable=Greatest(
+            Case(
+                When(
+                    variant__product__tracking_mode=TrackingMode.BATCH,
+                    then=Coalesce(
+                        Subquery(batch_stock),
+                        Value(ZERO),
+                        output_field=DecimalField(max_digits=14, decimal_places=3),
+                    )
+                    - F("reserved"),
+                ),
+                default=F("available"),
+                output_field=DecimalField(max_digits=14, decimal_places=3),
+            ),
+            Value(ZERO),
+            output_field=DecimalField(max_digits=14, decimal_places=3),
+        )
+    )
 
 
 def batches_by_expiry(variant: ProductVariant, location: StockLocation) -> list[BatchLevel]:

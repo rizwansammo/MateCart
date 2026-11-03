@@ -111,6 +111,58 @@ describe('merchant dashboard contracts', () => {
     expect(value.finance?.cash.cod[0]?.awaiting_collection).toBe('3000.0000');
   });
 
+  it('keeps physical and sellable stock apart in stock alerts', () => {
+    const value = dashboard({
+      start: '2026-11-03',
+      end: '2026-11-03',
+      orders: null,
+      operations: null,
+      aftersales: null,
+      recent_orders: null,
+      finance: null,
+      inventory: {
+        low_stock: 1,
+        out_of_stock: 1,
+        expiring_batches: 0,
+        low_stock_items: [
+          {
+            id: 'level-1',
+            variant: 'v1',
+            sku: 'MILK-1',
+            product_name: 'Milk',
+            variant_title: '',
+            location_code: 'MAIN',
+            on_hand: '5.000',
+            available: '5.000',
+            sellable: '0.000',
+            low_stock_threshold: '2.000',
+          },
+        ],
+      },
+    });
+    expect(value.inventory?.low_stock_items[0]).toMatchObject({
+      on_hand: '5.000',
+      sellable: '0.000',
+    });
+    expect(() =>
+      dashboard({
+        start: '2026-11-03',
+        end: '2026-11-03',
+        orders: null,
+        operations: null,
+        aftersales: null,
+        recent_orders: null,
+        finance: null,
+        inventory: {
+          low_stock: 0,
+          out_of_stock: 0,
+          expiring_batches: 0,
+          low_stock_items: [{ id: 'level-1', sellable: 0 }],
+        },
+      }),
+    ).toThrow();
+  });
+
   it('rejects floating-point money and fractional counts', () => {
     const report = {
       start: '2026-11-01',

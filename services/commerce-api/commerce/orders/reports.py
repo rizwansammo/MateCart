@@ -20,6 +20,7 @@ from django.utils import timezone
 from rest_framework.exceptions import ValidationError
 
 from commerce.aftersales.models import AfterSalesCase, CaseStatus, ProductReview, ReviewStatus
+from commerce.catalog.models import VariantKind
 from commerce.fulfillment.models import (
     PRE_DISPATCH_STATUSES,
     CodReconciliationStatus,
@@ -29,6 +30,7 @@ from commerce.fulfillment.models import (
     Shipment,
     ShipmentStatus,
 )
+from commerce.inventory import services as inventory
 from commerce.inventory.models import BatchLevel, StockLevel
 from commerce.pricing.services import currency_precision
 from commerce.staff.permissions import Permission
@@ -232,18 +234,41 @@ def _aftersales() -> dict[str, int]:
     }
 
 
-def low_stock_levels() -> QuerySet[StockLevel, StockLevel]:
+def _tracked_levels() -> QuerySet[StockLevel, StockLevel]:
+    """Stock levels of stock-limited variants: physical, with inventory tracking on. Untracked
+    and digital variants are never low or out of stock."""
     return StockLevel.objects.filter(
-        low_stock_threshold__isnull=False, available__lte=F("low_stock_threshold")
+        variant__kind=VariantKind.PHYSICAL, variant__product__track_inventory=True
     )
+
+
+def low_stock_levels() -> "QuerySet[inventory.SellableLevel, inventory.SellableLevel]":
+    """Active-location levels whose sellable stock (the inventory engine's figure: expired
+    batches excluded, reservations deducted) is at or below their alert threshold."""
+    return inventory.with_sellable(_tracked_levels()).filter(
+        low_stock_threshold__isnull=False, sellable__lte=F("low_stock_threshold")
+    )
+
+
+def stock_counts() -> dict[str, int]:
+    """Variants, not levels: a variant stocked at several locations is counted once. Out of
+    stock means no active location can promise any of it."""
+    in_stock = inventory.with_sellable(_tracked_levels()).filter(sellable__gt=Decimal(0))
+    return {
+        "low_stock": low_stock_levels().values("variant_id").distinct().count(),
+        "out_of_stock": _tracked_levels()
+        .exclude(variant_id__in=in_stock.values("variant_id"))
+        .values("variant_id")
+        .distinct()
+        .count(),
+    }
 
 
 def _inventory() -> dict[str, Any]:
     today = store_today()
     low = low_stock_levels()
     return {
-        "low_stock": low.count(),
-        "out_of_stock": StockLevel.objects.filter(available__lte=0).count(),
+        **stock_counts(),
         "expiring_batches": BatchLevel.objects.filter(
             on_hand__gt=0,
             batch__expires_on__gte=today,
@@ -253,7 +278,7 @@ def _inventory() -> dict[str, Any]:
         .distinct()
         .count(),
         "low_stock_items": list(
-            low.select_related("variant__product", "location").order_by("available", "pk")[
+            low.select_related("variant__product", "location").order_by("sellable", "pk")[
                 :RECENT_LIMIT
             ]
         ),
@@ -375,8 +400,5 @@ def sales_report(*, start: date, end: date) -> dict[str, Any]:
         "aftersales": [
             {"kind": row["kind"], "status": row["status"], "cases": row["n"]} for row in cases
         ],
-        "inventory": {
-            "low_stock": low_stock_levels().count(),
-            "out_of_stock": StockLevel.objects.filter(available__lte=0).count(),
-        },
+        "inventory": stock_counts(),
     }

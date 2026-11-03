@@ -330,6 +330,7 @@ export function OrderDetail({ id, session }: { id: string; session: StaffSession
   const [notice, setNotice] = useState('');
   const [busy, setBusy] = useState('');
   const [cancelling, setCancelling] = useState(false);
+  const [collecting, setCollecting] = useState(false);
   const [cancelReason, setCancelReason] = useState('customer_request');
 
   async function run(name: string, action: () => Promise<void>, message: string) {
@@ -502,29 +503,47 @@ export function OrderDetail({ id, session }: { id: string; session: StaffSession
             )}
             {order.can_record_cod && (
               <div className="mt-4">
-                <Button
-                  variant="secondary"
-                  busy={busy === 'cod'}
-                  onClick={() =>
-                    void run(
-                      'cod',
-                      async () =>
-                        setData(
-                          merchantOrderDetail(
-                            await api.post<unknown>(`/api/manage/orders/${id}/cod-collection/`),
-                          ),
-                        ),
-                      'Cash collection recorded.',
-                    )
-                  }
-                >
-                  Record cash received ({money(order.grand_total, order.currency)})
+                <Button variant="secondary" onClick={() => setCollecting(true)}>
+                  Record cash received…
                 </Button>
                 <p className="mt-2 text-xs text-muted">
                   Only when the full amount was received in person. Courier collections are recorded
                   on the shipment.
                 </p>
               </div>
+            )}
+            {collecting && (
+              <ReauthDialog
+                title="Confirm cash received"
+                description={
+                  <>
+                    <p>
+                      Record{' '}
+                      <strong className="text-ink">
+                        {money(order.grand_total, order.currency)} ({order.currency})
+                      </strong>{' '}
+                      as collected in cash for order{' '}
+                      <strong className="text-ink">{order.number}</strong>.
+                    </p>
+                    <p className="mt-2">
+                      Confirm only if you have actually received this money. The order is then
+                      marked paid. Confirm with your password.
+                    </p>
+                  </>
+                }
+                confirmLabel="Record cash received"
+                onClose={() => setCollecting(false)}
+                onConfirm={async () => {
+                  setData(
+                    merchantOrderDetail(
+                      await api.post<unknown>(`/api/manage/orders/${id}/cod-collection/`),
+                    ),
+                  );
+                  setCollecting(false);
+                  setError('');
+                  setNotice('Cash collection recorded.');
+                }}
+              />
             )}
           </Card>
           {order.refunds.length > 0 && (

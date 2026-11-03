@@ -311,9 +311,11 @@ export function Overview({ session }: { session: StaffSession }) {
                         </span>
                       </span>
                       <span className="text-right text-xs whitespace-nowrap">
-                        <strong className="text-danger-fg">{quantity(item.available)}</strong> left
+                        <strong className="text-danger-fg">{quantity(item.sellable)}</strong>{' '}
+                        sellable
                         <br />
-                        alert at {quantity(item.low_stock_threshold)}
+                        {quantity(item.on_hand)} on hand · alert at{' '}
+                        {quantity(item.low_stock_threshold)}
                       </span>
                     </li>
                   ))}

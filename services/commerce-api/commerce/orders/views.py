@@ -253,6 +253,13 @@ class ManageOrderTransitionView(OrdersStaffView):
 
 
 class ManageCodCollectionView(OrdersStaffView):
+    """Marks cash as received and the order paid: also needs a recent sign-in or password
+    confirmation, like the shipment's COD collection."""
+
+    def initial(self, request: Request, *args: Any, **kwargs: Any) -> None:
+        super().initial(request, *args, **kwargs)
+        sessions.require_recent_authentication(self.staff.session)
+
     @extend_schema(
         operation_id="manage_order_cod_collected",
         tags=MANAGE_TAG,

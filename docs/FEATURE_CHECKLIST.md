@@ -329,7 +329,7 @@ Accepted and closed with 10.1: `6fe1a8c`, GitHub Actions 41115310035, 4/4 jobs, 
 - [x] Purchase and tenant isolation tests, API contracts, migrations and final CI
 - [x] Final independent review and Phase 10 acceptance
 
-## Merchant management dashboard (Phase 11; implemented locally, acceptance pending)
+## Merchant management dashboard (Phase 11 and 11.1; implemented locally, acceptance pending)
 
 - [x] `/manage` operational dashboard: store-day ranges; order value, verified collections,
       refunds, COD and courier cash kept separate; work queues; stock alerts; empty states
@@ -351,6 +351,9 @@ Accepted and closed with 10.1: `6fe1a8c`, GitHub Actions 41115310035, 4/4 jobs, 
 - [x] Settings hub; existing appearance, modules, content, team and security screens retained
 - [x] Migrations, OpenAPI, shared contracts and tests; final local gates: 1,131 tests
 - [x] Headless browser verification of the main flows, roles and phone layout
+- [x] 11.1 integrity corrections (D-080): manual orders place only the reviewed, current server
+      total; COD collection needs explicit confirmation and recent authentication; stock alerts
+      use sellable stock (expired batches excluded) and count each variant once
 - [ ] Merchant UI translation (English only); shipping, tax, coupon and slot editing UIs
 - [ ] Owner review, commit/push, GitHub CI and independent acceptance
 

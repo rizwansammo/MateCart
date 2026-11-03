@@ -2,11 +2,80 @@
 
 Updated: 2026-11-03 (Asia/Dhaka).
 
-## Phase 11: Merchant Management Dashboard (implemented locally; acceptance pending)
+## Phase 11.1: Merchant Dashboard Integrity Corrections (implemented locally; acceptance pending)
 
-**Active phase: 11.** Implemented in the local working tree by Claude Code on top of the accepted
-baseline `6fe1a8c46643fb16463fb7d92264043e3447ec98`. Not committed or pushed (the owner commits).
-Phase 11 is not accepted until the owner's review and GitHub CI. Phase 12 has not been started.
+**Active phase: 11 (correction 11.1).** Baseline `86308822c3aa694a28b1569232db5a6d21a60e38`
+(Phase 11 `03d7e0d` plus the CI typing fix), GitHub Actions run 41599996139: 4/4 jobs, 1,131
+tests. The corrections are in the local working tree only; not committed or pushed. Phase 11 is
+not accepted until the owner pushes them and GitHub CI passes. Phase 12 has not been started.
+
+### Corrections (D-080)
+
+1. **Manual order quote consistency.** Root cause: the form showed the last debounced quote
+   whatever the inputs were, and placement re-priced silently. Now each quote is keyed to the
+   exact pricing inputs; any change hides the total and disables Place order at once; only the
+   latest request's response is kept. Placement sends `expected_totals`; the service compares
+   them with its own totals after the review step and refuses with `409 quote_changed` (full
+   rollback). The form then re-quotes and the merchant places the new total with the same key.
+2. **COD collection confirmation.** Root cause: one click recorded cash, and the endpoint had no
+   recent-authentication check. Now a dialog shows order number, amount and currency, states the
+   money must actually have been received and asks for the password; the endpoint requires
+   recent authentication on top of `orders.manage`. Collection logic is unchanged.
+3. **Expired batch stock alerts.** Root cause: alerts used `StockLevel.available`, which
+   includes expired batches, and counted levels instead of variants. New
+   `inventory.services.with_sellable` (one SQL query, same rule as `sellable_quantities`) feeds
+   low/out counts in the dashboard and sales report; physical tracked variants only, each counted
+   once, active locations only. Alert rows show on hand, available and sellable.
+
+### Files changed
+
+- Backend: `commerce/orders/assisted.py`, `serializers.py`, `views.py`, `reports.py`,
+  `report_views.py`; `commerce/inventory/services.py`; `openapi.yaml`;
+  `tests/test_merchant_dashboard.py` (helpers send reviewed totals; low-stock fields);
+  new `tests/test_merchant_dashboard_integrity.py` (8 tests).
+- Frontend: `components/manage/assisted-order.tsx`, `orders.tsx`, `overview.tsx`,
+  `manage.test.tsx` (4 new tests); `packages/shared-contracts/src/manage.ts` and
+  `manage.test.ts` (1 new test).
+- Docs: this file, `DECISIONS.md` (D-080), `FEATURE_CHECKLIST.md`. No migrations, dependencies,
+  workflows or infrastructure changed.
+
+### Verification (observed locally, 2026-11-03)
+
+- `pnpm check`: passed (contracts 61, shared UI 78, commerce web 105, Node scripts 5).
+- `pnpm build`: both builds passed. `pnpm api:lint`: ruff, format and mypy strict passed
+  (commerce 236 files, also with a cold mypy cache; control 52). `makemigrations --check`: no
+  changes. `manage.py check`: no issues. `pnpm api:schema`: regenerated, validated.
+- `pnpm api:test`: commerce **838 passed**, control **57 passed**, 0 failed.
+- **Total: 1,144 automated tests passed, 0 failed** (baseline 1,131 + 13 new).
+- Browser (headless Chrome over DevTools, manager account): 28 of 29 checks passed in the main
+  run; the failure was the check itself (its rapid-typing sequence ended on the already-quoted
+  quantity, where enabling placement is correct). A corrected run passed 6 of 6. Observed: a
+  changed quantity hides the total and disables placement immediately; rapid changes settle on
+  the final input's total with 3 quote requests; a tax rate added after review made placement
+  return the review message with nothing placed, the new total (৳1,700 → ৳1,785) was shown and
+  the order was placed at it; the COD dialog showed ORD-000004, ৳1,785 (BDT) and the
+  "actually received" statement; Cancel and a wrong password recorded nothing; the correct
+  password recorded the cash once; the overview shows sellable and on-hand stock; no page errors.
+- Local review data from these checks: order `ORD-000004` (phone, 2 × Stoneware Mug Set, ৳1,785,
+  confirmed and paid). The temporary "Phase 11.1 browser check VAT" tax rate was deleted (0 tax
+  rates remain). The commerce API and worker containers were restarted to load the new code.
+
+### Known limits
+
+- The inventory page's level filters still describe physical levels (on hand minus reserved);
+  sellable figures are on the dashboard and report alerts.
+- A store with no alert threshold set shows no low-stock items; out-of-stock needs no threshold.
+
+### Next step
+
+Owner reviews on localhost, commits and pushes; GitHub CI must pass. Then independent review
+and formal Phase 11 acceptance. Do not start Phase 12 before that.
+
+## Phase 11: Merchant Management Dashboard (pushed as `03d7e0d`; acceptance pending with 11.1)
+
+Historical record: implemented on the accepted baseline `6fe1a8c46643fb16463fb7d92264043e3447ec98`;
+the owner pushed it as `03d7e0d` and the CI typing fix as `8630882`. Phase 11 is accepted only
+after 11.1 is pushed and verified. Phase 12 has not been started.
 
 ### Delivered
 

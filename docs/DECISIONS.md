@@ -962,6 +962,32 @@ idempotency_conflict`. The free-text reason, actor and a batch's supplier
   optional grouped navigation, an active-page marker and a collapsible phone menu while the
   console keeps its default navigation.
 
+### D-080 · Merchant dashboard integrity: reviewed totals, confirmed cash, sellable alerts (2026-11-03, Phase 11.1)
+
+- **Manual order totals.** The form keys each server quote to the exact pricing inputs it was
+  calculated from (items, quantities, country, region, coupon, delivery method and slot). A
+  changed input hides the total and disables placement at once; only the response to the latest
+  request is kept. `POST /api/manage/orders/assisted/` requires `expected_totals` (currency, item
+  subtotal, discount, delivery, tax, grand total from the reviewed quote). After the normal
+  review step the service compares them with its own totals; any difference is
+  `409 quote_changed` and the whole transaction rolls back (no order, reservation, coupon
+  redemption or slot booking). The merchant sees the new quote and places again with the same
+  idempotency key. `expected_totals` is not part of the request fingerprint, so a replay of a
+  placed order still returns it. Pricing stays in the checkout services.
+- **COD collection.** `POST /api/manage/orders/<id>/cod-collection/` now also requires recent
+  authentication (`sessions.require_recent_authentication`), like refunds and shipment COD
+  operations, on top of `orders.manage`. The UI confirms with the order number, amount and
+  currency, states that the money must actually have been received, and asks for the password.
+  The collection operation, amount, state checks and idempotency are unchanged.
+- **Stock alerts.** Dashboard and report low/out-of-stock counts use sellable stock:
+  `inventory.services.with_sellable` computes, in one SQL query, the same per-location figure as
+  `sellable_quantities` (unexpired batch stock minus the location's reservation for batch
+  tracking, `available` otherwise; active locations only; never negative). Only physical,
+  inventory-tracked variants count, and each variant is counted once: low when an active
+  location's sellable stock is at or below its alert, out when no active location can promise
+  any. Alert rows show on-hand, available and sellable separately. The inventory page's level
+  filters still describe physical levels.
+
 ## Open questions for the owner
 
 | #   | Question                                                                                                                                   | Status                                                                                                    | Needed by |

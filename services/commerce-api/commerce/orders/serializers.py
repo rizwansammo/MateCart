@@ -444,6 +444,19 @@ class AssistedQuoteInputSerializer(serializers.Serializer[Any]):
     coupon_code = serializers.CharField(max_length=32, required=False, allow_blank=True)
 
 
+class AssistedExpectedTotalsSerializer(serializers.Serializer[Any]):
+    """The totals from the quote the merchant reviewed. Placement is refused with
+    ``quote_changed`` when the server's totals differ, so a changed price is never accepted
+    silently."""
+
+    currency = serializers.CharField(min_length=3, max_length=3)
+    item_subtotal = serializers.DecimalField(max_digits=19, decimal_places=4)
+    discount_total = serializers.DecimalField(max_digits=19, decimal_places=4)
+    shipping_total = serializers.DecimalField(max_digits=19, decimal_places=4)
+    tax_total = serializers.DecimalField(max_digits=19, decimal_places=4)
+    grand_total = serializers.DecimalField(max_digits=19, decimal_places=4)
+
+
 class AssistedOrderInputSerializer(AssistedQuoteInputSerializer):
     recipient_name = serializers.CharField(max_length=150)
     contact_phone = serializers.CharField(max_length=40)
@@ -457,6 +470,7 @@ class AssistedOrderInputSerializer(AssistedQuoteInputSerializer):
         help_text="Staff confirm the customer asked for this order. Not a customer signature."
     )
     idempotency_key = serializers.CharField(min_length=8, max_length=100)
+    expected_totals = AssistedExpectedTotalsSerializer()
 
 
 class AssistedQuoteLineSerializer(serializers.Serializer[Any]):

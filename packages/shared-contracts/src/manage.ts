@@ -178,7 +178,11 @@ export interface LowStockItem {
   product_name: string;
   variant_title: string;
   location_code: string;
+  /** Physical stock, including expired batches. */
+  on_hand: string;
   available: string;
+  /** What can be promised: expired batches excluded, reservations deducted. */
+  sellable: string;
   low_stock_threshold: string;
 }
 export interface Dashboard {
@@ -221,7 +225,9 @@ export function dashboard(value: unknown): Dashboard {
             product_name: string(r.product_name),
             variant_title: string(r.variant_title),
             location_code: string(r.location_code),
+            on_hand: decimal(r.on_hand),
             available: decimal(r.available),
+            sellable: decimal(r.sellable),
             low_stock_threshold: decimal(r.low_stock_threshold),
           };
         }),

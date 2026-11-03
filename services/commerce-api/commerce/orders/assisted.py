@@ -59,6 +59,7 @@ CONTACT_FIELDS = (
     "country",
     "delivery_notes",
 )
+TOTAL_FIELDS = ("item_subtotal", "discount_total", "shipping_total", "tax_total", "grand_total")
 
 
 @dataclass(frozen=True)
@@ -180,6 +181,19 @@ def quote_assisted_order(*, data: Mapping[str, Any], actor: User) -> AssistedQuo
     return result
 
 
+def _require_reviewed_totals(session: CheckoutSession, expected: Mapping[str, Any]) -> None:
+    """Staff place the order only at the total they reviewed. If a price, discount, delivery
+    charge or tax changed after the quote, nothing is placed and they review the new total."""
+    if str(expected["currency"]).upper() != session.currency or any(
+        Decimal(str(expected[field])) != getattr(session, field) for field in TOTAL_FIELDS
+    ):
+        raise ConflictError(
+            "The total for this order changed after it was calculated. Review the new total and "
+            "place the order again.",
+            "quote_changed",
+        )
+
+
 def _replay(digest: str, fingerprint: str) -> Order | None:
     existing = AssistedOrder.objects.select_related("order").filter(request_key_hash=digest).first()
     if existing is None:
@@ -204,6 +218,10 @@ def place_assisted_order(*, data: Mapping[str, Any], actor: User) -> AssistedPla
         )
     if data["payment_method"] != PaymentMethod.CASH_ON_DELIVERY:
         raise ValidationError({"payment_method": ["This payment method is not available."]})
+    if not data.get("expected_totals"):
+        raise ValidationError(
+            {"expected_totals": ["Calculate and review the total before placing the order."]}
+        )
     digest = _key_hash(key)
     fingerprint = _fingerprint(data)
     existing = _replay(digest, fingerprint)
@@ -227,6 +245,7 @@ def place_assisted_order(*, data: Mapping[str, Any], actor: User) -> AssistedPla
                 raise ValidationError(
                     {"payment_method": ["Cash on delivery is not available for this order."]}
                 )
+            _require_reviewed_totals(session, data["expected_totals"])
             order, _ = services._place(
                 session,
                 data["payment_method"],

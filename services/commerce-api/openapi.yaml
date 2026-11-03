@@ -4284,7 +4284,9 @@ paths:
   /api/manage/orders/{order_id}/cod-collection/:
     post:
       operationId: manage_order_cod_collected
-      description: 'Order actions: ``orders.manage`` (Owner, Manager, Order handler).'
+      description: |-
+        Marks cash as received and the order paid: also needs a recent sign-in or password
+        confirmation, like the shipment's COD collection.
       parameters:
       - in: path
         name: order_id
@@ -5607,6 +5609,44 @@ components:
         * `manager` - manager
         * `order_handler` - order_handler
         * `content_editor` - content_editor
+    AssistedExpectedTotalsRequest:
+      type: object
+      description: |-
+        The totals from the quote the merchant reviewed. Placement is refused with
+        ``quote_changed`` when the server's totals differ, so a changed price is never accepted
+        silently.
+      properties:
+        currency:
+          type: string
+          minLength: 3
+          maxLength: 3
+        item_subtotal:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,15}(?:\.\d{0,4})?$
+        discount_total:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,15}(?:\.\d{0,4})?$
+        shipping_total:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,15}(?:\.\d{0,4})?$
+        tax_total:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,15}(?:\.\d{0,4})?$
+        grand_total:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,15}(?:\.\d{0,4})?$
+      required:
+      - currency
+      - discount_total
+      - grand_total
+      - item_subtotal
+      - shipping_total
+      - tax_total
     AssistedItemRequest:
       type: object
       properties:
@@ -5693,12 +5733,15 @@ components:
           type: string
           minLength: 8
           maxLength: 100
+        expected_totals:
+          $ref: '#/components/schemas/AssistedExpectedTotalsRequest'
       required:
       - address_line_1
       - city
       - contact_phone
       - country
       - customer_request_attested
+      - expected_totals
       - idempotency_key
       - items
       - payment_method
@@ -8338,10 +8381,22 @@ components:
           type: string
         location_code:
           type: string
+        on_hand:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,11}(?:\.\d{0,3})?$
+          description: Physical stock, including expired batches.
         available:
           type: string
           format: decimal
           pattern: ^-?\d{0,11}(?:\.\d{0,3})?$
+          description: On hand minus reserved, before expiry.
+        sellable:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,11}(?:\.\d{0,3})?$
+          description: 'What can be promised: expired batches excluded, reservations
+            deducted.'
         low_stock_threshold:
           type: string
           format: decimal
@@ -8351,7 +8406,9 @@ components:
       - id
       - location_code
       - low_stock_threshold
+      - on_hand
       - product_name
+      - sellable
       - sku
       - variant
       - variant_title

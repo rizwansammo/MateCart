@@ -98,7 +98,17 @@ class LowStockItemSerializer(serializers.Serializer[StockLevel]):
     product_name = serializers.CharField(source="variant.product.name")
     variant_title = serializers.CharField(source="variant.title")
     location_code = serializers.CharField(source="location.code")
-    available = serializers.DecimalField(max_digits=14, decimal_places=3)
+    on_hand = serializers.DecimalField(
+        max_digits=14, decimal_places=3, help_text="Physical stock, including expired batches."
+    )
+    available = serializers.DecimalField(
+        max_digits=14, decimal_places=3, help_text="On hand minus reserved, before expiry."
+    )
+    sellable = serializers.DecimalField(
+        max_digits=14,
+        decimal_places=3,
+        help_text="What can be promised: expired batches excluded, reservations deducted.",
+    )
     low_stock_threshold = serializers.DecimalField(max_digits=14, decimal_places=3)
 
 
