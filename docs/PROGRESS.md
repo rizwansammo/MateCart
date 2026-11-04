@@ -2,7 +2,111 @@
 
 Updated: 2026-11-04 (Asia/Dhaka).
 
-## Phase 13: Mail & Notification Engine (implemented locally; acceptance pending)
+## Phase 13.1: SMS delivery integrity corrections (local; acceptance pending)
+
+**Active phase: 13 (corrective subphase 13.1).**
+
+- Baseline: `116e8d42ef0ab9a46afa9b751af58447ac195065` (Phase 13), GitHub Actions 41793151988:
+  4/4 jobs, 1,319 tests.
+- 13.1 is in the local working tree only: not committed or pushed.
+- Phase 13 is accepted only after the owner pushes these corrections and GitHub CI passes.
+- Phase 14 has not been started.
+
+### Root causes
+
+1. **Duplicate SMS.**
+   - `_send_sms()` treated every provider exception as "not accepted" (RETRYABLE), so a timeout
+     after the gateway accepted was retried and could deliver twice.
+   - A `TypeError` raised inside a provider counted as permanent.
+   - No idempotency key was ever passed.
+2. **Accounting race and overage.**
+   - The balance check (`_sms_block`) ran without a lock before sending.
+   - Units were only assigned after sending (`record_sms`), with an `overage` fallback, so
+     concurrent deliveries could all pass the check.
+   - A message could not combine allowance and prepaid units.
+   - Authentication SMS consumed store units.
+
+### Corrections (D-091)
+
+- **Outcomes.**
+  - `commerce.core.delivery.SmsRejected(code, retryable=...)` is the only proof of
+    non-acceptance. Any other exception means unknown: `outcome_unknown`, no automatic resend,
+    units held.
+  - A worker lost mid-send also holds its units.
+  - Rejection codes that might contain a number become `sms_rejected`. Logs carry only the
+    notification id and the reason.
+- **Idempotency.** Providers declaring `supports_idempotency_key = True` receive the stable
+  `matecart-sms-<notification id>`; others never receive it. A declared-but-missing argument is
+  refused before sending.
+- **Reservation.**
+  - `_reserve_sms()` runs in `deliver()`'s claim transaction under `SELECT … FOR UPDATE` on
+    `SmsSettings`.
+  - It uses the store-local month's allowance first, then prepaid credits (deducted
+    immediately), split within one message when needed. Insufficient units suppress the
+    message: no overage.
+  - `_settle_sms()` finalises (accepted), releases (retryable or permanent; prepaid restored) or
+    holds (unknown).
+- **Reconciliation.** `manage.py reconcile_sms` lists held reservations;
+  `reconcile_sms <id> --accepted|--not-accepted` resolves one, with an audit event and no
+  sending.
+- **Authentication SMS.** Exempt from units (`funded_by = auth`, zero units, segments and
+  purpose only). The send path and its contract are unchanged.
+- **Schema.** `notifications.0003_sms_reservations` adds `attempt`, `state`,
+  `allowance_segments`, `prepaid_segments`, `resolved_at` and `resolution` to `SmsUsage`. It
+  adds check constraints (state, funding, split ≤ segments, accepted ⇔ state) and a partial
+  unique constraint `(tenant, notification, attempt)`. Historical rows are mapped as they were
+  charged. Applied to the local dev database.
+- The API shape and OpenAPI schema are unchanged (the regenerated schema has no diff). No
+  frontend, SMTP, IMAP, MateMail, order, payment or inventory change.
+
+### Files
+
+- Changed:
+  - `commerce/core/delivery.py`: `SmsRejected` and the protocol documentation.
+  - `notifications/models.py`, `notifications/services.py`, `notifications/transport.py`.
+  - `tests/fakes.py`: `ScriptedSmsProvider`.
+  - Docs: `MAIL_AND_NOTIFICATIONS.md` §5, `DECISIONS.md` D-091, `FEATURE_CHECKLIST.md`,
+    `DATA_MODEL.md`, this file.
+- New: `notifications/migrations/0003_sms_reservations.py`,
+  `notifications/management/commands/reconcile_sms.py`, `tests/test_sms_integrity.py` (26
+  tests).
+
+### Verification (observed locally, 2026-11-04)
+
+- `tests/test_sms_integrity.py`: 26 passed. It covers:
+  - accepted, retryable, permanent, timeout after acceptance, and arbitrary exceptions
+    (unknown);
+  - bounded retries, duplicate and repeated Celery delivery, a lost worker, and idempotency key
+    reuse;
+  - provider compatibility and reconciliation;
+  - mixed funding and exact allowance and prepaid exhaustion;
+  - Dhaka and UTC month boundaries;
+  - tenant isolation, the authentication exemption and the historical migration mapping.
+- Concurrency on real PostgreSQL (committed transactions, parallel threads):
+  - 8 deliveries for 5 units (3 allowance + 2 prepaid): exactly 5 sent and 3 suppressed;
+    prepaid 0, never negative.
+  - 6 two-segment messages for 3 units: exactly 1 sent.
+  - 8 duplicate deliveries of one message: 1 provider call and 1 reservation.
+- Regressions: notifications, transport, customer auth, auth review and project settings: 120
+  passed.
+- `makemigrations --check`: no changes. `manage.py check`: no issues.
+- `pnpm api:lint`: ruff, format and mypy passed (commerce 280 files, control 52). A separate
+  cold-cache `mypy --no-incremental` also passed.
+- `pnpm api:schema`: validated, no diff.
+- `pnpm api:test`: commerce **986 passed**, control **57 passed**.
+- `pnpm check`: contracts 74, shared UI 78, commerce web 145, Node 5. `pnpm build`: passed.
+  `pnpm health`: passed.
+- **Total: 1,345 automated tests passed, 0 failed** (1,319 baseline + 26 new).
+- The worker and beat (`matecart-dev` only) were restarted to load the new code.
+- **Not verified:** no real SMS gateway was used. Every outcome was exercised with test doubles.
+  Live behaviour depends on each adapter raising `SmsRejected` correctly.
+
+### Next step
+
+Owner reviews, commits and pushes; GitHub CI must pass. Then formal Phase 13 acceptance
+(including 13.1). Do not start Phase 14 before that.
+
+## Phase 13: Mail & Notification Engine (pushed as `116e8d4`; acceptance pending 13.1)
 
 **Active phase: 13.** Baseline `bdcac40b16d40dfbeb2de66657d0fbe558dbd93e` (Phase 12 with its
 corrections, GitHub Actions 41777281655: 4/4 jobs, 1,258 tests). Phases 01 to 12 are accepted

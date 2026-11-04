@@ -31,14 +31,41 @@ class SmsDeliveryFailed(APIException):
     default_detail = "We couldn't send a text message right now. Please try again later."
 
 
+class SmsRejected(Exception):
+    """Raised by an SMS provider only when the gateway *definitely did not accept* the message
+    (D-091): the request never left, or the gateway answered with a documented rejection.
+
+    ``retryable``: a later attempt may succeed (throttled, gateway temporarily unavailable).
+    Otherwise the rejection is permanent (invalid number, sender not registered). ``code`` is a
+    short machine-readable reason; never put the recipient, message or credentials in it.
+
+    Any *other* exception from ``send`` (a timeout after the request was written, a dropped
+    connection, a malformed response) means the outcome is unknown: the message may have been
+    accepted, so notifications never resend it automatically.
+    """
+
+    def __init__(self, code: str = "sms_rejected", *, retryable: bool) -> None:
+        super().__init__(code)
+        self.code = code
+        self.retryable = retryable
+
+
 class SmsProvider(Protocol):
     """Boundary for SMS gateways. ``tenant_id`` and ``purpose`` let a provider attribute usage to
-    the right store (included allowance first, then prepaid credits; Phase 13 and billing)."""
+    the right store (included allowance first, then prepaid credits; Phase 13 and billing).
+
+    Optional idempotency (D-091): a provider whose gateway deduplicates by a client key sets the
+    class attribute ``supports_idempotency_key = True`` and accepts an ``idempotency_key``
+    keyword argument. Notifications then pass one stable key per notification, so a resend of a
+    message the gateway already accepted is not delivered twice. Providers without the attribute
+    are never given the argument.
+    """
 
     def send(
         self, *, to: str, body: str, tenant_id: uuid.UUID, purpose: str, sender: str = ""
     ) -> None:
-        """``sender``: the provider-approved sender id (Phase 13); empty = provider default."""
+        """``sender``: the provider-approved sender id (Phase 13); empty = provider default.
+        Returning normally means the gateway accepted the message."""
 
 
 @cache

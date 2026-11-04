@@ -52,6 +52,59 @@ class FakeSmsProvider:
         )
 
 
+ACCEPT = "accept"
+TIMEOUT_AFTER_ACCEPT = "timeout_after_accept"
+
+
+@dataclass(frozen=True)
+class SubmittedSms:
+    to: str
+    body: str
+    tenant_id: uuid.UUID
+    purpose: str
+    sender: str
+    idempotency_key: str
+
+
+class ScriptedSmsProvider:
+    """A gateway that deduplicates by idempotency key (D-091), with scripted outcomes.
+
+    Each call consumes one ``script`` entry (an empty script accepts): ``ACCEPT``,
+    ``TIMEOUT_AFTER_ACCEPT`` (the gateway accepted and delivered, then the answer was lost), or
+    an exception to raise without accepting. ``delivered`` counts handset deliveries per key.
+    """
+
+    supports_idempotency_key = True
+    calls: ClassVar[list[SubmittedSms]] = []
+    script: ClassVar[list[str | Exception]] = []
+    delivered: ClassVar[dict[str, int]] = {}
+
+    @classmethod
+    def reset(cls) -> None:
+        cls.calls.clear()
+        cls.script.clear()
+        cls.delivered.clear()
+
+    def send(
+        self,
+        *,
+        to: str,
+        body: str,
+        tenant_id: uuid.UUID,
+        purpose: str,
+        sender: str = "",
+        idempotency_key: str = "",
+    ) -> None:
+        self.calls.append(SubmittedSms(to, body, tenant_id, purpose, sender, idempotency_key))
+        step = self.script.pop(0) if self.script else ACCEPT
+        if isinstance(step, Exception):
+            raise step
+        if idempotency_key not in self.delivered:  # a duplicate key is acknowledged, not resent
+            self.delivered[idempotency_key] = 1
+        if step == TIMEOUT_AFTER_ACCEPT:
+            raise TimeoutError("read timed out")
+
+
 class FakePaymentProvider:
     """A controlled online payment provider for tests (never configured outside them: production
     refuses ``MATECART_PAYMENT_PROVIDER`` under ``tests.``). Callbacks are HMAC-signed JSON."""

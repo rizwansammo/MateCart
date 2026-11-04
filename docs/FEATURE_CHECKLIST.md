@@ -280,6 +280,7 @@ Full notification delivery, queues/retries, native MateMail and masking SMS rema
 
 - [x] Managed SMS gateway: approved store sender ids (NetaMate approval), E.164 recipients (13, D-089)
 - [x] Per-store SMS accounting: segments, included allowance before provisioned prepaid credits (no recharge/purchase UI)
+- [x] SMS delivery integrity (13.1, D-091): accepted/retryable/permanent/unknown outcomes, no automatic resend of unknown outcomes, optional provider idempotency keys, atomic pre-send unit reservation (allowance then prepaid, split per message, no overage), held-unit reconciliation command, authentication SMS exempt
 - [x] Standard SMTP (sender proof, SSRF-safe pinned connections) and IMAP connection verification (13, D-086)
 - [x] Native MateMail Connected App: scoped mailbox, `mail.send`, revocation, rotation by reconnect (13, D-086)
 - [x] Audit of MateMail's Connected App API (read-only); used as documented, no MateMail change

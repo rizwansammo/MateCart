@@ -1178,6 +1178,44 @@ idempotency_conflict`. The free-text reason, actor and a batch's supplier
 - **Platform boundary.** The Control API keeps its own email configuration and never uses a
   store's credentials. Central infrastructure alerts are Phase 16 and are not implemented.
 
+### D-091 · SMS delivery integrity: outcome classes and atomic unit reservation (2026-11-04, Phase 13.1)
+
+- **Context.** Phase 13 sent an SMS and only then recorded it.
+  - Any provider exception was treated as "not accepted" and retried, so a timeout after the
+    gateway accepted could deliver the message twice.
+  - The balance check ran without a lock, so concurrent deliveries could all pass it.
+  - Units were assigned after sending, which led to an `overage` fallback, and a message could
+    not combine allowance and prepaid units.
+  - Authentication SMS consumed the store's units.
+- **Outcomes.** Only `SmsRejected` raised by the adapter proves non-acceptance (retryable or
+  permanent). Any other exception is unknown: no automatic resend, units held, manual
+  reconciliation (`reconcile_sms`, audited). Retries stay bounded (5 attempts).
+- **Idempotency.**
+  - Optional and declared by the provider (`supports_idempotency_key`).
+  - The key is stable per notification: `matecart-sms-<id>`.
+  - The contract stays backward compatible: authentication calls are unchanged, and providers
+    without the declaration never receive the argument.
+- **Reservation.**
+  - Reserved in the delivery claim transaction under a `SELECT … FOR UPDATE` lock on
+    `SmsSettings`.
+  - The store-local month's allowance is used first, then prepaid credits (deducted at once,
+    non-negative column), split within one message when needed. Insufficient units suppress the
+    message: no overage, no negative balance.
+  - Lifecycle: `reserved`, then `accepted`, `released` or `held`. A partial unique constraint
+    allows one reservation per notification attempt.
+  - Lock order: notification, then `SmsSettings` when reserving; notification, then the
+    reservation, then `SmsSettings` when settling.
+- **Authentication exemption.** Sign-in, linking and reauthentication SMS never draw on or wait
+  for notification units. They are recorded as `funded_by = auth` with zero units, for usage
+  visibility only.
+  - Who bears their gateway cost is a billing question for the deferred billing scope.
+- **Schema.** `notifications.0003` adds `attempt`, `state`, `allowance_segments`,
+  `prepaid_segments`, `resolved_at` and `resolution` to `SmsUsage`, with check constraints.
+  - Historical rows are mapped as they were charged; legacy `overage` rows keep their label and
+    the value is never written again.
+- **Not changed:** the engine, email transports, the dashboard and the API shape (`balance`
+  keeps its fields; `used` now includes reserved and held units).
+
 ## Open questions for the owner
 
 | #   | Question                                                                                                                                   | Status                                                                                                    | Needed by |

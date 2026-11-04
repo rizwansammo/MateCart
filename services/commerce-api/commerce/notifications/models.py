@@ -12,7 +12,7 @@ from typing import Any
 
 from django.core.validators import RegexValidator
 from django.db import models
-from django.db.models import Q
+from django.db.models import F, Q
 
 from commerce.catalog.models import ProductVariant
 from commerce.core.models import TimestampedModel
@@ -415,19 +415,47 @@ class SmsSettings(TenantOwnedModel, TimestampedModel):
         ]
 
 
+class SmsUsageState(models.TextChoices):
+    """Reservation life cycle (D-091). Units count against the store while reserved, accepted or
+    held; only a definite non-acceptance releases them."""
+
+    RESERVED = "reserved", "Reserved before sending"
+    ACCEPTED = "accepted", "Accepted by the gateway"
+    RELEASED = "released", "Not accepted; units returned"
+    HELD = "held", "Outcome unknown; units held until reconciled"
+
+
+SMS_FUNDING = ("", "allowance", "prepaid", "mixed", "auth", "overage")
+"""``funded_by`` values. ``auth``: authentication codes, exempt from the store's notification
+units (D-091). ``overage`` exists only in records written before D-091; it is never written now."""
+
+
 class SmsUsage(TenantOwnedModel):
-    """One SMS submission, for accounting. Segments follow GSM-7/UCS-2 rules (D-089)."""
+    """One SMS reservation and its outcome, for accounting. Segments follow GSM-7/UCS-2 rules
+    (D-089). Notification SMS reserve their units atomically before the provider call (D-091):
+    ``allowance_segments`` from the store-local month's allowance, ``prepaid_segments`` from
+    prepaid credits (already deducted from ``SmsSettings.prepaid_credits``)."""
 
     notification = models.ForeignKey(
         Notification, null=True, blank=True, on_delete=models.SET_NULL, related_name="+"
+    )
+    attempt = models.PositiveSmallIntegerField(
+        default=0, help_text="The notification's delivery attempt; 0 for authentication SMS."
     )
     purpose = models.CharField(max_length=40)
     period = models.CharField(max_length=7, help_text="YYYY-MM in the store's time zone.")
     segments = models.PositiveSmallIntegerField()
     encoding = models.CharField(max_length=8)
     accepted = models.BooleanField()
+    state = models.CharField(
+        max_length=10, choices=SmsUsageState.choices, default=SmsUsageState.RESERVED
+    )
     funded_by = models.CharField(max_length=10, blank=True)
-    occurred_at = models.DateTimeField()
+    allowance_segments = models.PositiveSmallIntegerField(default=0)
+    prepaid_segments = models.PositiveSmallIntegerField(default=0)
+    occurred_at = models.DateTimeField(help_text="When the units were reserved (or recorded).")
+    resolved_at = models.DateTimeField(null=True, blank=True)
+    resolution = models.CharField(max_length=40, blank=True)
 
     class Meta(TenantOwnedModel.Meta):
         constraints = [
@@ -437,6 +465,29 @@ class SmsUsage(TenantOwnedModel):
             ),
             models.CheckConstraint(
                 condition=Q(segments__gte=1), name="notifications_sms_usage_segments"
+            ),
+            models.CheckConstraint(
+                condition=Q(state__in=SmsUsageState.values),
+                name="notifications_sms_usage_state_valid",
+            ),
+            models.CheckConstraint(
+                condition=Q(funded_by__in=SMS_FUNDING),
+                name="notifications_sms_usage_funding_valid",
+            ),
+            models.CheckConstraint(
+                condition=Q(allowance_segments__lte=F("segments") - F("prepaid_segments")),
+                name="notifications_sms_usage_units_within_segments",
+            ),
+            models.CheckConstraint(
+                condition=Q(accepted=True, state=SmsUsageState.ACCEPTED)
+                | (Q(accepted=False) & ~Q(state=SmsUsageState.ACCEPTED)),
+                name="notifications_sms_usage_accepted_matches_state",
+            ),
+            # One reservation per notification attempt: a duplicate delivery cannot reserve twice.
+            models.UniqueConstraint(
+                fields=["tenant", "notification", "attempt"],
+                condition=Q(attempt__gt=0),
+                name="notifications_sms_usage_one_per_attempt",
             ),
         ]
         indexes = [models.Index(fields=["tenant", "period"], name="notifications_sms_period")]

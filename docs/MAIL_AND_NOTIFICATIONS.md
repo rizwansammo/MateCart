@@ -184,14 +184,81 @@ MateCart does not manage DNS.
     provider.
 - **What is sent.** Order placed, shipped and delivered, each with a store toggle. A signed-in
   customer can switch SMS order updates off. Phone numbers are E.164 from checkout.
-- **Accounting.**
-  - Each submission records its segments: GSM-7 160 characters (153 per part), otherwise UCS-2
-    70 (67 per part). Bangla is UCS-2.
-  - The monthly allowance (store time zone) is used first, then administratively provisioned
-    prepaid credits.
-  - With neither left, SMS is suppressed (`sms_allowance_exhausted`). Authentication SMS is
-    counted but never blocked by the allowance.
+- **Accounting: reservations (D-091).**
+  - Segments: GSM-7 160 characters (153 per part), otherwise UCS-2 70 (67 per part). Bangla is
+    UCS-2.
+  - The units are **reserved before the provider is called**. This happens in the transaction
+    that claims the notification, under a row lock on the store's `SmsSettings`. Concurrent
+    deliveries therefore reserve one after another, and the last units go to exactly one
+    message.
+  - Funding order: the store-local month's allowance first, then prepaid credits. One message
+    may combine both: for example, 1 allowance + 2 prepaid units = 3 segments, charged once
+    (`funded_by = mixed`). Prepaid credits are deducted at reservation, and the column cannot
+    go negative.
+  - When the allowance and prepaid credits together cannot cover every segment, the message is
+    suppressed (`sms_allowance_exhausted`). Nothing is reserved and there is **no overage**.
+  - One reservation per notification attempt; a unique constraint makes a duplicate delivery
+    unable to reserve twice.
+  - Each reservation (`SmsUsage`) records its state, period, segments, allowance and prepaid
+    split, and when and why it was resolved:
+
+    | State      | Meaning                                  | Units                       |
+    | ---------- | ---------------------------------------- | --------------------------- |
+    | `reserved` | Units taken before sending               | Counted                     |
+    | `accepted` | The gateway accepted the message         | Spent                       |
+    | `released` | The gateway definitely did not accept it | Returned (prepaid restored) |
+    | `held`     | Outcome unknown                          | Counted until reconciled    |
+
+  - The billing month is `YYYY-MM` in the store's time zone at reservation time. For example,
+    23:59 on 31 January in Dhaka is January; 00:30 on 1 February there is February, even though
+    UTC is still 31 January.
+  - **Authentication SMS are exempt.** They never use or wait for the notification allowance or
+    prepaid credits, so sign-in keeps working when marketing or order messages used every unit.
+    They are recorded as `funded_by = auth` with zero units, segments and purpose only. The code,
+    message and number are never stored, never queued in Celery and never logged.
+  - Records written before D-091 were migrated as they were charged. Accepted rows keep their
+    source, and the few historical `overage` rows keep that label. Unaccepted rows are
+    `released` with zero units.
   - No purchase or recharge exists (deferred billing).
+- **Outcomes and retries (D-091).**
+  - **Accepted:** `send` returned normally. The notification is `sent` and the units are spent.
+  - **Retryable:** the provider raised `SmsRejected(retryable=True)`; the gateway definitely did
+    not accept it. The units are released and the message is retried with the normal bounded
+    delays (at most 5 attempts). Each retry reserves again.
+  - **Permanent:** `SmsRejected(retryable=False)`, an incompatible provider, or a sender that is
+    no longer approved. The notification fails with the reason and the units are released.
+  - **Unknown:** any other exception: a timeout after the request was written, a dropped
+    connection, a malformed response, or a worker lost mid-send. The notification fails with
+    `outcome_unknown` and is **never resent automatically**; the sweeper ignores it. Its units
+    stay held.
+  - Rejection reasons that could carry a phone number are replaced by `sms_rejected`. The
+    recipient and the provider's exception text are never logged.
+- **Idempotency keys.**
+  - A provider whose gateway deduplicates by client key declares
+    `supports_idempotency_key = True` and accepts `idempotency_key`.
+  - The key is `matecart-sms-<notification id>`. It is stable across retries and a deliberate
+    resend, so such a gateway never delivers the same notification twice.
+  - Providers without the declaration are never given the argument; nothing assumes every
+    gateway supports it.
+  - A provider that declares support but whose `send` lacks the argument is refused before
+    sending (`sms_provider_incompatible`).
+- **Manual review of unknown outcomes.**
+  - NetaMate checks the gateway's own records first.
+  - `manage.py reconcile_sms` lists held reservations: id, time, purpose, segments and
+    notification, never the number.
+  - `manage.py reconcile_sms <id> --accepted | --not-accepted` resolves one. Accepted spends the
+    units; not accepted returns them.
+  - Each decision writes a `notifications.sms.reconciled` audit event. Reconciliation never
+    sends anything.
+  - Staff may still resend a failed notification deliberately from delivery history. For SMS
+    this reserves units for the new attempt and reuses the same idempotency key. The earlier
+    held units stay held until reconciled.
+- **Provider contract.**
+  - `SmsProvider.send(*, to, body, tenant_id, purpose, sender="")` is unchanged for
+    authentication, which calls it without `sender` or a key.
+  - Adapters raise `commerce.core.delivery.SmsRejected` only for a definite non-acceptance.
+  - Real gateway adapters are not part of this phase. Every behaviour above is verified with
+    test doubles, not with a live provider.
 - **Limits.** 6 messages per recipient per hour and 500 per store per hour.
 - **Locally.** No SMS provider is configured, so SMS shows as unavailable. Tests use the fake
   provider.

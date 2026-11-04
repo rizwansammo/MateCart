@@ -14,9 +14,11 @@ A message whose outcome is unknown is never resent automatically.
 from __future__ import annotations
 
 import hashlib
+import inspect
 import logging
+import re
 import uuid
-from collections.abc import Iterable, Sequence
+from collections.abc import Callable, Iterable, Sequence
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from decimal import Decimal
@@ -50,6 +52,7 @@ from .models import (
     SenderStatus,
     SmsSettings,
     SmsUsage,
+    SmsUsageState,
 )
 from .registry import BY_KEY, CUSTOMER_TOPICS, Kind
 
@@ -61,6 +64,7 @@ UNSUBSCRIBE_SALT = "matecart.notifications.unsubscribe"
 UNSUBSCRIBE_MAX_AGE = 60 * 60 * 24 * 90
 SMS_PER_RECIPIENT_HOUR = 6
 SMS_PER_STORE_HOUR = 500
+SMS_COUNTED = (SmsUsageState.RESERVED, SmsUsageState.ACCEPTED, SmsUsageState.HELD)
 CONTENT_RETENTION = timedelta(days=90)
 READ_IN_APP_RETENTION = timedelta(days=180)
 RECORD_RETENTION = timedelta(days=400)
@@ -408,16 +412,22 @@ def deliver(notification_id: Any) -> str:
             and row.claimed_at
             and (now - row.claimed_at > STALE_CLAIM)
         ):
-            # A worker died while sending: the provider may have accepted it. Never resend.
+            # A worker died while sending: the provider may have accepted it. Never resend, and
+            # keep any SMS units reserved for it until someone reconciles them (D-091).
             row.status = NotificationStatus.FAILED
             row.failure_code = "outcome_unknown"
             row.save(update_fields=["status", "failure_code", "updated_at"])
+            if row.channel == Channel.SMS:
+                _settle_sms(row, providers.Result(providers.UNKNOWN, "worker_lost"))
             return row.status
         if row.status not in (NotificationStatus.PENDING, NotificationStatus.QUEUED):
             return str(row.status)
         if row.scheduled_at > now:
             return "not_due"
         blocked = _suppression(row)
+        if not blocked and row.channel == Channel.SMS:
+            # Reserved in this transaction, together with the claim (D-091).
+            blocked = _reserve_sms(row, attempt=row.attempts + 1, now=now)
         if blocked:
             row.status = NotificationStatus.SUPPRESSED
             row.failure_code = blocked
@@ -457,6 +467,8 @@ def deliver(notification_id: Any) -> str:
         row.claimed_at = None
         row.save()
         _attempt(row, result, next_retry)
+        if row.channel == Channel.SMS:
+            _settle_sms(row, result)
         if result.code == "connection_revoked" and transport is not None:
             connections.mark_revoked(transport)
     if next_retry is not None:
@@ -552,20 +564,24 @@ def period(at: datetime | None = None) -> str:
     return (at or timezone.now()).astimezone(store_zone()).strftime("%Y-%m")
 
 
-def sms_balance() -> dict[str, int]:
-    row = sms_settings()
+def _allowance_used(month: str) -> int:
     from django.db.models import Sum
 
-    used = (
-        SmsUsage.objects.filter(period=period(), accepted=True, funded_by="allowance").aggregate(
-            total=Sum("segments")
-        )["total"]
-        or 0
-    )
+    total = SmsUsage.objects.filter(period=month, state__in=SMS_COUNTED).aggregate(
+        total=Sum("allowance_segments")
+    )["total"]
+    return int(total or 0)
+
+
+def sms_balance(at: datetime | None = None) -> dict[str, int]:
+    """The store-local month's allowance. ``used`` counts reserved, accepted and held units:
+    a message whose outcome is unknown keeps its units until it is reconciled (D-091)."""
+    row = sms_settings()
+    used = _allowance_used(period(at))
     return {
         "allowance": row.monthly_allowance,
-        "used": int(used),
-        "remaining": max(0, row.monthly_allowance - int(used)),
+        "used": used,
+        "remaining": max(0, row.monthly_allowance - used),
         "prepaid_credits": row.prepaid_credits,
     }
 
@@ -573,10 +589,6 @@ def sms_balance() -> dict[str, int]:
 def _sms_block(row: Notification) -> str:
     if not sms_ready():
         return "sms_unavailable"
-    segments, _ = providers.sms_segments(row.body_text)
-    balance = sms_balance()
-    if balance["remaining"] < segments and balance["prepaid_credits"] < segments:
-        return "sms_allowance_exhausted"
     if ratelimit.count("sms-recipient", row.recipient_key) >= SMS_PER_RECIPIENT_HOUR:
         return "sms_rate_limited"
     if ratelimit.count("sms-store", "all") >= SMS_PER_STORE_HOUR:
@@ -584,62 +596,202 @@ def _sms_block(row: Notification) -> str:
     return ""
 
 
+def _reserve_sms(row: Notification, *, attempt: int, now: datetime) -> str:
+    """Reserve this attempt's segments before the provider is called (D-091).
+
+    Runs inside ``deliver()``'s claim transaction, under a row lock on the store's
+    ``SmsSettings``: concurrent deliveries reserve one after another and each sees the units the
+    others committed, so the last units go to exactly one message. The included allowance of the
+    store-local month is used first, then prepaid credits (deducted now; the column cannot go
+    negative). When the two together cannot cover every segment the message is not sent: there
+    is no overage. Returns a suppression code, or ``""`` once the units are reserved.
+    """
+    settings_row = SmsSettings.objects.select_for_update().first()
+    if settings_row is None:
+        return "sms_unavailable"
+    segments, encoding = providers.sms_segments(row.body_text)
+    month = period(now)
+    from_allowance = min(segments, max(0, settings_row.monthly_allowance - _allowance_used(month)))
+    from_prepaid = segments - from_allowance
+    if from_prepaid > settings_row.prepaid_credits:
+        return "sms_allowance_exhausted"
+    if from_prepaid:
+        SmsSettings.objects.filter(pk=settings_row.pk).update(
+            prepaid_credits=F("prepaid_credits") - from_prepaid
+        )
+    SmsUsage.objects.create(
+        notification=row,
+        attempt=attempt,
+        purpose=row.kind[:40],
+        period=month,
+        segments=segments,
+        encoding=encoding,
+        accepted=False,
+        state=SmsUsageState.RESERVED,
+        funded_by=(
+            "allowance" if not from_prepaid else ("prepaid" if not from_allowance else "mixed")
+        ),
+        allowance_segments=from_allowance,
+        prepaid_segments=from_prepaid,
+        occurred_at=now,
+    )
+    return ""
+
+
+def _resolve(usage: SmsUsage, state: str, resolution: str) -> None:
+    """Move a reservation to its outcome. Releasing returns the prepaid units it deducted (the
+    allowance units return by no longer being counted). Caller holds the usage row lock."""
+    if state == SmsUsageState.RELEASED and usage.prepaid_segments:
+        SmsSettings.objects.all().update(
+            prepaid_credits=F("prepaid_credits") + usage.prepaid_segments
+        )
+    usage.state = state
+    usage.accepted = state == SmsUsageState.ACCEPTED
+    usage.resolution = resolution[:40]
+    usage.resolved_at = timezone.now()
+    usage.save(update_fields=["state", "accepted", "resolution", "resolved_at"])
+
+
+def _settle_sms(row: Notification, result: providers.Result) -> None:
+    """Finalise, release or hold the reservation of ``row``'s current attempt (D-091).
+
+    Accepted: the units are spent. Retryable or permanent: the gateway definitely did not accept
+    the message, so the units return. Unknown: it may have been accepted, so the units stay held
+    until reconciled (``reconcile_sms``). Idempotent: only a still-reserved row is changed.
+    """
+    usage = (
+        SmsUsage.objects.select_for_update()
+        .filter(notification=row, attempt=row.attempts, state=SmsUsageState.RESERVED)
+        .first()
+    )
+    if usage is None:
+        return
+    if result.outcome == providers.ACCEPTED:
+        _resolve(usage, SmsUsageState.ACCEPTED, "accepted")
+    elif result.outcome in (providers.RETRYABLE, providers.PERMANENT):
+        _resolve(usage, SmsUsageState.RELEASED, result.code or "not_accepted")
+    else:
+        _resolve(usage, SmsUsageState.HELD, result.code or "outcome_unknown")
+
+
+def sms_idempotency_key(row: Notification) -> str:
+    """Stable for the notification across every attempt, including a deliberate resend, so a
+    gateway that deduplicates by key never delivers the same notification twice."""
+    return f"matecart-sms-{row.pk}"
+
+
+def _accepts(function: Callable[..., object], names: Iterable[str]) -> bool:
+    try:
+        parameters = inspect.signature(function).parameters
+    except (TypeError, ValueError):
+        return False
+    if any(item.kind is inspect.Parameter.VAR_KEYWORD for item in parameters.values()):
+        return True
+    return all(name in parameters for name in names)
+
+
+def _rejection_code(code: str) -> str:
+    """A provider's machine-readable reason, kept only if it cannot carry a phone number."""
+    cleaned = re.sub(r"[^a-z0-9_]", "", code.lower())[:40]
+    return cleaned if cleaned and not re.search(r"\d{5,}", cleaned) else "sms_rejected"
+
+
 def _send_sms(row: Notification) -> providers.Result:
-    from commerce.core.delivery import sms_provider
+    """Submit one SMS and classify the outcome (D-091). Only ``SmsRejected`` proves the gateway
+    did not accept the message; any other exception leaves the outcome unknown. Neither the
+    recipient nor the provider's exception text is logged."""
+    from commerce.core.delivery import SmsRejected, sms_provider
 
     provider = sms_provider()
-    settings_row = sms_settings()
-    if provider is None or settings_row.sender_status != SenderStatus.APPROVED:
+    settings_row = SmsSettings.objects.first()
+    if (
+        provider is None
+        or settings_row is None
+        or settings_row.sender_status != (SenderStatus.APPROVED)
+    ):
         return providers.Result(providers.PERMANENT, "sms_unavailable", provider="sms")
-    segments, encoding = providers.sms_segments(row.body_text)
+    extra: dict[str, str] = {}
+    if getattr(provider, "supports_idempotency_key", False) is True:
+        extra["idempotency_key"] = sms_idempotency_key(row)
+    send: Callable[..., object] = provider.send
+    if not _accepts(send, ("sender", *extra)):
+        return providers.Result(providers.PERMANENT, "sms_provider_incompatible", provider="sms")
     ratelimit.hit("sms-recipient", row.recipient_key, window=3600)
     ratelimit.hit("sms-store", "all", window=3600)
     try:
-        provider.send(
+        send(
             to=row.recipient_address,
             body=row.body_text,
             tenant_id=get_active_tenant_id(),
             purpose=row.kind,
             sender=settings_row.approved_sender,
+            **extra,
         )
-        accepted = True
-    except TypeError:
-        return providers.Result(providers.PERMANENT, "sms_provider_incompatible", provider="sms")
+    except SmsRejected as rejected:
+        code = _rejection_code(rejected.code)
+        logger.warning("SMS not accepted (notification=%s, reason=%s)", row.pk, code)
+        outcome = providers.RETRYABLE if rejected.retryable else providers.PERMANENT
+        return providers.Result(outcome, code, provider="sms")
     except Exception:
-        accepted = False
-    record_sms(row, segments=segments, encoding=encoding, accepted=accepted, purpose=row.kind)
-    if accepted:
-        return providers.Result(providers.ACCEPTED, provider="sms")
-    return providers.Result(providers.RETRYABLE, "sms_provider_error", provider="sms")
+        logger.warning("SMS outcome unknown (notification=%s)", row.pk)
+        return providers.Result(providers.UNKNOWN, "sms_outcome_unknown", provider="sms")
+    return providers.Result(providers.ACCEPTED, provider="sms")
 
 
-def record_sms(
-    row: Notification | None, *, segments: int, encoding: str, accepted: bool, purpose: str
-) -> None:
-    """Usage accounting: the included monthly allowance first, then prepaid credits."""
+def held_sms() -> list[SmsUsage]:
+    return list(SmsUsage.objects.filter(state=SmsUsageState.HELD).order_by("occurred_at"))
+
+
+def reconcile_sms(usage_id: Any, *, accepted: bool, actor_label: str) -> SmsUsage:
+    """Resolve a held reservation after checking the gateway's records (D-091): accepted spends
+    the units, not accepted returns them. Audited; nothing is resent."""
+    from commerce.audit.services import record_audit_event
+    from commerce.core.domain import ConflictError
+
     with transaction.atomic():
-        settings_row = SmsSettings.objects.select_for_update().filter(pk=sms_settings().pk).get()
-        funded = ""
-        if accepted:
-            if sms_balance()["remaining"] >= segments:
-                funded = "allowance"
-            elif settings_row.prepaid_credits >= segments:
-                funded = "prepaid"
-                SmsSettings.objects.filter(pk=settings_row.pk).update(
-                    prepaid_credits=F("prepaid_credits") - segments
-                )
-            else:
-                funded = "overage"
-        SmsUsage.objects.create(
-            notification=row,
-            purpose=purpose[:40],
-            period=period(),
-            segments=segments,
-            encoding=encoding,
-            accepted=accepted,
-            funded_by=funded,
-            occurred_at=timezone.now(),
+        usage = SmsUsage.objects.select_for_update().filter(pk=usage_id).first()
+        if usage is None or usage.state != SmsUsageState.HELD:
+            raise ConflictError("Only held SMS reservations can be reconciled.", "not_held")
+        _resolve(
+            usage,
+            SmsUsageState.ACCEPTED if accepted else SmsUsageState.RELEASED,
+            "reconciled_accepted" if accepted else "reconciled_not_accepted",
         )
+        record_audit_event(
+            action="notifications.sms.reconciled",
+            resource=usage,
+            actor_label=actor_label,
+            changes={
+                "state": usage.state,
+                "period": usage.period,
+                "segments": usage.segments,
+                "allowance_segments": usage.allowance_segments,
+                "prepaid_segments": usage.prepaid_segments,
+            },
+        )
+    return usage
+
+
+def record_auth_sms(*, segments: int, encoding: str, purpose: str) -> None:
+    """Usage record for an authentication SMS the provider accepted. Authentication codes are
+    exempt from the store's notification allowance and prepaid credits (D-091): sign-in must
+    never stop because marketing or order messages used the units. No message or number is
+    stored."""
+    now = timezone.now()
+    SmsUsage.objects.create(
+        notification=None,
+        attempt=0,
+        purpose=purpose[:40],
+        period=period(now),
+        segments=segments,
+        encoding=encoding,
+        accepted=True,
+        state=SmsUsageState.ACCEPTED,
+        funded_by="auth",
+        occurred_at=now,
+        resolved_at=now,
+        resolution="accepted",
+    )
 
 
 # --- Sweeper, retries and retention ---------------------------------------------------------------

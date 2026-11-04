@@ -54,14 +54,16 @@ def send_now(
 
 
 def count_auth_sms(*, body: str, purpose: str, tenant_id: uuid.UUID) -> None:
-    """Runs after commit, when the request's tenant context may be gone: the tenant is explicit."""
+    """Runs after commit, when the request's tenant context may be gone: the tenant is explicit.
+    Records segments only (never the code, message or number). Authentication SMS are exempt
+    from the store's notification units (D-091), so this never blocks or charges sign-in."""
     try:
         from commerce.tenancy.context import tenant_context
 
-        from .services import record_sms
+        from .services import record_auth_sms
 
         segments, encoding = providers.sms_segments(body)
         with tenant_context(tenant_id):
-            record_sms(None, segments=segments, encoding=encoding, accepted=True, purpose=purpose)
+            record_auth_sms(segments=segments, encoding=encoding, purpose=purpose)
     except Exception:
         logger.warning("SMS usage not recorded (purpose=%s)", purpose)
