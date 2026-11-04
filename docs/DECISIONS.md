@@ -1040,8 +1040,15 @@ idempotency_conflict`. The free-text reason, actor and a batch's supplier
 - Analytics are aggregates: hourly `EventCounter` rows (all visitors, no identifiers),
   server-counted add-to-cart and checkout-started events, and one `VisitorPresence` row per
   consented visitor (a keyed hash of a random cookie id, kept 48 h). `VisitorDailyStat` holds
-  per-day uniques. Rolling 24-hour unique visitors are exact; counters use the current hour plus
-  the previous 23. Orders and money always come from order and payment records.
+  per-day uniques. Rolling 24-hour unique visitors are exact. Orders and money always come from
+  order and payment records.
+- **Correction (CI follow-up).** Rolling 24-hour page, product, cart and checkout totals now come
+  from `RecentEventCounter`. These are per-minute totals with no dimension or identifier, kept 25 h
+  (at most about 1,500 rows per event and consent flag). The window starts at the first whole
+  minute inside the last 24 hours. Before this, the hourly buckets covered only 23 to 24 hours.
+  Rolling orders use the same `(now - 24 h, now]` window as visitors. Hourly breakdowns keep hourly
+  buckets and report their own start (`breakdown_start`). The dashboard labels figures as exact,
+  per-minute or hourly.
 - Attribution is the last tagged (UTM) landing within 30 days, recorded only with analytics
   consent, never for merchant-assisted orders. It is labelled a tracked channel, not causation.
 - No scheduler is added: clean-up is queued at most hourly by traffic and is available as

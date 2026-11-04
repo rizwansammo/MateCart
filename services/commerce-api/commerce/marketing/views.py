@@ -288,7 +288,7 @@ class CampaignListView(PromotionsView):
     )
     def get(self, request: Request) -> Response:
         params = _valid(ListQuerySerializer(data=request.query_params))
-        rows: QuerySet[Campaign] = Campaign.objects.all()
+        rows: QuerySet[Campaign, Campaign] = Campaign.objects.all()
         if "state" in params:
             rows = rows.filter(_state_filter(params["state"]))
         if params.get("search"):
@@ -394,7 +394,7 @@ class FlashSaleListView(PromotionsView):
     )
     def get(self, request: Request) -> Response:
         params = _valid(ListQuerySerializer(data=request.query_params))
-        rows: QuerySet[FlashSale] = FlashSale.objects.all()
+        rows: QuerySet[FlashSale, FlashSale] = FlashSale.objects.all()
         if "state" in params:
             rows = rows.filter(_state_filter(params["state"]))
         if params.get("search"):
@@ -477,7 +477,7 @@ class CouponListView(PromotionsView):
     )
     def get(self, request: Request) -> Response:
         params = _valid(CouponQuerySerializer(data=request.query_params))
-        rows: QuerySet[Coupon] = Coupon.objects.all()
+        rows: QuerySet[Coupon, Coupon] = Coupon.objects.all()
         if params.get("search"):
             rows = rows.filter(code__icontains=params["search"].strip().upper())
         if params.get("active") is not None:

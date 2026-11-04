@@ -565,6 +565,35 @@ class EventCounter(TenantOwnedModel):
         ]
 
 
+class RecentEventCounter(TenantOwnedModel):
+    """Per-minute event totals for the rolling 24-hour figures (D-083, Phase 12 correction).
+
+    Totals only: no dimension, no identifier. Kept 25 hours, so the table holds at most about
+    1,500 rows per event and consent flag, whatever the traffic.
+    """
+
+    minute = models.DateTimeField(help_text="UTC minute start.")
+    event = models.CharField(max_length=20, choices=EventName.choices)
+    consented = models.BooleanField()
+    count = models.PositiveBigIntegerField(default=0)
+
+    class Meta(TenantOwnedModel.Meta):
+        constraints = [
+            *TenantOwnedModel.Meta.constraints,
+            models.UniqueConstraint(
+                fields=["tenant", "minute", "event", "consented"],
+                name="marketing_recent_counter_unique",
+            ),
+            models.CheckConstraint(
+                condition=Q(event__in=EventName.values),
+                name="marketing_recent_counter_event_valid",
+            ),
+        ]
+        indexes = [
+            models.Index(fields=["tenant", "minute"], name="marketing_recent_minute"),
+        ]
+
+
 class VisitorPresence(TenantOwnedModel):
     """The last time a consented visitor was seen, keyed by a keyed hash of their random visitor
     cookie. Kept 48 hours: enough for exact rolling-24-hour and per-day unique counts."""

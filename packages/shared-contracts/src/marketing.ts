@@ -623,7 +623,10 @@ export interface AnalyticsReport {
   range: AnalyticsRange;
   rolling: boolean;
   start: string;
+  /** Traffic and funnel totals start here (per-minute counters for the last 24 hours). */
   counter_start: string;
+  /** Series, top products and sources start here (hourly buckets for the last 24 hours). */
+  breakdown_start: string;
   end: string;
   first_day: string | null;
   last_day: string | null;
@@ -695,6 +698,7 @@ export function analyticsReport(value: unknown): AnalyticsReport {
     rolling: boolean(o.rolling),
     start: isoDateTime(o.start),
     counter_start: isoDateTime(o.counter_start),
+    breakdown_start: isoDateTime(o.breakdown_start),
     end: isoDateTime(o.end),
     first_day: nullable(isoDate)(o.first_day),
     last_day: nullable(isoDate)(o.last_day),

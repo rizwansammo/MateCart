@@ -559,7 +559,7 @@ export function AnalyticsReportView({ timeZone }: { timeZone: string }) {
         {data && (
           <p className="mt-3 text-xs text-muted">
             {data.rolling
-              ? `Rolling window: visitors and orders since ${formatZoned(data.start, timeZone)}; counters from ${formatZoned(data.counter_start, timeZone)} (current hour and the 23 before).`
+              ? `Last 24 hours. Exact: unique visitors and orders since ${formatZoned(data.start, timeZone)}. Per-minute counts: page, product, cart and checkout totals from ${formatZoned(data.counter_start, timeZone)}. Hourly buckets: the table by hour, product engagement and traffic sources from ${formatZoned(data.breakdown_start, timeZone)}.`
               : `Store days ${date(data.first_day)} – ${date(data.last_day)} (${timeZone}).`}
           </p>
         )}
@@ -641,7 +641,7 @@ export function AnalyticsReportView({ timeZone }: { timeZone: string }) {
               />
             </div>
           </Card>
-          <Card title={data.rolling ? 'By hour' : 'By day'} flush>
+          <Card title={data.rolling ? 'By hour (hourly buckets)' : 'By day'} flush>
             {data.series.every((point) => point.page_views === 0 && point.add_to_cart === 0) ? (
               <Empty title="No visits recorded in this period" />
             ) : (

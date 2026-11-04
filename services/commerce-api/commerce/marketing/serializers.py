@@ -470,8 +470,13 @@ class OrderValueSerializer(AmountSerializer):
 
 
 class LiveSummarySerializer(serializers.Serializer[Any]):
-    window_start = serializers.DateTimeField(help_text="Counters: current hour and 23 before it.")
-    exact_start = serializers.DateTimeField(help_text="Visitors and orders: exactly 24 h ago.")
+    window_start = serializers.DateTimeField(
+        help_text="Page, product, cart and checkout totals: per-minute counters from the first "
+        "whole minute inside the last 24 hours."
+    )
+    exact_start = serializers.DateTimeField(
+        help_text="Unique and converting visitors and orders: exactly 24 hours ago."
+    )
     now = serializers.DateTimeField()
     unique_visitors = serializers.IntegerField(help_text="Consented visitors only.")
     page_views = serializers.IntegerField()
@@ -561,7 +566,12 @@ class AnalyticsReportSerializer(serializers.Serializer[Any]):
     range = serializers.CharField()
     rolling = serializers.BooleanField()
     start = serializers.DateTimeField()
-    counter_start = serializers.DateTimeField()
+    counter_start = serializers.DateTimeField(
+        help_text="Traffic and funnel totals start here (per-minute counters for 24 h)."
+    )
+    breakdown_start = serializers.DateTimeField(
+        help_text="Series, top products and sources start here (hourly buckets for 24 h)."
+    )
     end = serializers.DateTimeField()
     first_day = serializers.DateField(allow_null=True)
     last_day = serializers.DateField(allow_null=True)

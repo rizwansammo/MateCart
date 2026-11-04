@@ -6277,6 +6277,13 @@ components:
         counter_start:
           type: string
           format: date-time
+          description: Traffic and funnel totals start here (per-minute counters for
+            24 h).
+        breakdown_start:
+          type: string
+          format: date-time
+          description: Series, top products and sources start here (hourly buckets
+            for 24 h).
         end:
           type: string
           format: date-time
@@ -6324,6 +6331,7 @@ components:
           type: integer
       required:
       - active_coupons
+      - breakdown_start
       - campaigns
       - counter_start
       - coupons
@@ -9895,11 +9903,13 @@ components:
         window_start:
           type: string
           format: date-time
-          description: 'Counters: current hour and 23 before it.'
+          description: 'Page, product, cart and checkout totals: per-minute counters
+            from the first whole minute inside the last 24 hours.'
         exact_start:
           type: string
           format: date-time
-          description: 'Visitors and orders: exactly 24 h ago.'
+          description: 'Unique and converting visitors and orders: exactly 24 hours
+            ago.'
         now:
           type: string
           format: date-time

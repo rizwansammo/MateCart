@@ -2,6 +2,45 @@
 
 Updated: 2026-11-04 (Asia/Dhaka).
 
+## Phase 12 corrections: CI typing and rolling 24-hour analytics (local; acceptance pending)
+
+Phase 12 was pushed as `c585dcdf9d07d5e4940026eb567a59860a9aeff9`. GitHub Actions 41773856708
+failed on strict mypy in `commerce/marketing/views.py`. The corrections below are in the local
+working tree only; they are not committed or pushed.
+
+1. **mypy.** Reproduced the four CI errors locally with a cold cache. A warm local cache had
+   hidden them. `QuerySet[Model]` with one type argument got the wrong row type, which also made
+   the paginated coupon list infer as the base model. The list views now annotate
+   `QuerySet[Campaign, Campaign]`, `QuerySet[FlashSale, FlashSale]` and
+   `QuerySet[Coupon, Coupon]`. No suppressions were added and strictness is unchanged.
+2. **Rolling 24 hours.** The page, product, cart and checkout totals came from hourly buckets, so
+   they covered 23 to 24 hours while being labelled "last 24 hours". Visitors and orders were
+   already exact.
+   - New `RecentEventCounter`: per-minute totals with no dimension or identifier, kept 25 h
+     (`marketing.0003`, additive; applied locally). Rolling totals now start at the first whole
+     minute inside the window.
+   - Rolling orders use `(now - 24 h, now]`, like visitors.
+   - Hourly breakdowns keep hourly buckets and return `breakdown_start`.
+   - The dashboard labels each figure as exact, per-minute or hourly, with each window's start
+     in store time. D-083, `MARKETING.md` and `DATA_MODEL.md` are updated.
+3. **Tests.**
+   - The old hourly-window test was replaced by four boundary tests: the minute window, the
+     exact visitor and order boundary, and 25-hour retention with no identifiers.
+   - One web test checks the labels.
+   - The decoder fixture gained `breakdown_start`.
+
+Verification (observed, 2026-11-04):
+
+- `pnpm api:lint`: passed with a cold mypy cache (commerce 257 files, control 52).
+- Migration check and `manage.py check`: no changes, no issues. `pnpm api:schema`: passed.
+- `pnpm api:test`: commerce **911**, control **57** passed.
+- `pnpm check`: contracts 70, shared UI 78, commerce web 137, Node scripts 5. All passed.
+- `pnpm build`, `docker compose config --quiet` and `pnpm health`: passed. Health failed once while
+  the dev servers reloaded after the build, then passed on re-run.
+- **Total: 1,258 automated tests passed, 0 failed.**
+
+Next step: the owner commits and pushes, and GitHub CI must pass. Phase 13 has not been started.
+
 ## Phase 12: Marketing, SEO & Analytics (implemented locally; acceptance pending)
 
 **Active phase: 12.** Baseline `13043bb6ac533b2d70edefeb411ef74605cd1fde` (Phase 11.1, pushed by

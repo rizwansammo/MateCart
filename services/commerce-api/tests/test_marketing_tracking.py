@@ -24,11 +24,13 @@ from commerce.marketing.models import (
     EventCounter,
     MetaEventDelivery,
     OrderAttribution,
+    RecentEventCounter,
     SeoSettings,
     TrackingSettings,
     VisitorDailyStat,
     VisitorPresence,
 )
+from commerce.orders.models import Order
 from commerce.staff.permissions import StaffRole
 from commerce.tenancy.context import tenant_context
 from commerce.tenancy.models import Tenant
@@ -219,34 +221,84 @@ def test_cart_and_checkout_events_are_counted_by_the_server(store: Any) -> None:
         assert EventCounter.objects.get(event="add_to_cart", dimension=str(variant.pk)).count == 2
 
 
-def test_rolling_window_is_the_last_24_hours_not_the_calendar_day(store: Any) -> None:
-    now = timezone.now()
+# A fixed "now" 30 seconds into a minute: 24 hours earlier is 12:00:30 the previous day.
+NOW = datetime(2026, 10, 2, 12, 0, 30, tzinfo=UTC)
+
+
+def test_rolling_totals_cover_the_last_24_hours_to_the_minute(store: Any) -> None:
     with tenant_context(store.tenant):
-        VisitorPresence.objects.create(
-            visitor_digest="a" * 64,
-            first_seen_at=now - timedelta(hours=23),
-            last_seen_at=now - timedelta(hours=23),
+        for at in (
+            NOW - timedelta(hours=24, seconds=10),  # 12:00:20 the day before: outside
+            NOW - timedelta(hours=24) + timedelta(seconds=40),  # 12:01:10: first whole minute
+            NOW - timedelta(hours=23, minutes=30),  # 12:30:30: an hourly window would miss it
+            NOW - timedelta(minutes=1),
+            NOW,
+        ):
+            analytics.bump("page_view", consented=False, at=at)
+        with mock.patch("django.utils.timezone.now", return_value=NOW):
+            live = analytics.live_summary()
+            report = analytics.report(range_key="24h")
+
+    assert live["page_views"] == 4
+    assert live["window_start"] == datetime(2026, 10, 1, 12, 1, tzinfo=UTC)
+    assert live["exact_start"] == NOW - timedelta(hours=24)
+    assert report["traffic"]["page_views"] == 4
+    assert report["counter_start"] == live["window_start"]
+    # Hourly breakdowns are labelled with their own, bucket-based start.
+    assert report["breakdown_start"] == datetime(2026, 10, 1, 13, 0, tzinfo=UTC)
+    assert sum(point["page_views"] for point in report["series"]) == 2
+
+
+def test_minute_window_starts_inside_the_24_hours() -> None:
+    on_the_minute = datetime(2026, 10, 2, 12, 0, tzinfo=UTC)
+    assert analytics.minute_window_start(on_the_minute) == datetime(2026, 10, 1, 12, 0, tzinfo=UTC)
+    assert analytics.minute_window_start(NOW) == datetime(2026, 10, 1, 12, 1, tzinfo=UTC)
+
+
+def test_visitors_and_orders_use_the_exact_24_hours(store: Any) -> None:
+    variant = product(store.tenant, tracked=True)
+    stock(store.tenant, variant, 3)
+    orders = []
+    for index in range(2):
+        client = APIClient()
+        orders.append(
+            place(client, reviewed(client, variant), key=f"edge-{index}-{uuid.uuid4().hex}")
         )
-        VisitorPresence.objects.create(
-            visitor_digest="b" * 64,
-            first_seen_at=now - timedelta(hours=25),
-            last_seen_at=now - timedelta(hours=25),
+    with tenant_context(store.tenant):
+        for digest, seen in (
+            ("a" * 64, NOW - timedelta(hours=24)),
+            ("b" * 64, NOW - timedelta(hours=24) + timedelta(seconds=1)),
+        ):
+            VisitorPresence.objects.create(
+                visitor_digest=digest, first_seen_at=seen, last_seen_at=seen
+            )
+        Order.objects.filter(pk=orders[0].data["id"]).update(placed_at=NOW - timedelta(hours=24))
+        Order.objects.filter(pk=orders[1].data["id"]).update(
+            placed_at=NOW - timedelta(hours=24) + timedelta(seconds=1)
         )
-        EventCounter.objects.create(
-            bucket=(now - timedelta(hours=30)).replace(minute=0, second=0, microsecond=0),
-            event="page_view",
-            consented=False,
-            count=50,
-        )
-        EventCounter.objects.create(
-            bucket=(now - timedelta(hours=2)).replace(minute=0, second=0, microsecond=0),
-            event="page_view",
-            consented=False,
-            count=7,
-        )
-        live = analytics.live_summary()
+        with mock.patch("django.utils.timezone.now", return_value=NOW):
+            live = analytics.live_summary()
+            report = analytics.report(range_key="24h")
+
+    # (now - 24 h, now]: the exact boundary is out, one second later is in.
     assert live["unique_visitors"] == 1
-    assert live["page_views"] == 7
+    assert live["storefront_orders"] == 1
+    assert report["orders"]["storefront_orders"] == 1
+
+
+def test_minute_counters_are_kept_25_hours_and_hold_no_identifiers(store: Any) -> None:
+    client, _ = browser(analytics=True)
+    event(client)
+    with tenant_context(store.tenant):
+        RecentEventCounter.objects.create(
+            minute=timezone.now() - timedelta(hours=26), event="page_view", consented=False, count=3
+        )
+        fields = {field.name for field in RecentEventCounter._meta.get_fields()}
+        removed = analytics.prune()
+        remaining = list(RecentEventCounter.objects.values_list("event", "consented", "count"))
+    assert fields == {"id", "tenant", "minute", "event", "consented", "count"}
+    assert removed["recent_counters"] == 1
+    assert remaining == [("page_view", True, 1)]
 
 
 def test_daily_unique_visitors_follow_the_store_time_zone(store: Any) -> None:

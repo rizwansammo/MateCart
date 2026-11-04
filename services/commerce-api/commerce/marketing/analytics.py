@@ -13,13 +13,18 @@ Definitions (shown to merchants as well):
   add up each store day's unique visitors (a visitor returning on another day counts again).
 - **Orders, sales and collections** always come from the order and payment records, never from
   browser events. Storefront-order conversion uses consented visitors who placed an order.
-- **Rolling windows for counters** are the current hour plus the 23 hours before it.
+- **Last 24 hours**: unique visitors, converting visitors and orders are exact (the 24 hours
+  before now). Page, product, cart and checkout totals come from per-minute counters, so they
+  cover the last 24 hours to the minute: counting starts at the first whole minute inside the
+  window (between 23 h 59 min and 24 h). Hourly breakdowns of the same range (the chart, top
+  products, sources) use hourly buckets: the current hour and the 23 before it.
 - **Traffic sources**: standard UTM parameters of the landing URL, captured only with analytics
   consent, kept 30 days in the visitor's ``mc_src`` cookie. An order is attributed to the last
   tagged landing (``OrderAttribution``); this is a tracked channel, not proof of causation, and
   merchant-assisted orders are never attributed.
 
-Retention: presence rows 48 hours; hourly counters and daily stats 400 days; consent records two
+Retention: presence rows 48 hours; per-minute counters 25 hours; hourly counters and daily
+stats 400 days; consent records two
 years; Conversions API delivery rows 30 days after they finish. Clean-up runs at most hourly,
 triggered by traffic (there is no scheduler), and by ``manage.py prune_marketing_data``.
 """
@@ -67,11 +72,13 @@ from .models import (
     LoyaltyLedger,
     MetaEventDelivery,
     OrderAttribution,
+    RecentEventCounter,
     VisitorDailyStat,
     VisitorPresence,
 )
 
 PRESENCE_RETENTION = timedelta(hours=48)
+RECENT_RETENTION = timedelta(hours=25)
 COUNTER_RETENTION = timedelta(days=400)
 CONSENT_RETENTION = timedelta(days=730)
 DELIVERY_RETENTION = timedelta(days=30)
@@ -96,6 +103,17 @@ def _hour(at: datetime) -> datetime:
     return at.replace(minute=0, second=0, microsecond=0)
 
 
+def _minute(at: datetime) -> datetime:
+    return at.replace(second=0, microsecond=0)
+
+
+def minute_window_start(now: datetime) -> datetime:
+    """The first whole minute inside the 24 hours before ``now``."""
+    since = now - timedelta(hours=24)
+    first = _minute(since)
+    return first if first == since else first + timedelta(minutes=1)
+
+
 def is_bot(user_agent: str) -> bool:
     return not user_agent or bool(BOT.search(user_agent))
 
@@ -104,18 +122,26 @@ def is_bot(user_agent: str) -> bool:
 
 
 def bump(event: str, *, consented: bool, dimension: str = "", at: datetime | None = None) -> None:
-    """Add one to an hourly counter (insert or atomic increment, safe under concurrency)."""
-    bucket = _hour(at or timezone.now())
-    rows = EventCounter.objects.filter(
-        bucket=bucket, event=event, dimension=dimension, consented=consented
+    """Add one to an hourly counter (insert or atomic increment, safe under concurrency). Totals
+    (no dimension) also go to the per-minute counter behind the rolling 24-hour figures."""
+    at = at or timezone.now()
+    _increment(
+        EventCounter,
+        {"bucket": _hour(at), "event": event, "dimension": dimension, "consented": consented},
     )
+    if not dimension:
+        _increment(
+            RecentEventCounter, {"minute": _minute(at), "event": event, "consented": consented}
+        )
+
+
+def _increment(model: type[EventCounter] | type[RecentEventCounter], key: dict[str, Any]) -> None:
+    rows = model.objects.filter(**key)
     if rows.update(count=F("count") + 1):
         return
     try:
         with transaction.atomic():
-            EventCounter.objects.create(
-                bucket=bucket, event=event, dimension=dimension, consented=consented, count=1
-            )
+            model.objects.create(**key, count=1)
     except IntegrityError:
         rows.update(count=F("count") + 1)
 
@@ -288,6 +314,9 @@ def prune(now: datetime | None = None) -> dict[str, int]:
     removed["counters"] = EventCounter.objects.filter(bucket__lt=now - COUNTER_RETENTION).delete()[
         0
     ]
+    removed["recent_counters"] = RecentEventCounter.objects.filter(
+        minute__lt=now - RECENT_RETENTION
+    ).delete()[0]
     cutoff = (now - COUNTER_RETENTION).astimezone(store_zone()).date()
     removed["daily"] = VisitorDailyStat.objects.filter(date__lt=cutoff).delete()[0]
     # QuerySet deletion: consent rows are never updated, only removed after retention.
@@ -333,6 +362,22 @@ def _counter_totals(start: datetime, end: datetime) -> dict[tuple[str, bool], in
     return {(row["event"], row["consented"]): int(row["total"] or 0) for row in rows}
 
 
+def _recent_totals(since: datetime, end: datetime) -> dict[tuple[str, bool], int]:
+    """Per-minute totals for minutes starting in ``[since, end]``."""
+    rows = (
+        RecentEventCounter.objects.filter(minute__gte=since, minute__lte=end)
+        .values("event", "consented")
+        .annotate(total=Sum("count"))
+    )
+    return {(row["event"], row["consented"]): int(row["total"] or 0) for row in rows}
+
+
+def _window_totals(win: dict[str, Any]) -> dict[tuple[str, bool], int]:
+    if win["rolling"]:
+        return _recent_totals(win["counter_start"], win["end"])
+    return _counter_totals(win["start"], win["end"])
+
+
 def _total(totals: dict[tuple[str, bool], int], event: str) -> int:
     return totals.get((event, True), 0) + totals.get((event, False), 0)
 
@@ -344,8 +389,12 @@ def window(*, range_key: str, start: date | None = None, end: date | None = None
     if range_key == "24h":
         return {
             "key": "24h",
+            # Hourly breakdowns (chart, top products, sources): the current hour and 23 before.
             "start": _hour(now) - timedelta(hours=23),
+            # Totals: per-minute counters from the first whole minute inside the window.
+            "counter_start": minute_window_start(now),
             "end": now,
+            # Visitors and orders: exactly the 24 hours before now.
             "exact_start": now - timedelta(hours=24),
             "rolling": True,
             "first_day": None,
@@ -370,6 +419,7 @@ def window(*, range_key: str, start: date | None = None, end: date | None = None
     return {
         "key": range_key,
         "start": begin,
+        "counter_start": begin,
         "end": finish,
         "exact_start": begin,
         "rolling": False,
@@ -392,7 +442,11 @@ def _visitors(win: dict[str, Any]) -> tuple[int, int]:
 
 
 def _orders(win: dict[str, Any]) -> dict[str, Any]:
-    placed = Order.objects.filter(placed_at__gte=win["exact_start"], placed_at__lt=win["end"])
+    # A rolling window is (now - 24 h, now], exactly like unique visitors.
+    if win["rolling"]:
+        placed = Order.objects.filter(placed_at__gt=win["exact_start"], placed_at__lte=win["end"])
+    else:
+        placed = Order.objects.filter(placed_at__gte=win["exact_start"], placed_at__lt=win["end"])
     storefront = placed.filter(source=OrderSource.STOREFRONT)
     value = list(
         storefront.exclude(status=OrderStatus.CANCELLED)
@@ -427,15 +481,15 @@ def _orders(win: dict[str, Any]) -> dict[str, Any]:
 def live_summary() -> dict[str, Any]:
     """The rolling 24-hour figures for the merchant dashboard."""
     win = window(range_key="24h")
-    totals = _counter_totals(win["start"], win["end"])
+    totals = _window_totals(win)
     visitors, converting = _visitors(win)
     orders = Order.objects.filter(
-        placed_at__gt=win["exact_start"], source=OrderSource.STOREFRONT
+        placed_at__gt=win["exact_start"], placed_at__lte=win["end"], source=OrderSource.STOREFRONT
     ).count()
     page_views = _total(totals, EventName.PAGE_VIEW)
     consented_views = totals.get((EventName.PAGE_VIEW, True), 0)
     return {
-        "window_start": win["start"],
+        "window_start": win["counter_start"],
         "exact_start": win["exact_start"],
         "now": win["end"],
         "unique_visitors": visitors,
@@ -661,7 +715,7 @@ def report(*, range_key: str, start: date | None = None, end: date | None = None
     from .promotions import KIND_CAMPAIGN, KIND_FLASH, range_performance
 
     win = window(range_key=range_key, start=start, end=end)
-    totals = _counter_totals(win["start"], win["end"])
+    totals = _window_totals(win)
     visitors, converting = _visitors(win)
     orders = _orders(win)
     page_views = _total(totals, EventName.PAGE_VIEW)
@@ -670,7 +724,8 @@ def report(*, range_key: str, start: date | None = None, end: date | None = None
         "range": win["key"],
         "rolling": win["rolling"],
         "start": win["exact_start"],
-        "counter_start": win["start"],
+        "counter_start": win["counter_start"],
+        "breakdown_start": win["start"],
         "end": win["end"],
         "first_day": win["first_day"],
         "last_day": win["last_day"],

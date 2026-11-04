@@ -15,6 +15,7 @@ import {
 } from '@matecart/shared-contracts';
 import { Alert, Button, TextField, errorMessage } from '@matecart/shared-ui';
 import { marketingTabs } from '@/lib/manage-routes';
+import { formatZoned } from '@/lib/zoned-time';
 import {
   Badge,
   Card,
@@ -173,7 +174,9 @@ export function MarketingOverview({ session }: { session: StaffSession }) {
               />
             </div>
           )}
-          {data.live && <LiveVisitors live={data.live} />}
+          {data.live && (
+            <LiveVisitors live={data.live} timeZone={session.store_timezone || 'UTC'} />
+          )}
           {data.tracking && (
             <Card title="Tracking">
               <dl className="grid gap-3 text-sm sm:grid-cols-3">
@@ -228,19 +231,19 @@ function percent(value: string | null): string {
 }
 
 /** The rolling 24-hour figures with their exact definitions (D-083). */
-export function LiveVisitors({ live }: { live: LiveSummary }) {
+export function LiveVisitors({ live, timeZone }: { live: LiveSummary; timeZone: string }) {
   return (
     <Card title="Visitors (last 24 hours)">
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <Stat
           label="Unique visitors"
           value={live.unique_visitors}
-          hint="Visitors who allowed analytics, seen in exactly the last 24 hours"
+          hint="Exact: visitors who allowed analytics, seen in the last 24 hours"
         />
         <Stat
           label="Page views"
           value={live.page_views}
-          hint={`All visitors · ${percent(live.consent_coverage)} with analytics consent`}
+          hint={`Per-minute count, all visitors · ${percent(live.consent_coverage)} with analytics consent`}
         />
         <Stat label="Product views" value={live.product_views} />
         <Stat label="Added to cart" value={live.add_to_cart} />
@@ -248,7 +251,7 @@ export function LiveVisitors({ live }: { live: LiveSummary }) {
         <Stat
           label="Online store orders"
           value={live.storefront_orders}
-          hint="Placed orders from the order records"
+          hint="Exact: orders placed in the last 24 hours, from the order records"
         />
         <Stat
           label="Visitor conversion"
@@ -257,11 +260,12 @@ export function LiveVisitors({ live }: { live: LiveSummary }) {
         />
       </div>
       <p className="mt-4 text-xs leading-5 text-muted">
-        Unique visitors are not people online right now. Page, product, cart and checkout counts
-        cover every visitor without identifying anyone, for the current hour and the 23 before it.
-        Visitors who decline analytics are counted in page views but never as unique visitors, so
-        the visitor figure is a lower bound. Sales and payments are reported from orders, not from
-        browser events.
+        Unique visitors are not people online right now. Visitors, conversion and orders cover
+        exactly the last 24 hours. Page, product, cart and checkout figures are per-minute counts of
+        every visitor, without identifying anyone, from {formatZoned(live.window_start, timeZone)}{' '}
+        (the first whole minute in the window). Visitors who decline analytics are counted in page
+        views but never as unique visitors, so the visitor figure is a lower bound. Sales and
+        payments are reported from orders, not from browser events.
       </p>
     </Card>
   );

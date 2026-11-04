@@ -153,7 +153,7 @@ export function Overview({ session }: { session: StaffSession }) {
         </Card>
       )}
       {data?.finance && <Finance data={data.finance} />}
-      {can('reports.view') && <DashboardVisitors />}
+      {can('reports.view') && <DashboardVisitors timeZone={session.store_timezone || 'UTC'} />}
       {data?.orders && data.operations && (
         <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
           <Stat
@@ -336,11 +336,11 @@ export function Overview({ session }: { session: StaffSession }) {
 }
 
 /** Phase 12: the rolling 24-hour visitor figures; never mixed with the financial cards above. */
-function DashboardVisitors() {
+function DashboardVisitors({ timeZone }: { timeZone: string }) {
   const load = useCallback(
     async () => liveSummary(await api.get<unknown>('/api/manage/marketing/analytics/live/')),
     [],
   );
   const { data } = useLoad(load);
-  return data ? <LiveVisitors live={data} /> : null;
+  return data ? <LiveVisitors live={data} timeZone={timeZone} /> : null;
 }

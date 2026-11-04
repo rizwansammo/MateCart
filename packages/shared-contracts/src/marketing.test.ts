@@ -265,6 +265,7 @@ describe('marketing contracts', () => {
       rolling: false,
       start: '2026-10-28T00:00:00+06:00',
       counter_start: '2026-10-28T00:00:00+06:00',
+      breakdown_start: '2026-10-28T00:00:00+06:00',
       end: '2026-11-04T05:00:00Z',
       first_day: '2026-10-28',
       last_day: '2026-11-03',
