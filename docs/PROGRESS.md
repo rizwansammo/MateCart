@@ -2,6 +2,168 @@
 
 Updated: 2026-11-04 (Asia/Dhaka).
 
+## Phase 13: Mail & Notification Engine (implemented locally; acceptance pending)
+
+**Active phase: 13.** Baseline `bdcac40b16d40dfbeb2de66657d0fbe558dbd93e` (Phase 12 with its
+corrections, GitHub Actions 41777281655: 4/4 jobs, 1,258 tests). Phases 01 to 12 are accepted
+and closed. Phase 13 is only in the local working tree: not committed or pushed. It is accepted
+only after owner review, push and green GitHub CI. Phase 14 has not been started.
+
+### Delivered
+
+- **Engine** (`commerce.notifications`, D-087):
+  - Durable outbox rows written in the business transaction (a savepoint that never breaks it),
+    unique per event, channel and recipient.
+  - Queued after commit; a new MateCart-only `commerce-beat` sweeper recovers broker outages.
+  - Delivery claims rows and sends outside locks. Attempts are append-only.
+  - Bounded retries (1, 5, 15, 30 minutes; at most 5).
+  - Unknown outcomes (failure after SMTP DATA, MateMail 409, worker crash) are never resent
+    automatically; staff can resend deliberately.
+- **Events.**
+  - Orders: placed, confirmed, cancelled.
+  - Payments and refunds: payment received (only when verified or cash recorded), payment not
+    completed (window expired), refund started and completed.
+  - Shipments: shipped, delivered, delivery failed, each once; replays send nothing.
+  - After sales: request received, updated, reply; staff new request and customer message.
+  - Staff alerts:
+    - review to moderate
+    - risk review
+    - new order (manual orders show their source)
+    - order cancelled, ready to fulfil, payment problem
+    - cash collected
+    - delivery failed
+    - low or out of stock, by sellable stock, on worsening transitions only
+    - opt-in daily summary
+  - Account security: password, two-step verification and role changes.
+  - Consented points reminders.
+- **Email (D-086).**
+  - SMTP with an encrypted password, a login test and sender proof (a code sent to the From
+    address), plus a test message to the signed-in staff member only. Hosts are SSRF and
+    rebinding safe (public addresses only, pinned socket, TLS verified).
+  - IMAP: read-only connection verification.
+  - MateMail Connected App: tenant ID and one-time secret, then approval in MateMail, then an
+    encrypted `mmc_` token with `mail.send`. The From address is fixed by MateMail; idempotency
+    keys are stable; 409 means outcome unknown, 401 means revoked; rotation is by reconnecting.
+  - Authentication codes and links stay synchronous after commit and never enter Celery or
+    records. They use the store transport.
+- **Templates (D-088).** English and Bangla defaults for 28 kinds. Merchant plain-text overrides
+  use allowlisted variables, with a sandboxed preview and versioning. The branded, escaped layout
+  is built by the server. Retention: content 90 days, read in-app 180 days, records 400 days.
+- **SMS (D-089).** Sender ids are requested by the merchant and approved by NetaMate
+  (`manage.py approve_sms_sender`). Segment accounting (GSM-7/UCS-2), monthly allowance then
+  prepaid credits, rate limits. No purchase flow.
+- **In app, preferences and consent (D-090).**
+  - Merchant bell (60-second polling, paused when the tab is hidden) and `/manage/notifications`,
+    filtered by current permissions.
+  - Customer notifications and preferences in the account. Essential email stays on.
+  - Marketing email and SMS need an explicit opt-in, recorded as append-only evidence; tracking
+    consent never counts.
+  - Signed `/unsubscribe` link that acts only on a click.
+- **Merchant settings** `/manage/settings/notifications`: Email, SMS, Templates and Delivery
+  history (`store.settings`; credential and transport changes need the password again).
+
+### Files and services
+
+- Backend:
+  - New: `commerce/notifications/` (models, migrations 0001-0002, registry, rendering, net,
+    providers, connections, services, events, jobs, transport, tasks, views, URLs, command).
+  - Hooks in `orders/services.py`, `orders/payments.py`, `fulfillment/services.py`,
+    `aftersales/services.py`, `identity/passwords.py`, `identity/mfa.py`,
+    `staff/services.py`.
+  - `core/delivery.py`: store transport for authentication email, SMS accounting, and an
+    optional `sender` on the `SmsProvider` protocol.
+  - Settings: `MATEMAIL_BASE_URL`, `MATECART_MAIL_INTERNAL_HOSTS` (development: mailpit),
+    `CELERY_BEAT_SCHEDULE`, enum names; also `config/urls.py` and `openapi.yaml`.
+  - Tests: `test_notifications.py` (29), `test_notifications_transport.py` (20); `fakes.py`
+    gained `sender`.
+- `compose.yaml`: new `commerce-beat` service (same image, project `matecart-dev`, no ports or
+  volumes of its own) and `MATEMAIL_BASE_URL: ''`. No new Python or npm dependency.
+- Frontend:
+  - `packages/shared-contracts/src/notifications.ts` and its tests.
+  - `shared-ui` `DashboardShell` header slot.
+  - `components/manage/notifications.tsx`, `notification-settings.tsx`,
+    `customer-notifications.tsx`, `app/(store)/unsubscribe/page.tsx`, plus route, settings,
+    account and i18n updates.
+- Docs: `MAIL_AND_NOTIFICATIONS.md` (new; includes the MateMail audit), DECISIONS D-086 to
+  D-090, `DATA_MODEL.md`, `ARCHITECTURE.md`, `DEVELOPMENT_ROADMAP.md` (Phase 12 accepted,
+  Phase 13 implemented locally), `FEATURE_CHECKLIST.md`, this file.
+- Migrations `notifications.0001`/`0002` are applied to the local dev database.
+- The commerce API and worker were restarted; `commerce-beat` was started.
+
+### Verification (observed locally, 2026-11-04)
+
+- `pnpm api:lint`: ruff, format and strict mypy passed with a cold cache (commerce 278 files,
+  control 52). Every new module was also checked with `mypy --no-incremental` and an empty cache
+  during development.
+- `makemigrations --check`: no changes. `manage.py check` (including tenancy checks): no issues.
+  `pnpm api:schema`: regenerated and validated with `--fail-on-warn`.
+- `pnpm api:test`: commerce **960 passed**, control **57 passed**, 0 failed.
+- `pnpm check`: contracts 74, shared UI 78, commerce web 145, Node scripts 5, all passed.
+- `pnpm build`: both builds passed. `docker compose config --quiet` and `pnpm health`: passed.
+  Health failed once while the dev servers reloaded after the build, then passed on re-run.
+- **Total: 1,319 automated tests passed, 0 failed** (1,258 baseline + 61 new: 49 backend,
+  4 contracts, 8 web).
+- Celery: the worker registers `notifications.deliver`, `sweep`, `sweep_tenant`, `run_job` and
+  `jobs_tenant`. Beat sent 16 scheduled tasks and the worker completed 15 sweeps in 15 minutes.
+- **Fake provider tests:** MateMail flows and outcomes, SMS sending and accounting, and SMTP
+  classification run against fakes. No real MateMail, SMS provider or external SMTP was used.
+- **Browser and Mailpit acceptance** (headless Chrome over DevTools; Mailpit API): **42 of 42**
+  after fixes.
+  - SMTP was set up in the UI against local Mailpit, with the password dialog.
+  - After saving, the connection was "unverified", not connected. The sender code was read from
+    Mailpit and confirmed, and the connection became connected. The test message went to the
+    signed-in manager only.
+  - A real storefront order email came from the verified sender through store SMTP, with HTML
+    and text, branding, `BDT` amount, an `/orders/<id>` link, no address or secrets and a
+    single recipient.
+  - The bell count and popover, mark all, the inbox page; the order handler gets order alerts
+    and is refused email settings.
+  - The payment email arrived only after cash was recorded.
+  - A sandboxed template preview, a saved custom subject, and delivery history with masked
+    recipients.
+  - The customer's own notification; a marketing opt-in; the Bangla account page; opening the
+    unsubscribe link did nothing until the click, which withdrew consent.
+  - No Mailpit message mentions a password; phone width has no overflow; no page errors.
+- **Defects found and fixed during verification:**
+  1. After-commit hooks ran without a tenant: authentication emails stopped and queue updates
+     failed. The transport is now chosen before commit and the tenant is carried explicitly.
+  2. The recipient language defaulted to English instead of the store default.
+  3. The `/unsubscribe` page passed function-bearing messages to a client component (HTTP 500).
+  4. The SMTP form offered no development-only "None" encryption; the server still refuses it
+     for real hosts.
+
+### Local review data (controlled, additive)
+
+- Store email transport: **Standard SMTP to the local Mailpit**, From `store@matecart.test`,
+  connected. Every notification is visible at http://127.0.0.1:18025. To return to the default
+  sender, choose "MateCart default sender" in Settings, Email and notifications.
+- The `order.placed` English subject is customised ("Order {order_number} is in,
+  {customer_name}"). "Reset to default" in Templates undoes it.
+- Accounts (passwords not stored here; sessions were revoked):
+  - `phase13-manager-...@example.test` (Manager)
+  - `phase13-handler-...@example.test` (Order handler)
+  - `phase13-customer-...@example.test` (verified customer; marketing email withdrawn)
+- Two COD orders for the Bamboo Cutting Board: one confirmed and paid, one placed. Five units
+  were received if sellable stock was below 3.
+
+### Known limits and owner decisions
+
+- No live MateMail: `MATEMAIL_BASE_URL` is empty locally. The connector is implemented against
+  MateMail's documented API and tested with a fake. Live acceptance needs a MateMail instance
+  and a Connected App. MateMail access tokens do not expire and have no refresh endpoint, so
+  rotation is reconnecting; no MateMail change was made.
+- No SMS provider or approved sender locally; SMS shows as unavailable.
+- IMAP is verification only; no inbound or bounce processing (documented boundary).
+- `delivered` is reserved: no provider currently confirms delivery, so accepted messages stay
+  `sent`.
+- Production needs one `commerce-beat` per store deployment (Phase 17 packaging).
+- Central Console alerts (Phase 16) are not implemented.
+
+### Next step
+
+Owner reviews on localhost, commits and pushes; GitHub CI must pass. Then independent review and
+formal Phase 13 acceptance. Do not start Phase 14 before that.
+
 ## Phase 12 corrections: CI typing and rolling 24-hour analytics (local; acceptance pending)
 
 Phase 12 was pushed as `c585dcdf9d07d5e4940026eb567a59860a9aeff9`. GitHub Actions 41773856708

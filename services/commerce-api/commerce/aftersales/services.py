@@ -104,6 +104,9 @@ def submit_review(*, customer: User, item_id: Any, rating: int, body: str) -> Pr
         record_audit_event(
             action="review.submitted", resource=review, actor=customer, changes={"rating": rating}
         )
+        from commerce.notifications import events as notify
+
+        notify.review_submitted(review)
         return review
 
 
@@ -222,6 +225,9 @@ def submit_case(
         record_audit_event(
             action="aftersales.requested", resource=case, actor=customer, changes={"kind": kind}
         )
+        from commerce.notifications import events as notify
+
+        notify.case_submitted(case)
         return case
 
 
@@ -441,6 +447,9 @@ def transition_case(
             actor=actor,
             changes=changes,
         )
+        from commerce.notifications import events as notify
+
+        notify.case_status_changed(case)
         return case
 
 
@@ -451,4 +460,7 @@ def send_message(*, case: AfterSalesCase, author: User, body: str) -> CaseMessag
             raise ConflictError("This request is closed.", "case_closed")
         message = CaseMessage.objects.create(case=locked, author=author, body=body.strip())
         record_audit_event(action="aftersales.message_added", resource=locked, actor=author)
+        from commerce.notifications import events as notify
+
+        notify.case_message(locked, message)
         return message

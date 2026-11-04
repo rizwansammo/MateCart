@@ -208,4 +208,5 @@ export const PRIVATE_PATHS = [
   '/orders',
   '/api/',
   '/search',
+  '/unsubscribe',
 ];

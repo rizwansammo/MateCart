@@ -38,6 +38,12 @@ const SECTIONS: readonly { pattern: RegExp; permission: string | null }[] = [
   { pattern: /^marketing\/seo$/, permission: 'content.manage' },
   { pattern: /^marketing\/analytics$/, permission: 'reports.view' },
   { pattern: /^marketing\/tracking$/, permission: 'store.settings' },
+  // Phase 13: every staff member has an inbox; transport, templates and history need settings.
+  { pattern: /^notifications$/, permission: null },
+  {
+    pattern: /^settings\/notifications(\/(email|sms|templates|deliveries))?$/,
+    permission: 'store.settings',
+  },
 ];
 
 /** Permissions that open at least one marketing tab. */
@@ -90,7 +96,12 @@ export function isManagePath(path: string): boolean {
 export function navigation(permissions: readonly string[]): NavGroup[] {
   const can = (permission: string) => permissions.includes(permission);
   const groups: NavGroup[] = [
-    { links: [{ href: '/manage', label: 'Overview' }] },
+    {
+      links: [
+        { href: '/manage', label: 'Overview' },
+        { href: '/manage/notifications', label: 'Notifications' },
+      ],
+    },
     {
       heading: 'Sell',
       links: [

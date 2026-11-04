@@ -40,6 +40,8 @@ x-commerce-api-environment: &commerce-api-environment
   # No Meta Conversions API token locally: server-side Meta events stay unavailable and nothing
   # is ever sent to Meta from development (docs/MARKETING.md).
   META_CAPI_ACCESS_TOKEN: ''
+  # No MateMail instance locally: the MateMail email option shows as unavailable (docs/MAIL_AND_NOTIFICATIONS.md).
+  MATEMAIL_BASE_URL: ''
   # Optional: Google OAuth client for local testing (docs/AUTHENTICATION.md). Empty hides the button.
   GOOGLE_OIDC_CLIENT_ID: ${MATECART_GOOGLE_OIDC_CLIENT_ID:-}
   GOOGLE_OIDC_CLIENT_SECRET: ${MATECART_GOOGLE_OIDC_CLIENT_SECRET:-}
@@ -153,6 +155,23 @@ services:
       timeout: 15s
       retries: 3
       start_period: 30s
+    restart: unless-stopped
+
+  # Phase 13: Celery beat for notification sweeps (broker-outage recovery), stock alerts, daily
+  # summaries and retention. One instance per store deployment; every scheduled task is idempotent.
+  commerce-beat:
+    build: *commerce-api-build
+    image: matecart-dev/commerce-api:dev
+    command:
+      ['celery', '-A', 'config', 'beat', '--loglevel=INFO', '--schedule=/tmp/celerybeat-schedule']
+    environment: *commerce-api-environment
+    volumes:
+      - ./services/commerce-api:/app
+    networks: [commerce]
+    depends_on:
+      commerce-db: { condition: service_healthy }
+      commerce-redis: { condition: service_healthy }
+      commerce-worker: { condition: service_healthy }
     restart: unless-stopped
 
   # ---------------------------------------------------------------- local mail catcher

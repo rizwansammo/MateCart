@@ -50,6 +50,8 @@ INSTALLED_APPS = [
     "commerce.aftersales",
     # Phase 12: campaigns, flash sales, loyalty, SEO, consent, analytics and Meta tracking.
     "commerce.marketing",
+    # Phase 13: notification engine, email connections (SMTP, IMAP, MateMail), SMS, templates.
+    "commerce.notifications",
     # Phase 05: store content (pages, homepage sections). Theme and modules live in stores.
     "commerce.content",
 ]
@@ -169,6 +171,12 @@ MATECART_COURIER_PROVIDER = env("MATECART_COURIER_PROVIDER", default="")
 # delivery unavailable (the browser Pixel can still be configured by the merchant).
 META_CAPI_ACCESS_TOKEN = env("META_CAPI_ACCESS_TOKEN", default="")
 META_GRAPH_API_VERSION = env("META_GRAPH_API_VERSION", default="v26.0")
+# Phase 13 (D-086): the MateMail instance a store may connect to (HTTPS, set by NetaMate; empty =
+# the MateMail option is unavailable). Never merchant input, so it cannot be used for SSRF.
+MATEMAIL_BASE_URL = env("MATEMAIL_BASE_URL", default="").rstrip("/")
+# Mail hosts allowed to resolve to private addresses and to skip TLS. Development only (Mailpit);
+# production leaves it empty, so every SMTP/IMAP host must be public and use TLS.
+MATECART_MAIL_INTERNAL_HOSTS: list[str] = []
 # "Continue with Google" (OpenID Connect). Both empty keeps the option hidden.
 GOOGLE_OIDC_CLIENT_ID = env("GOOGLE_OIDC_CLIENT_ID", default="")
 GOOGLE_OIDC_CLIENT_SECRET = env("GOOGLE_OIDC_CLIENT_SECRET", default="")
@@ -293,6 +301,15 @@ SPECTACULAR_SETTINGS = {
         "ServerEventStateEnum": "commerce.marketing.serializers.SERVER_EVENT_STATES",
         "AnalyticsRangeEnum": "commerce.marketing.serializers.ANALYTICS_RANGES",
         "PurchaseTimingEnum": "commerce.marketing.models.PurchaseTiming",
+        "NotificationStatusEnum": "commerce.notifications.models.NotificationStatus",
+        "NotificationChannelEnum": "commerce.notifications.models.Channel",
+        "NotificationCategoryEnum": "commerce.notifications.models.Category",
+        "MailProviderEnum": "commerce.notifications.models.MailProvider",
+        "MailConnectionStatusEnum": "commerce.notifications.models.ConnectionStatus",
+        "MailSecurityEnum": "commerce.notifications.models.SmtpSecurity",
+        "SmsSenderStatusEnum": "commerce.notifications.models.SenderStatus",
+        "OtpChannelEnum": "commerce.identity.models.OtpChannel",
+        "WarrantyProviderEnum": "commerce.catalog.models.WarrantyProvider",
     },
 }
 API_SCHEMA_ENABLED = env.bool("DJANGO_API_SCHEMA_ENABLED", default=False)
@@ -316,6 +333,31 @@ CELERY_BROKER_CONNECTION_RETRY_ON_STARTUP = True
 # Must exceed the longest task runtime or ETA, otherwise Redis redelivers the task.
 CELERY_BROKER_TRANSPORT_OPTIONS = {"visibility_timeout": 3600}
 CELERY_WORKER_HIJACK_ROOT_LOGGER = False
+# Phase 13 (D-087): the MateCart beat service (compose: commerce-beat) runs these. Every entry is
+# idempotent, so a missed or doubled run is harmless.
+CELERY_BEAT_SCHEDULE = {
+    "notifications-sweep": {"task": "notifications.sweep", "schedule": 60.0},
+    "notifications-stock-alerts": {
+        "task": "notifications.run_job",
+        "schedule": 900.0,
+        "args": ("stock_alerts",),
+    },
+    "notifications-daily-summary": {
+        "task": "notifications.run_job",
+        "schedule": 3600.0,
+        "args": ("daily_summary",),
+    },
+    "notifications-points-reminders": {
+        "task": "notifications.run_job",
+        "schedule": 86400.0,
+        "args": ("points_reminders",),
+    },
+    "notifications-cleanup": {
+        "task": "notifications.run_job",
+        "schedule": 86400.0,
+        "args": ("cleanup",),
+    },
+}
 
 # --- Logging (stdout; JSON in deployed environments, readable text locally) ---
 LOG_LEVEL = env("DJANGO_LOG_LEVEL", default="INFO")

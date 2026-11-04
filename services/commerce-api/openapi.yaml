@@ -401,6 +401,115 @@ paths:
               schema:
                 $ref: '#/components/schemas/SignInMethods'
           description: ''
+  /api/account/notifications/:
+    get:
+      operationId: account_notifications
+      description: Base for every cookie-authenticated or sign-in endpoint.
+      parameters:
+      - in: query
+        name: category
+        schema:
+          enum:
+          - transactional
+          - security
+          - operational
+          - marketing
+          type: string
+          minLength: 1
+        description: |-
+          * `transactional` - Order and account updates
+          * `security` - Security
+          * `operational` - Store operations
+          * `marketing` - Marketing
+      - in: query
+        name: page
+        schema:
+          type: integer
+          maximum: 100000
+          minimum: 1
+          default: 1
+      - in: query
+        name: page_size
+        schema:
+          type: integer
+          maximum: 100
+          minimum: 1
+          default: 25
+      - in: query
+        name: unread
+        schema:
+          type: boolean
+          nullable: true
+      tags:
+      - account-notifications
+      security:
+      - customerSession: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InboxItemPage'
+          description: ''
+  /api/account/notifications/preferences/:
+    get:
+      operationId: account_notification_preferences
+      description: Base for every cookie-authenticated or sign-in endpoint.
+      tags:
+      - account-notifications
+      security:
+      - customerSession: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Preference'
+          description: ''
+    put:
+      operationId: account_notification_preferences_update
+      description: Base for every cookie-authenticated or sign-in endpoint.
+      tags:
+      - account-notifications
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PreferenceInputRequest'
+        required: true
+      security:
+      - customerSession: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Preference'
+          description: ''
+  /api/account/notifications/read/:
+    post:
+      operationId: account_notifications_read
+      description: Base for every cookie-authenticated or sign-in endpoint.
+      tags:
+      - account-notifications
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReadRequest'
+      security:
+      - customerSession: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Unread'
+          description: ''
   /api/account/password/change/:
     post:
       operationId: account_password_change
@@ -4935,6 +5044,621 @@ paths:
               schema:
                 $ref: '#/components/schemas/MediaAsset'
           description: ''
+  /api/manage/notifications/deliveries/:
+    get:
+      operationId: manage_deliveries
+      description: Base for every cookie-authenticated or sign-in endpoint.
+      parameters:
+      - in: query
+        name: channel
+        schema:
+          enum:
+          - email
+          - sms
+          - in_app
+          type: string
+          minLength: 1
+        description: |-
+          * `email` - Email
+          * `sms` - SMS
+          * `in_app` - In app
+      - in: query
+        name: failed
+        schema:
+          type: boolean
+          nullable: true
+      - in: query
+        name: kind
+        schema:
+          type: string
+          minLength: 1
+          maxLength: 60
+      - in: query
+        name: page
+        schema:
+          type: integer
+          maximum: 100000
+          minimum: 1
+          default: 1
+      - in: query
+        name: page_size
+        schema:
+          type: integer
+          maximum: 100
+          minimum: 1
+          default: 25
+      - in: query
+        name: status
+        schema:
+          enum:
+          - pending
+          - queued
+          - processing
+          - sent
+          - delivered
+          - failed
+          - cancelled
+          - suppressed
+          type: string
+          minLength: 1
+        description: |-
+          * `pending` - Pending
+          * `queued` - Queued
+          * `processing` - Processing
+          * `sent` - Accepted by the provider
+          * `delivered` - Delivery confirmed
+          * `failed` - Failed
+          * `cancelled` - Cancelled
+          * `suppressed` - Not sent (preferences or limits)
+      tags:
+      - manage-notifications
+      security:
+      - staffSession: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeliveryPage'
+          description: ''
+  /api/manage/notifications/deliveries/{notification_id}/attempts/:
+    get:
+      operationId: manage_delivery_attempts
+      description: Base for every cookie-authenticated or sign-in endpoint.
+      parameters:
+      - in: path
+        name: notification_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - manage-notifications
+      security:
+      - staffSession: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Attempt'
+          description: ''
+  /api/manage/notifications/deliveries/{notification_id}/retry/:
+    post:
+      operationId: manage_delivery_retry
+      description: Base for every cookie-authenticated or sign-in endpoint.
+      parameters:
+      - in: path
+        name: notification_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - manage-notifications
+      security:
+      - staffSession: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Delivery'
+          description: ''
+  /api/manage/notifications/deliveries/summary/:
+    get:
+      operationId: manage_delivery_summary
+      description: Base for every cookie-authenticated or sign-in endpoint.
+      tags:
+      - manage-notifications
+      security:
+      - staffSession: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeliverySummary'
+          description: ''
+  /api/manage/notifications/email/:
+    get:
+      operationId: manage_email_settings
+      description: Base for every cookie-authenticated or sign-in endpoint.
+      tags:
+      - manage-notifications
+      security:
+      - staffSession: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EmailSettings'
+          description: ''
+  /api/manage/notifications/email/imap/:
+    put:
+      operationId: manage_email_imap_update
+      description: Base for every cookie-authenticated or sign-in endpoint.
+      tags:
+      - manage-notifications
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ImapInputRequest'
+        required: true
+      security:
+      - staffSession: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EmailSettings'
+          description: ''
+  /api/manage/notifications/email/imap/verify/:
+    post:
+      operationId: manage_email_imap_verify
+      description: Base for every cookie-authenticated or sign-in endpoint.
+      tags:
+      - manage-notifications
+      security:
+      - staffSession: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EmailSettings'
+          description: ''
+  /api/manage/notifications/email/matemail/check/:
+    post:
+      operationId: manage_email_matemail_check
+      description: Base for every cookie-authenticated or sign-in endpoint.
+      tags:
+      - manage-notifications
+      security:
+      - staffSession: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EmailSettings'
+          description: ''
+  /api/manage/notifications/email/matemail/disconnect/:
+    post:
+      operationId: manage_email_matemail_disconnect
+      description: Base for every cookie-authenticated or sign-in endpoint.
+      tags:
+      - manage-notifications
+      security:
+      - staffSession: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EmailSettings'
+          description: ''
+  /api/manage/notifications/email/matemail/start/:
+    post:
+      operationId: manage_email_matemail_start
+      description: Base for every cookie-authenticated or sign-in endpoint.
+      tags:
+      - manage-notifications
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MateMailStartRequest'
+        required: true
+      security:
+      - staffSession: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EmailSettings'
+          description: ''
+  /api/manage/notifications/email/matemail/verify/:
+    post:
+      operationId: manage_email_matemail_verify
+      description: Base for every cookie-authenticated or sign-in endpoint.
+      tags:
+      - manage-notifications
+      security:
+      - staffSession: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EmailSettings'
+          description: ''
+  /api/manage/notifications/email/select/:
+    post:
+      operationId: manage_email_select
+      description: Base for every cookie-authenticated or sign-in endpoint.
+      tags:
+      - manage-notifications
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SelectRequest'
+        required: true
+      security:
+      - staffSession: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EmailSettings'
+          description: ''
+  /api/manage/notifications/email/smtp/:
+    put:
+      operationId: manage_email_smtp_update
+      description: Base for every cookie-authenticated or sign-in endpoint.
+      tags:
+      - manage-notifications
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SmtpInputRequest'
+        required: true
+      security:
+      - staffSession: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EmailSettings'
+          description: ''
+  /api/manage/notifications/email/smtp/sender-code/:
+    post:
+      operationId: manage_email_sender_code
+      description: Base for every cookie-authenticated or sign-in endpoint.
+      tags:
+      - manage-notifications
+      security:
+      - staffSession: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EmailSettings'
+          description: ''
+  /api/manage/notifications/email/smtp/sender-confirm/:
+    post:
+      operationId: manage_email_sender_confirm
+      description: Base for every cookie-authenticated or sign-in endpoint.
+      tags:
+      - manage-notifications
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CodeInputRequest'
+        required: true
+      security:
+      - staffSession: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EmailSettings'
+          description: ''
+  /api/manage/notifications/email/smtp/test/:
+    post:
+      operationId: manage_email_smtp_test
+      description: Base for every cookie-authenticated or sign-in endpoint.
+      tags:
+      - manage-notifications
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TestInputRequest'
+      security:
+      - staffSession: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EmailSettings'
+          description: ''
+  /api/manage/notifications/inbox/:
+    get:
+      operationId: manage_inbox
+      description: Base for every cookie-authenticated or sign-in endpoint.
+      parameters:
+      - in: query
+        name: category
+        schema:
+          enum:
+          - transactional
+          - security
+          - operational
+          - marketing
+          type: string
+          minLength: 1
+        description: |-
+          * `transactional` - Order and account updates
+          * `security` - Security
+          * `operational` - Store operations
+          * `marketing` - Marketing
+      - in: query
+        name: page
+        schema:
+          type: integer
+          maximum: 100000
+          minimum: 1
+          default: 1
+      - in: query
+        name: page_size
+        schema:
+          type: integer
+          maximum: 100
+          minimum: 1
+          default: 25
+      - in: query
+        name: unread
+        schema:
+          type: boolean
+          nullable: true
+      tags:
+      - manage-notifications
+      security:
+      - staffSession: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InboxItemPage'
+          description: ''
+  /api/manage/notifications/inbox/read/:
+    post:
+      operationId: manage_inbox_read
+      description: Base for every cookie-authenticated or sign-in endpoint.
+      tags:
+      - manage-notifications
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReadRequest'
+      security:
+      - staffSession: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Unread'
+          description: ''
+  /api/manage/notifications/inbox/unread/:
+    get:
+      operationId: manage_inbox_unread
+      description: Base for every cookie-authenticated or sign-in endpoint.
+      tags:
+      - manage-notifications
+      security:
+      - staffSession: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Unread'
+          description: ''
+  /api/manage/notifications/preferences/:
+    get:
+      operationId: manage_notification_preferences
+      description: Base for every cookie-authenticated or sign-in endpoint.
+      tags:
+      - manage-notifications
+      security:
+      - staffSession: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Preference'
+          description: ''
+    put:
+      operationId: manage_notification_preferences_update
+      description: Base for every cookie-authenticated or sign-in endpoint.
+      tags:
+      - manage-notifications
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PreferenceInputRequest'
+        required: true
+      security:
+      - staffSession: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Preference'
+          description: ''
+  /api/manage/notifications/sms/:
+    get:
+      operationId: manage_sms
+      description: Base for every cookie-authenticated or sign-in endpoint.
+      tags:
+      - manage-notifications
+      security:
+      - staffSession: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Sms'
+          description: ''
+    patch:
+      operationId: manage_sms_update
+      description: Base for every cookie-authenticated or sign-in endpoint.
+      tags:
+      - manage-notifications
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedSmsInputRequest'
+      security:
+      - staffSession: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Sms'
+          description: ''
+  /api/manage/notifications/templates/:
+    get:
+      operationId: manage_templates
+      description: Base for every cookie-authenticated or sign-in endpoint.
+      tags:
+      - manage-notifications
+      security:
+      - staffSession: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Template'
+          description: ''
+  /api/manage/notifications/templates/{key}/{locale}/:
+    put:
+      operationId: manage_template_update
+      description: Base for every cookie-authenticated or sign-in endpoint.
+      parameters:
+      - in: path
+        name: key
+        schema:
+          type: string
+        required: true
+      - in: path
+        name: locale
+        schema:
+          type: string
+        required: true
+      tags:
+      - manage-notifications
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TemplateInputRequest'
+      security:
+      - staffSession: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Template'
+          description: ''
+    delete:
+      operationId: manage_template_reset
+      description: Base for every cookie-authenticated or sign-in endpoint.
+      parameters:
+      - in: path
+        name: key
+        schema:
+          type: string
+        required: true
+      - in: path
+        name: locale
+        schema:
+          type: string
+        required: true
+      tags:
+      - manage-notifications
+      security:
+      - staffSession: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Template'
+          description: ''
+  /api/manage/notifications/templates/{key}/{locale}/preview/:
+    post:
+      operationId: manage_template_preview
+      description: Base for every cookie-authenticated or sign-in endpoint.
+      parameters:
+      - in: path
+        name: key
+        schema:
+          type: string
+        required: true
+      - in: path
+        name: locale
+        schema:
+          type: string
+        required: true
+      tags:
+      - manage-notifications
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TemplateTextRequest'
+      security:
+      - staffSession: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TemplatePreview'
+          description: ''
   /api/manage/orders/:
     get:
       operationId: manage_order_list
@@ -5662,6 +6386,27 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Member'
+          description: ''
+  /api/notifications/unsubscribe/:
+    post:
+      operationId: notifications_unsubscribe
+      description: Base for every cookie-authenticated or sign-in endpoint.
+      tags:
+      - account-notifications
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UnsubscribeRequest'
+        required: true
+      security:
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UnsubscribeResult'
           description: ''
   /api/orders/:
     get:
@@ -6911,6 +7656,31 @@ components:
       - sku
       - unit_price
       - variant_title
+    Attempt:
+      type: object
+      properties:
+        number:
+          type: integer
+        provider:
+          type: string
+        outcome:
+          type: string
+        error_code:
+          type: string
+        next_retry_at:
+          type: string
+          format: date-time
+          nullable: true
+        occurred_at:
+          type: string
+          format: date-time
+      required:
+      - error_code
+      - next_retry_at
+      - number
+      - occurred_at
+      - outcome
+      - provider
     Attribute:
       type: object
       properties:
@@ -7904,7 +8674,7 @@ components:
           type: string
           format: uuid
         channel:
-          $ref: '#/components/schemas/ChannelEnum'
+          $ref: '#/components/schemas/OtpChannelEnum'
         destination:
           type: string
           readOnly: true
@@ -7943,14 +8713,6 @@ components:
           format: uuid
       required:
       - challenge_id
-    ChannelEnum:
-      enum:
-      - email
-      - sms
-      type: string
-      description: |-
-        * `email` - Email
-        * `sms` - SMS
     CheckStateEnum:
       enum:
       - ok
@@ -8311,6 +9073,15 @@ components:
       - courier_remittance_disputed
       - courier_remittance_pending
       - currency
+    CodeInputRequest:
+      type: object
+      properties:
+        code:
+          type: string
+          minLength: 1
+          pattern: ^\s*\d{6}\s*$
+      required:
+      - code
     Collection:
       type: object
       properties:
@@ -8442,6 +9213,110 @@ components:
             "..."}}.'
       required:
       - name
+    Connection:
+      type: object
+      properties:
+        provider:
+          $ref: '#/components/schemas/MailProviderEnum'
+        is_enabled:
+          type: boolean
+        status:
+          $ref: '#/components/schemas/MailConnectionStatusEnum'
+        display_name:
+          type: string
+        smtp_host:
+          type: string
+        smtp_port:
+          type: integer
+          nullable: true
+        smtp_security:
+          $ref: '#/components/schemas/MailSecurityEnum'
+        smtp_username:
+          type: string
+        smtp_password_set:
+          type: boolean
+        from_email:
+          type: string
+        from_name:
+          type: string
+        reply_to:
+          type: string
+        sender_verified:
+          type: boolean
+        sender_code_pending:
+          type: boolean
+        imap_host:
+          type: string
+        imap_port:
+          type: integer
+          nullable: true
+        imap_security:
+          $ref: '#/components/schemas/MailSecurityEnum'
+        imap_username:
+          type: string
+        imap_password_set:
+          type: boolean
+        imap_status:
+          $ref: '#/components/schemas/MailConnectionStatusEnum'
+        imap_verified_at:
+          type: string
+          format: date-time
+          nullable: true
+        imap_error:
+          type: string
+        matemail_tenant_id:
+          type: string
+        matemail_authorization_url:
+          type: string
+        matemail_request_expires_at:
+          type: string
+          format: date-time
+          nullable: true
+        matemail_mailbox:
+          type: string
+        matemail_scopes:
+          type: array
+          items:
+            type: string
+        matemail_token_set:
+          type: boolean
+        last_verified_at:
+          type: string
+          format: date-time
+          nullable: true
+        last_error:
+          type: string
+      required:
+      - display_name
+      - from_email
+      - from_name
+      - imap_error
+      - imap_host
+      - imap_password_set
+      - imap_port
+      - imap_security
+      - imap_status
+      - imap_username
+      - imap_verified_at
+      - is_enabled
+      - last_error
+      - last_verified_at
+      - matemail_authorization_url
+      - matemail_mailbox
+      - matemail_request_expires_at
+      - matemail_scopes
+      - matemail_tenant_id
+      - matemail_token_set
+      - provider
+      - reply_to
+      - sender_code_pending
+      - sender_verified
+      - smtp_host
+      - smtp_password_set
+      - smtp_port
+      - smtp_security
+      - smtp_username
+      - status
     Consent:
       type: object
       properties:
@@ -8953,6 +9828,83 @@ components:
       - orders
       - recent_orders
       - start
+    Delivery:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        kind:
+          type: string
+        category:
+          $ref: '#/components/schemas/NotificationCategoryEnum'
+        channel:
+          $ref: '#/components/schemas/NotificationChannelEnum'
+        audience:
+          type: string
+        recipient:
+          type: string
+          description: 'Masked: enough to recognise, not to harvest (``r***@example.com``,
+            ``+880***78``).'
+          readOnly: true
+        subject:
+          type: string
+        status:
+          $ref: '#/components/schemas/NotificationStatusEnum'
+        attempts:
+          type: integer
+        provider:
+          type: string
+        failure_code:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        last_attempt_at:
+          type: string
+          format: date-time
+          nullable: true
+        sent_at:
+          type: string
+          format: date-time
+          nullable: true
+        can_retry:
+          type: boolean
+          readOnly: true
+      required:
+      - attempts
+      - audience
+      - can_retry
+      - category
+      - channel
+      - created_at
+      - failure_code
+      - id
+      - kind
+      - last_attempt_at
+      - provider
+      - recipient
+      - sent_at
+      - status
+      - subject
+    DeliveryPage:
+      type: object
+      properties:
+        count:
+          type: integer
+        page:
+          type: integer
+        page_size:
+          type: integer
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/Delivery'
+      required:
+      - count
+      - page
+      - page_size
+      - results
     DeliverySlot:
       type: object
       properties:
@@ -8974,6 +9926,22 @@ components:
       - id
       - label
       - starts_at
+    DeliverySummary:
+      type: object
+      properties:
+        pending:
+          type: integer
+        sent:
+          type: integer
+        failed:
+          type: integer
+        suppressed:
+          type: integer
+      required:
+      - failed
+      - pending
+      - sent
+      - suppressed
     DigitalAsset:
       type: object
       properties:
@@ -9094,6 +10062,26 @@ components:
           maxLength: 254
       required:
       - email
+    EmailSettings:
+      type: object
+      properties:
+        active_provider:
+          type: string
+          nullable: true
+        default_sender_available:
+          type: boolean
+        matemail_available:
+          type: boolean
+        smtp:
+          $ref: '#/components/schemas/Connection'
+        matemail:
+          $ref: '#/components/schemas/Connection'
+      required:
+      - active_provider
+      - default_sender_available
+      - matemail
+      - matemail_available
+      - smtp
     EngagedProduct:
       type: object
       properties:
@@ -9601,6 +10589,81 @@ components:
       - key
       - orders
       - value
+    ImapInputRequest:
+      type: object
+      properties:
+        imap_host:
+          type: string
+          maxLength: 253
+        imap_port:
+          type: integer
+          maximum: 65535
+          minimum: 1
+          nullable: true
+        imap_security:
+          $ref: '#/components/schemas/MailSecurityEnum'
+        imap_username:
+          type: string
+          maxLength: 254
+        imap_password:
+          type: string
+          writeOnly: true
+          maxLength: 500
+      required:
+      - imap_host
+      - imap_port
+      - imap_security
+      - imap_username
+    InboxItem:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        kind:
+          type: string
+        category:
+          $ref: '#/components/schemas/NotificationCategoryEnum'
+        title:
+          type: string
+        body:
+          type: string
+        link:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        read_at:
+          type: string
+          format: date-time
+          nullable: true
+      required:
+      - body
+      - category
+      - created_at
+      - id
+      - kind
+      - link
+      - read_at
+      - title
+    InboxItemPage:
+      type: object
+      properties:
+        count:
+          type: integer
+        page:
+          type: integer
+        page_size:
+          type: integer
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/InboxItem'
+      required:
+      - count
+      - page
+      - page_size
+      - results
     InventorySummary:
       type: object
       properties:
@@ -9969,6 +11032,14 @@ components:
       - ok
       type: string
       description: '* `ok` - ok'
+    LocaleEnum:
+      enum:
+      - en
+      - bn
+      type: string
+      description: |-
+        * `en` - en
+        * `bn` - bn
     Location:
       type: object
       properties:
@@ -10352,6 +11423,40 @@ components:
       - outstanding_points
       - pending_awards
       - program
+    MailConnectionStatusEnum:
+      enum:
+      - not_configured
+      - unverified
+      - awaiting_approval
+      - connected
+      - failed
+      - revoked
+      type: string
+      description: |-
+        * `not_configured` - Not configured
+        * `unverified` - Configured but not verified
+        * `awaiting_approval` - Waiting for approval in MateMail
+        * `connected` - Connected
+        * `failed` - Failed
+        * `revoked` - Revoked by the provider
+    MailProviderEnum:
+      enum:
+      - smtp
+      - matemail
+      type: string
+      description: |-
+        * `smtp` - Standard SMTP
+        * `matemail` - MateMail Connected App
+    MailSecurityEnum:
+      enum:
+      - starttls
+      - tls
+      - none
+      type: string
+      description: |-
+        * `starttls` - STARTTLS (port 587)
+        * `tls` - TLS (port 465)
+        * `none` - None (local development only)
     ManualCourierRequest:
       type: object
       properties:
@@ -10383,6 +11488,20 @@ components:
         * `category` - category
         * `collection` - collection
         * `variant` - variant
+    MateMailStartRequest:
+      type: object
+      properties:
+        tenant_id:
+          type: string
+          format: uuid
+        integration_secret:
+          type: string
+          writeOnly: true
+          minLength: 8
+          maxLength: 300
+      required:
+      - integration_secret
+      - tenant_id
     MediaAsset:
       type: object
       properties:
@@ -11373,6 +12492,51 @@ components:
         * `kg` - Kilogram
         * `ml` - Millilitre
         * `l` - Litre
+    NotificationCategoryEnum:
+      enum:
+      - transactional
+      - security
+      - operational
+      - marketing
+      type: string
+      description: |-
+        * `transactional` - Order and account updates
+        * `security` - Security
+        * `operational` - Store operations
+        * `marketing` - Marketing
+    NotificationChannelEnum:
+      enum:
+      - email
+      - sms
+      - in_app
+      type: string
+      description: |-
+        * `email` - Email
+        * `sms` - SMS
+        * `in_app` - In app
+    NotificationStatusEnum:
+      enum:
+      - pending
+      - queued
+      - processing
+      - sent
+      - delivered
+      - failed
+      - cancelled
+      - suppressed
+      type: string
+      description: |-
+        * `pending` - Pending
+        * `queued` - Queued
+        * `processing` - Processing
+        * `sent` - Accepted by the provider
+        * `delivered` - Delivery confirmed
+        * `failed` - Failed
+        * `cancelled` - Cancelled
+        * `suppressed` - Not sent (preferences or limits)
+    NullEnum:
+      enum:
+      - null
     Operation:
       type: object
       properties:
@@ -11873,6 +13037,14 @@ components:
       - order_value
       - storefront_cancelled
       - storefront_orders
+    OtpChannelEnum:
+      enum:
+      - email
+      - sms
+      type: string
+      description: |-
+        * `email` - Email
+        * `sms` - SMS
     Overview:
       type: object
       properties:
@@ -12667,6 +13839,19 @@ components:
           nullable: true
         allow_indexing:
           type: boolean
+    PatchedSmsInputRequest:
+      type: object
+      properties:
+        is_enabled:
+          type: boolean
+        requested_sender:
+          type: string
+          minLength: 1
+          pattern: ^[A-Za-z0-9 ]{3,11}$|^\+?[0-9]{6,15}$
+        order_updates:
+          type: boolean
+        shipping_updates:
+          type: boolean
     PatchedTrackingInputRequest:
       type: object
       properties:
@@ -12761,7 +13946,7 @@ components:
           maximum: 120
           minimum: 1
         provider:
-          $ref: '#/components/schemas/ProviderEnum'
+          $ref: '#/components/schemas/WarrantyProviderEnum'
         terms:
           type: string
           maxLength: 4000
@@ -12950,6 +14135,41 @@ components:
       required:
       - idempotency_key
       - payment_method
+    Preference:
+      type: object
+      properties:
+        topic:
+          type: string
+        title:
+          type: string
+        channel:
+          $ref: '#/components/schemas/NotificationChannelEnum'
+        enabled:
+          type: boolean
+        locked:
+          type: boolean
+          description: Essential messages that cannot be switched off.
+      required:
+      - channel
+      - enabled
+      - locked
+      - title
+      - topic
+    PreferenceInputRequest:
+      type: object
+      properties:
+        topic:
+          type: string
+          minLength: 1
+          maxLength: 40
+        channel:
+          $ref: '#/components/schemas/OtpChannelEnum'
+        enabled:
+          type: boolean
+      required:
+      - channel
+      - enabled
+      - topic
     PrepareShipmentRequest:
       type: object
       properties:
@@ -13680,14 +14900,6 @@ components:
       - name
       - orders
       - units
-    ProviderEnum:
-      enum:
-      - manufacturer
-      - seller
-      type: string
-      description: |-
-        * `manufacturer` - Manufacturer
-        * `seller` - Seller
     PublicApparel:
       type: object
       properties:
@@ -14365,6 +15577,18 @@ components:
       description: |-
         * `payment_verified` - When payment is verified or cash is collected
         * `order_placed` - When the order is placed
+    ReadRequest:
+      type: object
+      properties:
+        ids:
+          type: array
+          items:
+            type: string
+            format: uuid
+          maxItems: 200
+        all:
+          type: boolean
+          default: false
     Readiness:
       type: object
       properties:
@@ -14876,6 +16100,16 @@ components:
       - reauthenticated
       - recovery_codes_remaining
       - totp
+    SelectRequest:
+      type: object
+      properties:
+        provider:
+          nullable: true
+          oneOf:
+          - $ref: '#/components/schemas/MailProviderEnum'
+          - $ref: '#/components/schemas/NullEnum'
+      required:
+      - provider
     SeoItem:
       type: object
       properties:
@@ -15295,6 +16529,106 @@ components:
         * `category` - category
         * `collection` - collection
         * `page` - page
+    Sms:
+      type: object
+      properties:
+        provider_configured:
+          type: boolean
+        is_enabled:
+          type: boolean
+        requested_sender:
+          type: string
+        approved_sender:
+          type: string
+        sender_status:
+          $ref: '#/components/schemas/SmsSenderStatusEnum'
+        order_updates:
+          type: boolean
+        shipping_updates:
+          type: boolean
+        ready:
+          type: boolean
+        balance:
+          $ref: '#/components/schemas/SmsBalance'
+      required:
+      - approved_sender
+      - balance
+      - is_enabled
+      - order_updates
+      - provider_configured
+      - ready
+      - requested_sender
+      - sender_status
+      - shipping_updates
+    SmsBalance:
+      type: object
+      properties:
+        allowance:
+          type: integer
+        used:
+          type: integer
+        remaining:
+          type: integer
+        prepaid_credits:
+          type: integer
+      required:
+      - allowance
+      - prepaid_credits
+      - remaining
+      - used
+    SmsSenderStatusEnum:
+      enum:
+      - none
+      - pending
+      - approved
+      - rejected
+      type: string
+      description: |-
+        * `none` - No sender requested
+        * `pending` - Waiting for provider approval
+        * `approved` - Approved
+        * `rejected` - Rejected
+    SmtpInputRequest:
+      type: object
+      properties:
+        display_name:
+          type: string
+          maxLength: 80
+        smtp_host:
+          type: string
+          minLength: 1
+          maxLength: 253
+        smtp_port:
+          type: integer
+          maximum: 65535
+          minimum: 1
+        smtp_security:
+          $ref: '#/components/schemas/MailSecurityEnum'
+        smtp_username:
+          type: string
+          maxLength: 254
+        smtp_password:
+          type: string
+          writeOnly: true
+          maxLength: 500
+        from_email:
+          type: string
+          format: email
+          minLength: 1
+        from_name:
+          type: string
+          maxLength: 80
+        reply_to:
+          oneOf:
+          - type: string
+            format: email
+          - type: string
+            maxLength: 0
+      required:
+      - from_email
+      - smtp_host
+      - smtp_port
+      - smtp_security
     SourceRow:
       type: object
       properties:
@@ -15709,6 +17043,157 @@ components:
       - invitations
       - members
       - roles
+    Template:
+      type: object
+      properties:
+        key:
+          type: string
+        title:
+          type: string
+        category:
+          $ref: '#/components/schemas/NotificationCategoryEnum'
+        audience:
+          type: string
+        variables:
+          type: array
+          items:
+            type: string
+        supports_sms:
+          type: boolean
+        locales:
+          type: array
+          items:
+            $ref: '#/components/schemas/TemplateLocale'
+      required:
+      - audience
+      - category
+      - key
+      - locales
+      - supports_sms
+      - title
+      - variables
+    TemplateInputRequest:
+      type: object
+      properties:
+        subject:
+          type: string
+          maxLength: 160
+        heading:
+          type: string
+          maxLength: 120
+        body:
+          type: string
+          maxLength: 4000
+        sms:
+          type: string
+          maxLength: 480
+        in_app_title:
+          type: string
+          maxLength: 120
+        in_app_body:
+          type: string
+          maxLength: 300
+        is_enabled:
+          type: boolean
+          default: true
+    TemplateLocale:
+      type: object
+      properties:
+        locale:
+          $ref: '#/components/schemas/LocaleEnum'
+        customized:
+          type: boolean
+        is_enabled:
+          type: boolean
+        version:
+          type: integer
+        subject:
+          type: string
+        heading:
+          type: string
+        body:
+          type: string
+        sms:
+          type: string
+        in_app_title:
+          type: string
+        in_app_body:
+          type: string
+        default_subject:
+          type: string
+        default_heading:
+          type: string
+        default_body:
+          type: string
+        default_sms:
+          type: string
+      required:
+      - body
+      - customized
+      - default_body
+      - default_heading
+      - default_sms
+      - default_subject
+      - heading
+      - in_app_body
+      - in_app_title
+      - is_enabled
+      - locale
+      - sms
+      - subject
+      - version
+    TemplatePreview:
+      type: object
+      properties:
+        subject:
+          type: string
+        text:
+          type: string
+        html:
+          type: string
+        sms:
+          type: string
+        sms_segments:
+          type: integer
+        in_app_title:
+          type: string
+        in_app_body:
+          type: string
+      required:
+      - html
+      - in_app_body
+      - in_app_title
+      - sms
+      - sms_segments
+      - subject
+      - text
+    TemplateTextRequest:
+      type: object
+      properties:
+        subject:
+          type: string
+          maxLength: 160
+        heading:
+          type: string
+          maxLength: 120
+        body:
+          type: string
+          maxLength: 4000
+        sms:
+          type: string
+          maxLength: 480
+        in_app_title:
+          type: string
+          maxLength: 120
+        in_app_body:
+          type: string
+          maxLength: 300
+    TestInputRequest:
+      type: object
+      properties:
+        send_to_self:
+          type: boolean
+          default: false
     Theme:
       type: object
       properties:
@@ -15949,6 +17434,29 @@ components:
             maxLength: 0
       required:
       - status
+    Unread:
+      type: object
+      properties:
+        unread:
+          type: integer
+      required:
+      - unread
+    UnsubscribeRequest:
+      type: object
+      properties:
+        token:
+          type: string
+          minLength: 1
+          maxLength: 600
+      required:
+      - token
+    UnsubscribeResult:
+      type: object
+      properties:
+        unsubscribed:
+          type: boolean
+      required:
+      - unsubscribed
     Variant:
       type: object
       properties:
@@ -16165,7 +17673,7 @@ components:
           readOnly: true
         provider:
           allOf:
-          - $ref: '#/components/schemas/ProviderEnum'
+          - $ref: '#/components/schemas/WarrantyProviderEnum'
           readOnly: true
         terms:
           type: string
@@ -16198,6 +17706,14 @@ components:
       - page
       - page_size
       - results
+    WarrantyProviderEnum:
+      enum:
+      - manufacturer
+      - seller
+      type: string
+      description: |-
+        * `manufacturer` - Manufacturer
+        * `seller` - Seller
     WarrantyWriteRequest:
       type: object
       properties:
@@ -16210,7 +17726,7 @@ components:
           maximum: 120
           minimum: 1
         provider:
-          $ref: '#/components/schemas/ProviderEnum'
+          $ref: '#/components/schemas/WarrantyProviderEnum'
         terms:
           type: string
           maxLength: 4000

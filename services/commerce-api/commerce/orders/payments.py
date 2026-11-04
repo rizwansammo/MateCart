@@ -88,6 +88,9 @@ def _after_payment_change(order: Order, *, verified: bool) -> None:
     loyalty.sync_order(order)
     if verified:
         tracking.on_payment_verified(order)
+        from commerce.notifications import events as notify
+
+        notify.payment_verified(order)
 
 
 # --- Online payment -------------------------------------------------------------------------------
@@ -369,6 +372,9 @@ def _complete_refund(order: Order, refund: Refund, outcome_ref: str, actor: User
     from commerce.aftersales.digital import revoke_for_order
 
     revoke_for_order(order)
+    from commerce.notifications import events as notify
+
+    notify.refund_changed(order, refund)
 
 
 def _apply_refund_outcome(refund_id: Any, outcome: RefundOutcome) -> Refund:
@@ -496,6 +502,10 @@ def request_refund(
                 actor=actor,
                 changes={"number": order.number, "amount": amount, "method": refund.method},
             )
+            if not manual:
+                from commerce.notifications import events as notify
+
+                notify.refund_changed(order, refund)
             if manual:
                 # The merchant attests the cash was handed back: that is the verified event.
                 _complete_refund(order, refund, "", actor)

@@ -44,6 +44,10 @@ urlpatterns: list[URLPattern | URLResolver] = [
     # public consent, view events, sitemap feed and the customer's own points.
     path("api/manage/marketing/", include("commerce.marketing.manage_urls")),
     path("api/", include("commerce.marketing.urls")),
+    # Phase 13 notifications: merchant inbox, email/SMS settings, templates, delivery history;
+    # customer inbox and preferences; signed unsubscribe links.
+    path("api/manage/notifications/", include("commerce.notifications.manage_urls")),
+    path("api/", include("commerce.notifications.urls")),
 ]
 
 if settings.API_SCHEMA_ENABLED:

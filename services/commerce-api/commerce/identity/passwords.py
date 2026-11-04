@@ -113,6 +113,9 @@ def reset(*, realm: str, token: str, password: str) -> User:
         user.save(update_fields=["password", "email_verified_at", "updated_at"])
         sessions.revoke_all(user)
         record_audit_event(action="account.password.reset", resource=user, actor=user)
+        from commerce.notifications import events as notify
+
+        notify.password_changed(user)
     return user
 
 
@@ -128,3 +131,6 @@ def change(*, user: User, current_password: str, new_password: str, keep: AuthSe
         user.save(update_fields=["password", "updated_at"])
         sessions.revoke_all(user, keep=keep)
         record_audit_event(action="account.password.changed", resource=user, actor=user)
+        from commerce.notifications import events as notify
+
+        notify.password_changed(user)

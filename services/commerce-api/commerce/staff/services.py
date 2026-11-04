@@ -287,6 +287,9 @@ def change_role(*, actor: User, membership_id: uuid.UUID, role: str) -> StaffMem
             actor=actor,
             changes=field_changes(before, {"role": role}, fields=["role"]),
         )
+        from commerce.notifications import events as notify
+
+        notify.role_changed(membership.user, membership.get_role_display())
     return membership
 
 

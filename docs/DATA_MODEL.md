@@ -359,3 +359,20 @@ total); `CheckoutLine` and `OrderItem` `regular_unit_price`, `promotion_kind`, `
 `seo_title`/`seo_description` on `Category`, `Collection`, `ContentPage`. Existing rows take
 the defaults. No existing column changed meaning: `discount_total` remains the total order
 discount (coupon plus points).
+
+## Phase 13 notification schema
+
+App `notifications` (migrations `0001`, `0002` triggers). Every table is tenant-owned with composite
+tenant foreign keys. Rules: [MAIL_AND_NOTIFICATIONS.md](MAIL_AND_NOTIFICATIONS.md), D-086 to D-090.
+
+| Model                    | Key fields and invariants                                                                                                                                                                     |
+| ------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `MailConnection`         | One per provider per store; at most one enabled (partial unique); status set; encrypted SMTP/IMAP passwords and MateMail token (never returned); sender proof timestamp and hashed code.      |
+| `NotificationTemplate`   | Unique `(key, locale)`; plain-text overrides; version increments on save.                                                                                                                     |
+| `Notification`           | The outbox. Unique `(event_key, channel, recipient_key)`; channel/category/audience/status checks; in-app rows need a user, transport rows an address; rendered content cleared by retention. |
+| `DeliveryAttempt`        | Unique `(notification, number)`; outcome check; UPDATE refused by trigger (append-only).                                                                                                      |
+| `NotificationPreference` | Unique `(user, topic, channel)`.                                                                                                                                                              |
+| `CommunicationConsent`   | Marketing opt-in/withdrawal evidence; UPDATE and DELETE refused by trigger.                                                                                                                   |
+| `SmsSettings`            | One per store; approved status needs an approved sender (check).                                                                                                                              |
+| `SmsUsage`               | Segments ≥ 1, encoding, accepted, funding source, store-local month.                                                                                                                          |
+| `StockAlertState`        | One per variant (FK); level `ok`/`low`/`out`; sequence for event keys.                                                                                                                        |

@@ -20,6 +20,7 @@ import {
   errorMessage,
 } from '@matecart/shared-ui';
 import { authApi as api } from '@/lib/auth-client';
+import { CommunicationPreferences, CustomerNotifications } from './customer-notifications';
 import { CustomerRewards } from './customer-rewards';
 import { CustomerCommerceAccount } from './account-commerce';
 
@@ -518,8 +519,10 @@ function Account() {
             </Button>
           </form>
         </section>
+        <CustomerNotifications />
         <CustomerRewards />
         <CustomerCommerceAccount />
+        <CommunicationPreferences />
         <section className="rounded-base border border-line bg-surface p-6">
           <h2 className="text-lg font-bold">Ways to sign in</h2>
           <p className="mt-2 text-sm leading-6 text-muted">

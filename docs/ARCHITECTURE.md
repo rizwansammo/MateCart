@@ -1,7 +1,7 @@
 # Architecture
 
-Status: Phase 12 (marketing, SEO and analytics) implemented locally, pending acceptance. Phases
-01–11 and their corrective subphases are accepted and closed. Sections marked **(planned)** describe later
+Status: Phase 13 (mail and notifications) implemented locally, pending acceptance. Phases
+01–12 and their corrective subphases are accepted and closed. Sections marked **(planned)** describe later
 work. Schema: [DATA_MODEL.md](DATA_MODEL.md). Authentication: [AUTHENTICATION.md](AUTHENTICATION.md),
 security controls: [SECURITY.md](SECURITY.md).
 
@@ -208,6 +208,14 @@ Outside the database: cache keys use `tenant_cache_key(...)` (`tenant:<id>:...`)
   task outside locks. Storefront SEO (metadata, JSON-LD, robots, sitemap) is server-rendered by
   commerce-web from public APIs and a trusted public origin; indexing is off unless the
   deployment opts in.
+
+- **Mail and notifications (Phase 13).** `commerce.notifications` owns email connections (SMTP,
+  IMAP verification, MateMail Connected App), templates, the notification outbox, delivery
+  attempts, SMS settings and accounting, in-app inboxes, preferences and marketing consent
+  (D-086 to D-090, [MAIL_AND_NOTIFICATIONS.md](MAIL_AND_NOTIFICATIONS.md)). Domain services call
+  observer hooks inside their transactions; delivery is a Celery task outside locks, and a
+  MateCart-only Celery beat (`commerce-beat`) sweeps the outbox and runs scheduled jobs.
+  Authentication codes keep their synchronous after-commit path through the store transport.
 
 ### Independence from the Central Console
 

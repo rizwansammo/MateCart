@@ -28,6 +28,8 @@ import { CatalogManager } from './manage/catalog';
 import { CustomerList, CustomerProfile } from './manage/customers';
 import { InventoryManager } from './manage/inventory';
 import { MarketingWorkspace } from './manage/marketing';
+import { NotificationSettings } from './manage/notification-settings';
+import { NotificationBell, NotificationCenter } from './manage/notifications';
 import { OrderDetail, OrderInvoice, OrderList } from './manage/orders';
 import { Overview } from './manage/overview';
 import { ProductCreate, ProductEditor, ProductList } from './manage/products';
@@ -349,7 +351,10 @@ function Section({ path, session }: { path: string; session: StaffSession }) {
     case 'reports':
       return <Reports />;
     case 'settings':
+      if (second === 'notifications') return <NotificationSettings path={path} session={session} />;
       return <SettingsHub session={session} />;
+    case 'notifications':
+      return <NotificationCenter />;
     case 'appearance':
       return <AppearanceSettings canManageSettings={can('store.settings')} />;
     case 'content':
@@ -401,6 +406,7 @@ function ProtectedManagement({ path }: { path: string }) {
       subtitle={`${session.user.full_name} · ${session.role_label}`}
       groups={navigation(session.permissions)}
       current={`/manage${path ? `/${path}` : ''}`}
+      headerActions={<NotificationBell />}
       onLogout={async () => {
         await api.post('/api/manage/auth/logout/');
         window.location.assign('/manage/sign-in');

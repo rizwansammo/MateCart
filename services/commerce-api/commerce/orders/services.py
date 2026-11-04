@@ -474,6 +474,9 @@ def _place(
             "grand_total": order.grand_total,
         },
     )
+    from commerce.notifications import events as notify
+
+    notify.order_placed(order)  # Phase 13: observes the placement (D-087)
     if online:
         _schedule_payment_expiry(order)
     return order, False
@@ -644,6 +647,9 @@ def apply_transition(
             "reason": reason,
         },
     )
+    from commerce.notifications import events as notify
+
+    notify.order_status_changed(order, to_status=to_status, reason=reason)
     return order
 
 

@@ -38,13 +38,18 @@ class SentSms:
     body: str
     tenant_id: uuid.UUID
     purpose: str
+    sender: str = ""
 
 
 class FakeSmsProvider:
     outbox: ClassVar[list[SentSms]] = []
 
-    def send(self, *, to: str, body: str, tenant_id: uuid.UUID, purpose: str) -> None:
-        self.outbox.append(SentSms(to=to, body=body, tenant_id=tenant_id, purpose=purpose))
+    def send(
+        self, *, to: str, body: str, tenant_id: uuid.UUID, purpose: str, sender: str = ""
+    ) -> None:
+        self.outbox.append(
+            SentSms(to=to, body=body, tenant_id=tenant_id, purpose=purpose, sender=sender)
+        )
 
 
 class FakePaymentProvider:

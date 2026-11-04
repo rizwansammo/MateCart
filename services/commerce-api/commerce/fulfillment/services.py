@@ -231,6 +231,9 @@ def assess_order(*, order_id: Any) -> FraudAssessment:
             actor_label="system",
             changes={"score": assessment.score, "flags": [flag[0] for flag in flags]},
         )
+        from commerce.notifications import events as notify
+
+        notify.fraud_flagged(order, assessment)
         return assessment
 
 
@@ -452,6 +455,9 @@ def transition_shipment(
             from commerce.marketing import loyalty
 
             loyalty.sync_order(order)  # delivery can make earned points usable (D-082)
+        from commerce.notifications import events as notify
+
+        notify.shipment_changed(order, shipment, to_status=to_status)
         return shipment
 
 

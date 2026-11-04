@@ -437,6 +437,7 @@ export function DashboardShell({
   links = [],
   groups,
   current,
+  headerActions,
   onLogout,
 }: {
   children: ReactNode;
@@ -450,6 +451,8 @@ export function DashboardShell({
   groups?: NavGroup[];
   /** The current path, so its link is marked as the open page. */
   current?: string;
+  /** Optional controls shown before Sign out (for example a notification bell). */
+  headerActions?: ReactNode;
   onLogout: () => Promise<void>;
 }) {
   const paths = authPaths(realm);
@@ -523,21 +526,24 @@ export function DashboardShell({
           <p className="text-sm font-semibold">{name}</p>
           <p className="text-xs text-muted">{subtitle}</p>
         </div>
-        <Button
-          variant="secondary"
-          busy={busy}
-          onClick={async () => {
-            setBusy(true);
-            try {
-              await onLogout();
-            } catch (err) {
-              setError(errorMessage(err));
-              setBusy(false);
-            }
-          }}
-        >
-          Sign out
-        </Button>
+        <div className="flex items-center gap-3">
+          {headerActions}
+          <Button
+            variant="secondary"
+            busy={busy}
+            onClick={async () => {
+              setBusy(true);
+              try {
+                await onLogout();
+              } catch (err) {
+                setError(errorMessage(err));
+                setBusy(false);
+              }
+            }}
+          >
+            Sign out
+          </Button>
+        </div>
       </header>
       <main className="mx-auto max-w-[1400px] p-5 sm:p-8">
         {error && (

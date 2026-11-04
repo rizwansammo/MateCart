@@ -1084,6 +1084,100 @@ idempotency_conflict`. The free-text reason, actor and a batch's supplier
   `hreflang` is emitted. Public category and collection payloads now include `id` for view
   events.
 
+### D-086 · Email transports: SMTP, IMAP verification, MateMail Connected App (2026-11-04, Phase 13)
+
+- **Transports.** One store transport at a time: the enabled, connected `MailConnection` (SMTP or
+  MateMail), otherwise the deployment default (`EMAIL_URL`). There is no automatic failover after
+  a provider may have accepted a message.
+- **SMTP.**
+  - Credentials are encrypted with `commerce.core.security` and never returned, logged or audited
+    by value.
+  - Connected requires a successful login test **and** sender proof: a code sent to the From
+    address through that server. A changed host, credential or From address resets this.
+  - Test messages go only to the signed-in staff member's verified address.
+- **Network safety.**
+  - Hosts are resolved once, every address must be public, and the socket is pinned to the
+    vetted IP while TLS verifies the host name.
+  - Standard mail ports only; TLS 1.2+ with certificate validation; 15-second timeouts; safe
+    error codes only.
+  - `MATECART_MAIL_INTERNAL_HOSTS` (development: `mailpit`) is the only exception.
+- **IMAP** is configuration plus read-only login verification. Inbound mail processing is out of
+  scope.
+- **MateMail.** The native connector uses MateMail's documented Connected App API (audited
+  read-only; no MateMail change):
+  - tenant ID plus one-time integration secret, then MateMail approval, then a revocable `mmc_`
+    token with `mail.send`;
+  - the From address is forced to the approved mailbox, and the idempotency key is
+    `matecart-<notification id>`;
+  - 409 means outcome unknown, 401 means revoked; reconnecting rotates and disconnects the old
+    token;
+  - `MATEMAIL_BASE_URL` is deployment-only.
+- Credential and transport changes need `store.settings` and a recent sign-in.
+
+### D-087 · Notification engine: durable outbox, single attempt policy, events (2026-11-04, Phase 13)
+
+- **Outbox.** `commerce.notifications`: `Notification` rows are the durable outbox. They are
+  written in the business transaction inside a savepoint that never propagates failure, and are
+  unique per `(event_key, channel, recipient hash)`. Delivery is queued after commit; a
+  MateCart-only Celery beat sweeper re-queues pending and stranded rows.
+- **Delivery.** Delivery claims a row, sends outside locks, and appends a `DeliveryAttempt`
+  (UPDATE refused by trigger).
+  - Retries: at most 5 attempts, with backoff of 1, 5, 15 and 30 minutes, for temporary errors
+    only.
+  - A permanent error fails the message.
+  - An unknown outcome (failure after SMTP DATA, MateMail 409, or a worker dying mid-send) is
+    failed and never resent automatically. Staff may resend deliberately (audited, rate limited).
+- **Events.** Hooks observe committed services: placement, status transitions, verified payment
+  and COD collection, refunds, shipment transitions, after-sales, reviews, fraud flags, password,
+  MFA and role changes. They never change business state. COD is "paid" only after collection,
+  and courier replays send nothing.
+- **Staff routing.** In-app staff rows go to members whose fixed role grants the event's
+  permission, re-checked on read. Staff email is opt-in per topic.
+- **Stock alerts** use the Phase 11 sellable-stock definition and fire on worsening transitions
+  only.
+
+### D-088 · Templates, rendering and retention (2026-11-04, Phase 13)
+
+- **Templates.** System texts in English and Bangla for every kind. Merchants override plain text
+  per language with allowlisted `{variables}` only, and can disable a kind except security kinds.
+- **Rendering.** The server builds the HTML layout from store branding. All values are escaped,
+  subjects are single-line, and links use the store's public URL only.
+- **Versioning.** Content is rendered at emission and stored with the template version, so edits
+  never change committed messages.
+- **Retention.**
+  - Message content and recipient address are cleared after 90 days.
+  - Read in-app rows are deleted after 180 days; records after 400 days.
+  - SMS usage and consent evidence are kept.
+- Authentication codes, links and invitations stay on the synchronous after-commit path (D-041),
+  never in Celery or notification records.
+
+### D-089 · SMS gateway: approved senders and segment accounting (2026-11-04, Phase 13)
+
+- **Provider.** The existing `SmsProvider` boundary gains an optional `sender` argument. The
+  provider is per deployment.
+- **Sender ids.** Merchants request one (`pending`). Only NetaMate records approval
+  (`manage.py approve_sms_sender`), and SMS can be enabled only after approval.
+- **Accounting.** `SmsUsage` records segments (GSM-7 160/153, UCS-2 70/67) per submission,
+  including authentication SMS. The monthly allowance is used first, then provisioned prepaid
+  credits. When both are exhausted, SMS is suppressed (authentication SMS is never blocked).
+- **Limits.** 6 SMS per recipient per hour, 500 per store per hour.
+- No SMS purchase, recharge or billing (deferred).
+
+### D-090 · In-app inbox, preferences, marketing consent and platform boundary (2026-11-04, Phase 13)
+
+- **Inbox.** In-app rows belong to one user. Staff inbox rows are filtered by current
+  permissions; customers see only their own. Links are internal paths behind the same checks.
+- **Preferences.**
+  - Essential order and security email cannot be disabled.
+  - Customers can disable SMS order updates; staff choose email per topic.
+- **Marketing.**
+  - Requires an explicit opt-in, recorded append-only in `CommunicationConsent` (trigger refuses
+    UPDATE and DELETE). Phase 12 tracking consent never counts.
+  - Signed, store-bound unsubscribe links (90 days) need a click and are idempotent.
+  - Queued marketing is suppressed after withdrawal.
+- **Platform boundary.** The Control API keeps its own email configuration and never uses a
+  store's credentials. Central infrastructure alerts are Phase 16 and are not implemented.
+
 ## Open questions for the owner
 
 | #   | Question                                                                                                                                   | Status                                                                                                    | Needed by |

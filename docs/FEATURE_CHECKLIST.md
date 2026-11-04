@@ -278,22 +278,25 @@ Update the status in the same change that completes a feature.
 Authentication-only SMTP abstraction and local Mailpit are implemented in 03.
 Full notification delivery, queues/retries, native MateMail and masking SMS remain below.
 
-- [ ] Managed masking SMS gateway and approved store sender identities (13)
-- [ ] Per-store SMS accounting: included allowance before prepaid credits (future billing scope; no recharge/purchase UI now)
-
-- [ ] Standard SMTP and IMAP connection
-- [ ] Native MateMail Connected App with properly scoped tenant and application credentials
-- [ ] Audit of MateMail native API capabilities, implemented where necessary. An existing tenant id and secret is not assumed to be a secure integration API.
-- [ ] Merchant and NetaMate administrative email configurations isolated
+- [x] Managed SMS gateway: approved store sender ids (NetaMate approval), E.164 recipients (13, D-089)
+- [x] Per-store SMS accounting: segments, included allowance before provisioned prepaid credits (no recharge/purchase UI)
+- [x] Standard SMTP (sender proof, SSRF-safe pinned connections) and IMAP connection verification (13, D-086)
+- [x] Native MateMail Connected App: scoped mailbox, `mail.send`, revocation, rotation by reconnect (13, D-086)
+- [x] Audit of MateMail's Connected App API (read-only); used as documented, no MateMail change
+- [x] Merchant and NetaMate administrative email configurations isolated (Control API untouched)
+- [ ] Live MateMail and SMS provider acceptance (needs a MateMail instance, provider credentials and an approved sender)
 
 ## Notifications (13; console alerts 16)
 
 Merchant-side:
 
-- [ ] New orders · order confirmations · payment success and failure · order status changes
-- [ ] Shipment and delivery updates · refunds and returns · low stock · suspicious COD orders
-- [ ] Customer messages and reviews · staff and account security notifications
-- [ ] Optional sales summaries and consent-based marketing reminders
+- [x] New orders · order confirmations · payment success and failure · order status changes (13)
+- [x] Shipment and delivery updates · refunds and returns · low stock · suspicious COD orders (13)
+- [x] Customer messages and reviews · staff and account security notifications (13)
+- [x] Optional daily summary and consent-based points reminders (13)
+- [x] Durable outbox, retries, unknown-outcome rule, delivery history, controlled resend (13, D-087)
+- [x] Templates in English and Bangla with safe variables and preview (13, D-088)
+- [x] Merchant bell and inbox; customer notifications; preferences; marketing consent and unsubscribe (13, D-090)
 
 Central Console alerts:
 
@@ -357,7 +360,7 @@ Accepted and closed with 10.1: `6fe1a8c`, GitHub Actions 41115310035, 4/4 jobs, 
 - [ ] Merchant UI translation (English only); shipping, tax and slot editing UIs (coupon editing: Phase 12)
 - [x] Owner commit/push (`13043bb`), GitHub CI 41656247516 (4/4, 1,144 tests) and independent acceptance
 
-## Marketing, SEO and analytics (Phase 12; implemented locally, acceptance pending)
+## Marketing, SEO and analytics (Phase 12; accepted and closed with corrections)
 
 - [x] Campaigns: percent/fixed/featured, product/category/collection targets, server-derived
       lifecycle, preview, performance, audit (D-081)

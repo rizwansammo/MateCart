@@ -27,6 +27,12 @@ export function SettingsHub({ session }: { session: StaffSession }) {
       allowed: can('content.manage'),
     },
     {
+      href: '/manage/settings/notifications',
+      title: 'Email and notifications',
+      body: 'Email provider (SMTP or MateMail), SMS sender, message templates and delivery history.',
+      allowed: can('store.settings'),
+    },
+    {
       href: '/manage/team',
       title: 'Team and access',
       body: 'Invite staff, change roles, suspend or restore access.',

@@ -88,6 +88,7 @@ def confirm_totp(user: User, code: str) -> bool:
         device.confirmed_at = timezone.now()
         device.last_used_step = step
         device.save(update_fields=["confirmed_at", "last_used_step"])
+        _notify(user, "authenticator app turned on")
     return True
 
 
@@ -113,15 +114,26 @@ def verify_totp(user: User, code: str) -> bool:
 
 
 def remove_totp(user: User) -> None:
-    TotpDevice.objects.filter(user=user).delete()
+    with transaction.atomic():
+        TotpDevice.objects.filter(user=user).delete()
+        _notify(user, "authenticator app removed")
+
+
+def _notify(user: User, change: str) -> None:
+    """Phase 13: tell the account owner about a sign-in protection change (no secrets)."""
+    from commerce.notifications import events as notify
+
+    notify.mfa_changed(user, change)
 
 
 # --- Email codes ----------------------------------------------------------------------------------
 
 
 def enable_email(user: User) -> None:
-    User.objects.filter(pk=user.pk).update(email_mfa_enabled_at=timezone.now())
-    user.refresh_from_db(fields=["email_mfa_enabled_at"])
+    with transaction.atomic():
+        User.objects.filter(pk=user.pk).update(email_mfa_enabled_at=timezone.now())
+        user.refresh_from_db(fields=["email_mfa_enabled_at"])
+        _notify(user, "email codes turned on")
 
 
 def disable_email(user: User) -> None:
@@ -130,6 +142,7 @@ def disable_email(user: User) -> None:
     OtpChallenge.objects.filter(
         user=user, purpose=OtpPurpose.MFA_EMAIL, consumed_at__isnull=True
     ).update(consumed_at=timezone.now())
+    _notify(user, "email codes turned off")
 
 
 # --- Recovery codes -------------------------------------------------------------------------------

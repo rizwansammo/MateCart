@@ -4,27 +4,27 @@
 
 ## Status board
 
-| #   | Phase                                       | Stage                         | Status                                                                                    |
-| --- | ------------------------------------------- | ----------------------------- | ----------------------------------------------------------------------------------------- |
-| 01  | Project Foundation                          | A — Foundation                | **Complete — accepted** (`8f3e34b`, CI passed 4/4)                                        |
-| 02  | Database & Tenant Architecture              | A — Foundation                | **Accepted and closed**, including 02.1/02.2 (`aceae6f`, CI 40213680998: 4/4, 260 tests). |
-| 03  | Authentication & Security                   | A — Foundation                | **Accepted and closed**, including 03.1 (`5d6152a`, CI 40237897132: 4/4, 463 tests).      |
-| 04  | Product & Inventory Engine                  | A — Foundation                | **Accepted and closed**, including 04.1 (`8290fe4`, CI 40249765179: 4/4, 735 tests).      |
-| 05  | Presets, Themes & Branding                  | B — Commerce Application      | **Accepted and closed**, including 05.1 (`613cd49`, CI 40301529264: 4/4, 827 tests).      |
-| 06  | Customer Storefront                         | B — Commerce Application      | **Accepted and closed**, including 06.2 (`cd4ca91`, CI 40322387368: 4/4, 960 tests).      |
-| 07  | Cart & Checkout                             | B — Commerce Application      | **Accepted and closed**, including 07.1 (`12f2d5b`, CI 40366676323: 4/4, 1,007 tests).    |
-| 08  | Orders, Payments & Invoices                 | B — Commerce Application      | **Accepted and closed**, including 08.1 (`b2eb55f`, CI passed 4/4)                        |
-| 09  | Fulfillment & Courier                       | B — Commerce Application      | **Accepted and closed**, including 09.1 (`1ffdf36`, CI passed 4/4)                        |
-| 10  | Customer Accounts & After-sales             | B — Commerce Application      | **Accepted and closed**, including 10.1 (`6fe1a8c`, CI 41115310035: 4/4, 1,085 tests).    |
-| 11  | Merchant Management Dashboard               | B — Commerce Application      | **Accepted and closed**, including 11.1 (`13043bb`, CI 41656247516: 4/4, 1,144 tests).    |
-| 12  | Marketing, SEO & Analytics                  | C — Growth & Integrations     | **Implemented locally**; owner review, commit and CI pending                              |
-| 13  | Mail & Notification Engine                  | C — Growth & Integrations     | Pending                                                                                   |
-| 14  | Social Commerce & Unified Inbox             | C — Growth & Integrations     | Pending                                                                                   |
-| 15  | AI & Advanced Extensions                    | C — Growth & Integrations     | Pending                                                                                   |
-| 16  | Central Platform Console                    | D — Platform & Infrastructure | Pending                                                                                   |
-| 17  | Deployment Automation                       | D — Platform & Infrastructure | Pending                                                                                   |
-| 18  | Final Quality, Performance & Security       | D — Platform & Infrastructure | Pending                                                                                   |
-| 19  | Production Deployment & Private Beta Launch | E — Production Launch         | Pending (never before 01–18 are accepted)                                                 |
+| #   | Phase                                       | Stage                         | Status                                                                                        |
+| --- | ------------------------------------------- | ----------------------------- | --------------------------------------------------------------------------------------------- |
+| 01  | Project Foundation                          | A — Foundation                | **Complete — accepted** (`8f3e34b`, CI passed 4/4)                                            |
+| 02  | Database & Tenant Architecture              | A — Foundation                | **Accepted and closed**, including 02.1/02.2 (`aceae6f`, CI 40213680998: 4/4, 260 tests).     |
+| 03  | Authentication & Security                   | A — Foundation                | **Accepted and closed**, including 03.1 (`5d6152a`, CI 40237897132: 4/4, 463 tests).          |
+| 04  | Product & Inventory Engine                  | A — Foundation                | **Accepted and closed**, including 04.1 (`8290fe4`, CI 40249765179: 4/4, 735 tests).          |
+| 05  | Presets, Themes & Branding                  | B — Commerce Application      | **Accepted and closed**, including 05.1 (`613cd49`, CI 40301529264: 4/4, 827 tests).          |
+| 06  | Customer Storefront                         | B — Commerce Application      | **Accepted and closed**, including 06.2 (`cd4ca91`, CI 40322387368: 4/4, 960 tests).          |
+| 07  | Cart & Checkout                             | B — Commerce Application      | **Accepted and closed**, including 07.1 (`12f2d5b`, CI 40366676323: 4/4, 1,007 tests).        |
+| 08  | Orders, Payments & Invoices                 | B — Commerce Application      | **Accepted and closed**, including 08.1 (`b2eb55f`, CI passed 4/4)                            |
+| 09  | Fulfillment & Courier                       | B — Commerce Application      | **Accepted and closed**, including 09.1 (`1ffdf36`, CI passed 4/4)                            |
+| 10  | Customer Accounts & After-sales             | B — Commerce Application      | **Accepted and closed**, including 10.1 (`6fe1a8c`, CI 41115310035: 4/4, 1,085 tests).        |
+| 11  | Merchant Management Dashboard               | B — Commerce Application      | **Accepted and closed**, including 11.1 (`13043bb`, CI 41656247516: 4/4, 1,144 tests).        |
+| 12  | Marketing, SEO & Analytics                  | C — Growth & Integrations     | **Accepted and closed**, including corrections (`bdcac40`, CI 41777281655: 4/4, 1,258 tests). |
+| 13  | Mail & Notification Engine                  | C — Growth & Integrations     | **Implemented locally**; owner review, commit and CI pending                                  |
+| 14  | Social Commerce & Unified Inbox             | C — Growth & Integrations     | Pending                                                                                       |
+| 15  | AI & Advanced Extensions                    | C — Growth & Integrations     | Pending                                                                                       |
+| 16  | Central Platform Console                    | D — Platform & Infrastructure | Pending                                                                                       |
+| 17  | Deployment Automation                       | D — Platform & Infrastructure | Pending                                                                                       |
+| 18  | Final Quality, Performance & Security       | D — Platform & Infrastructure | Pending                                                                                       |
+| 19  | Production Deployment & Private Beta Launch | E — Production Launch         | Pending (never before 01–18 are accepted)                                                     |
 
 | Standing item                          | Status                                     |
 | -------------------------------------- | ------------------------------------------ |
@@ -196,12 +196,22 @@ Implemented locally (D-081 to D-085, [MARKETING.md](MARKETING.md)): campaigns an
 the existing pricing and checkout engine (one promotion per item, no coupon stacking), merchant
 coupon management, a verified loyalty ledger, store-aware SEO with safe indexing, sitemap and
 structured data, consent management, first-party analytics with exact rolling 24-hour visitors,
-and a consent-gated Meta Pixel and Conversions API (no live credentials configured). Pending
-owner review, commit/push, GitHub CI and acceptance.
+and a consent-gated Meta Pixel and Conversions API (no live credentials configured).
+Accepted and closed with its corrections (strict typing, exact rolling 24-hour counters) at
+`bdcac40`, GitHub Actions 41777281655 (4/4 jobs, 1,258 tests).
 
 ### Phase 13 — Mail & Notification Engine
 
 SMTP and IMAP, the MateMail native connected app, transactional email, templates, queues, retries, in-app notifications, notification logs.
+
+Implemented locally (D-086 to D-090, [MAIL_AND_NOTIFICATIONS.md](MAIL_AND_NOTIFICATIONS.md)):
+a durable notification outbox with idempotent events from orders, payments, shipments, after
+sales, reviews, fraud, stock and account security; Celery delivery with bounded retries, an
+explicit unknown-outcome rule and a MateCart beat sweeper; SMTP with sender proof and SSRF-safe
+connections; IMAP verification; the MateMail Connected App (audited, used as documented);
+branded English/Bangla templates; an SMS gateway with approved senders and segment accounting;
+merchant and customer in-app notifications, preferences, marketing consent and unsubscribe.
+Pending owner review, commit/push, GitHub CI and acceptance.
 
 ### Phase 14 — Social Commerce & Unified Inbox
 
