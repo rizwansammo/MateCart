@@ -54,6 +54,7 @@ const order: Order = {
       id: 'item-1',
       product_name: 'Green tea',
       variant_title: '100 g',
+      variant: '00000000-0000-7000-8000-0000000000aa',
       sku: 'TEA-100',
       kind: 'physical',
       quantity: '2.000',

@@ -27,6 +27,7 @@ import { AssistedOrderForm } from './manage/assisted-order';
 import { CatalogManager } from './manage/catalog';
 import { CustomerList, CustomerProfile } from './manage/customers';
 import { InventoryManager } from './manage/inventory';
+import { MarketingWorkspace } from './manage/marketing';
 import { OrderDetail, OrderInvoice, OrderList } from './manage/orders';
 import { Overview } from './manage/overview';
 import { ProductCreate, ProductEditor, ProductList } from './manage/products';
@@ -355,6 +356,8 @@ function Section({ path, session }: { path: string; session: StaffSession }) {
       return <ContentSettings />;
     case 'team':
       return <TeamSettings />;
+    case 'marketing':
+      return <MarketingWorkspace path={path} session={session} />;
     default:
       return <SecuritySettings api={api} base="/api/manage/account" />;
   }

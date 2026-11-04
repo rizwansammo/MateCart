@@ -8,6 +8,7 @@ history. Files are served only when an active product, category or collection us
 
 import re
 import uuid
+from datetime import timedelta
 from decimal import Decimal
 from typing import Any
 
@@ -24,6 +25,7 @@ from django.db.models import (
     Value,
 )
 from django.http import Http404
+from django.utils import timezone
 from drf_spectacular.utils import extend_schema, extend_schema_field
 from rest_framework import serializers
 from rest_framework.permissions import AllowAny
@@ -37,6 +39,8 @@ from commerce.core.pagination import PageQuerySerializer, paginate, paginated
 from commerce.core.standards import PLATFORM_LANGUAGES
 from commerce.identity.auth import CsrfProtectedAPIView
 from commerce.inventory.services import sellable_quantities, store_today
+from commerce.marketing import promotions
+from commerce.marketing.models import SeoSettings
 from commerce.media.models import MediaAsset
 from commerce.media.views import file_response
 from commerce.pricing.models import Price
@@ -91,16 +95,32 @@ class PublicImageSerializer(serializers.Serializer[Any]):
         return public_media_url(row.asset_id)
 
 
+class PublicPromotionSerializer(serializers.Serializer[Any]):
+    """A live promotion (Phase 12, D-081): server-evaluated, never a client claim."""
+
+    kind = serializers.ChoiceField(choices=promotions.PUBLIC_KINDS)
+    name = serializers.CharField()
+    badge = serializers.CharField()
+    ends_at = serializers.DateTimeField()
+
+
 class PublicPriceSerializer(serializers.Serializer[Any]):
     currency = serializers.CharField()
     amount = serializers.DecimalField(max_digits=19, decimal_places=4)
     compare_at_amount = serializers.DecimalField(max_digits=19, decimal_places=4, allow_null=True)
+    promotion = PublicPromotionSerializer(allow_null=True)
 
 
 class PublicPriceRangeSerializer(serializers.Serializer[dict[str, Any]]):
     currency = serializers.CharField()
     min_amount = serializers.DecimalField(max_digits=19, decimal_places=4)
     max_amount = serializers.DecimalField(max_digits=19, decimal_places=4)
+    regular_min_amount = serializers.DecimalField(
+        max_digits=19,
+        decimal_places=4,
+        allow_null=True,
+        help_text="The lowest regular price, when a promotion lowers at least one variant.",
+    )
 
 
 class PublicBrandSerializer(serializers.Serializer[Any]):
@@ -119,6 +139,7 @@ class PublicProductSummarySerializer(serializers.Serializer[Any]):
     image = serializers.SerializerMethodField()
     in_stock = serializers.BooleanField()
     translations = serializers.JSONField()
+    promotion = PublicPromotionSerializer(allow_null=True)
     # Phase 06: book cards show their authors (empty for every other product).
     authors = serializers.SerializerMethodField()
 
@@ -209,8 +230,17 @@ class PublicElectronicsSerializer(serializers.Serializer[Any]):
     warranty = PublicWarrantySerializer(allow_null=True)
 
 
+class PublicUpcomingSaleSerializer(serializers.Serializer[Any]):
+    name = serializers.CharField()
+    starts_at = serializers.DateTimeField()
+    ends_at = serializers.DateTimeField()
+
+
 class PublicProductDetailSerializer(PublicProductSummarySerializer):
     description = serializers.CharField()
+    updated_at = serializers.DateTimeField()
+    upcoming_sale = PublicUpcomingSaleSerializer(allow_null=True)
+    server_time = serializers.DateTimeField(help_text="Server clock for countdowns.")
     seo_title = serializers.CharField()
     seo_description = serializers.CharField()
     categories = PublicCategoryRefSerializer(source="placements.all", many=True)
@@ -245,11 +275,14 @@ class PublicProductDetailSerializer(PublicProductSummarySerializer):
 
 
 class PublicCategoryNodeSerializer(serializers.Serializer[Any]):
+    id = serializers.UUIDField(source="category.id")
     name = serializers.CharField(source="category.name")
     slug = serializers.CharField(source="category.slug")
     description = serializers.CharField(source="category.description")
     image_url = serializers.SerializerMethodField()
     translations = serializers.JSONField(source="category.translations")
+    seo_title = serializers.CharField(source="category.seo_title")
+    seo_description = serializers.CharField(source="category.seo_description")
     children = serializers.SerializerMethodField()
 
     def get_image_url(self, node: dict[str, Any]) -> str | None:
@@ -262,11 +295,14 @@ class PublicCategoryNodeSerializer(serializers.Serializer[Any]):
 
 
 class PublicCollectionSerializer(serializers.Serializer[Any]):
+    id = serializers.UUIDField()
     name = serializers.CharField()
     slug = serializers.CharField()
     description = serializers.CharField()
     image_url = serializers.SerializerMethodField()
     translations = serializers.JSONField()
+    seo_title = serializers.CharField()
+    seo_description = serializers.CharField()
 
     def get_image_url(self, collection: Collection) -> str | None:
         return public_media_url(collection.image_id) if collection.image_id else None
@@ -358,6 +394,31 @@ def _prices(variant_ids: list[Any]) -> dict[Any, Price]:
     }
 
 
+def _promotion(offer: promotions.Offer) -> dict[str, Any] | None:
+    if not offer.kind or offer.ends_at is None:
+        return None
+    return {"kind": offer.kind, "name": offer.name, "badge": offer.badge, "ends_at": offer.ends_at}
+
+
+def _offers(variants: list[ProductVariant]) -> dict[Any, dict[str, Any]]:
+    """Each variant's public selling price: the promotion engine's offer (D-081)."""
+    prices = _prices([variant.pk for variant in variants])
+    offers = promotions.resolve(variants, prices)
+    return {
+        pk: {
+            "currency": offer.currency,
+            "amount": offer.amount,
+            "compare_at_amount": offer.regular_amount
+            if offer.discounted
+            else prices[pk].compare_at_amount,
+            "promotion": _promotion(offer),
+            "regular_amount": offer.regular_amount,
+            "discounted": offer.discounted,
+        }
+        for pk, offer in offers.items()
+    }
+
+
 def _in_stock(variants: list[ProductVariant]) -> dict[Any, bool]:
     """True per variant when a customer could order it now: untracked, digital, a future release
     (pre-order) or sellable stock (unexpired, unreserved, at an active location; D-060).
@@ -384,7 +445,7 @@ def _summaries(products: list[Product]) -> list[Product]:
     ids = [product.pk for product in products]
     variants = _sellable_variants(ids)
     all_variants = [variant for rows in variants.values() for variant in rows]
-    prices = _prices([variant.pk for variant in all_variants])
+    prices = _offers(all_variants)
     in_stock = _in_stock(all_variants)
     media = {
         row.product_id: row
@@ -395,15 +456,21 @@ def _summaries(products: list[Product]) -> list[Product]:
     for product in products:
         rows = variants.get(product.pk, [])
         amounts = [prices[v.pk] for v in rows if v.pk in prices]
+        discounted = [price for price in amounts if price["discounted"]]
         product.price_range = (  # type: ignore[attr-defined]
             {
-                "currency": amounts[0].currency,
-                "min_amount": min(price.amount for price in amounts),
-                "max_amount": max(price.amount for price in amounts),
+                "currency": amounts[0]["currency"],
+                "min_amount": min(price["amount"] for price in amounts),
+                "max_amount": max(price["amount"] for price in amounts),
+                "regular_min_amount": min(price["regular_amount"] for price in amounts)
+                if discounted
+                else None,
             }
             if amounts
             else None
         )
+        promoted = discounted or [price for price in amounts if price["promotion"]]
+        product.promotion = promoted[0]["promotion"] if promoted else None  # type: ignore[attr-defined]
         product.in_stock = any(in_stock.get(v.pk) for v in rows)  # type: ignore[attr-defined]
         product.primary_media = media.get(product.pk)  # type: ignore[attr-defined]
     return products
@@ -544,8 +611,17 @@ class PublicProductDetailView(PublicView):
                     options.append(value.option)
         for options in used.values():
             options.sort(key=lambda option: (option.position, option.value))
+        upcoming = promotions.upcoming_flash_sale(
+            [variant.pk for variant in variants], within=timedelta(days=7)
+        )
+        product.upcoming_sale = (  # type: ignore[attr-defined]
+            {"name": upcoming.name, "starts_at": upcoming.starts_at, "ends_at": upcoming.ends_at}
+            if upcoming is not None
+            else None
+        )
+        product.server_time = timezone.now()  # type: ignore[attr-defined]
         context = {
-            "prices": _prices([variant.pk for variant in variants]),
+            "prices": _offers(variants),
             "in_stock": _in_stock(variants),
             "used_options": used,
         }
@@ -597,6 +673,8 @@ def is_public_asset(asset: MediaAsset) -> bool:
         # Phase 05: images assigned to the store's branding or an enabled homepage section.
         or StoreTheme.objects.filter(Q(logo=asset) | Q(logo_dark=asset) | Q(favicon=asset)).exists()
         or HomeSection.objects.filter(image=asset, is_enabled=True).exists()
+        # Phase 12: the store's default social sharing image.
+        or SeoSettings.objects.filter(social_image=asset).exists()
     )
 
 

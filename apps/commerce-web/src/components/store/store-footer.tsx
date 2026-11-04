@@ -7,6 +7,7 @@ import { localize } from '@/lib/i18n';
 import type { StoreContext } from '@/lib/store-context';
 
 import { LanguageSwitcher } from './language-switcher';
+import { CookiePreferencesButton } from './tracking';
 import { CONTAINER, FOCUS } from './ui';
 
 /**
@@ -101,6 +102,12 @@ export function StoreFooter({
         </div>
         <div className="flex flex-wrap items-center gap-3 border-t border-store-canvas/15 pt-5 text-[12.5px]">
           <span>{t.copyright(new Date().getFullYear(), store.name)}</span>
+          <CookiePreferencesButton label={t.cookiePreferences} className={link} />
+          {config.modules.includes('loyalty') && (
+            <Link href={'/account#rewards' as Route} className={link}>
+              {t.rewards}
+            </Link>
+          )}
           <span className="flex-1" />
           <span className="flex items-center gap-2">
             {t.poweredBy}

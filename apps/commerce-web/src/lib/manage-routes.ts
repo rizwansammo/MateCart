@@ -27,7 +27,47 @@ const SECTIONS: readonly { pattern: RegExp; permission: string | null }[] = [
   { pattern: /^account\/security$/, permission: null },
   { pattern: /^team$/, permission: 'staff.manage' },
   { pattern: /^(appearance|content)$/, permission: 'content.manage' },
+  // Phase 12 marketing: each tab needs the permission its API enforces.
+  { pattern: /^marketing$/, permission: null },
+  { pattern: /^marketing\/(campaigns|flash-sales)(\/new)?$/, permission: 'promotions.manage' },
+  {
+    pattern: new RegExp(`^marketing/(campaigns|flash-sales)/${UUID}$`),
+    permission: 'promotions.manage',
+  },
+  { pattern: /^marketing\/(coupons|loyalty)$/, permission: 'promotions.manage' },
+  { pattern: /^marketing\/seo$/, permission: 'content.manage' },
+  { pattern: /^marketing\/analytics$/, permission: 'reports.view' },
+  { pattern: /^marketing\/tracking$/, permission: 'store.settings' },
 ];
+
+/** Permissions that open at least one marketing tab. */
+export const MARKETING_PERMISSIONS = [
+  'promotions.manage',
+  'reports.view',
+  'content.manage',
+  'store.settings',
+] as const;
+
+/** The marketing tabs a role may open, in display order. */
+export function marketingTabs(permissions: readonly string[]): { href: string; label: string }[] {
+  const can = (permission: string) => permissions.includes(permission);
+  return [
+    { href: '/manage/marketing', label: 'Overview', show: true },
+    { href: '/manage/marketing/campaigns', label: 'Campaigns', show: can('promotions.manage') },
+    { href: '/manage/marketing/flash-sales', label: 'Flash sales', show: can('promotions.manage') },
+    { href: '/manage/marketing/coupons', label: 'Coupons', show: can('promotions.manage') },
+    { href: '/manage/marketing/loyalty', label: 'Loyalty', show: can('promotions.manage') },
+    { href: '/manage/marketing/seo', label: 'SEO', show: can('content.manage') },
+    { href: '/manage/marketing/analytics', label: 'Analytics', show: can('reports.view') },
+    {
+      href: '/manage/marketing/tracking',
+      label: 'Tracking & consent',
+      show: can('store.settings'),
+    },
+  ]
+    .filter((tab) => tab.show)
+    .map(({ href, label }) => ({ href, label }));
+}
 
 const PUBLIC_PATHS = [
   'sign-in',
@@ -63,6 +103,9 @@ export function navigation(permissions: readonly string[]): NavGroup[] {
             ]
           : []),
         ...(can('customers.view') ? [{ href: '/manage/customers', label: 'Customers' }] : []),
+        ...(MARKETING_PERMISSIONS.some(can)
+          ? [{ href: '/manage/marketing', label: 'Marketing' }]
+          : []),
       ],
     },
     {

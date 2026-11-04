@@ -4,16 +4,18 @@ import type { Route } from 'next';
 import Link from 'next/link';
 
 import { localize, type Messages } from '@/lib/i18n';
-import { priceLabel } from '@/lib/money';
+import { formatMoney, priceLabel } from '@/lib/money';
 
+import { PromotionBadge } from './promotion';
 import { FOCUS, StoreImage } from './ui';
 
 /**
  * One product card, five presentations chosen by the theme's `presentation.card` variant
  * (approved prototype ProductCard; D-069): editorial 3:4, dense quickshop tiles, spec-style cards,
  * marketplace tiles and literary cover-first cards. Every variant links to the same product and
- * shows the same price and stock state (functional parity). Only real data is shown: the default
- * price (or "From" the lowest), the stock state and, for books, the authors. Shopping
+ * shows the same price and stock state (functional parity). Only real data is shown: the selling
+ * price (or "From" the lowest), a live promotion's badge with the regular price struck through,
+ * the stock state and, for books, the authors. Shopping
  * buttons arrive with the cart (Phase 07), so a card is a link to its product.
  */
 
@@ -31,16 +33,28 @@ export interface CardProps {
 function Price({
   product,
   t,
+  lang,
   className,
 }: {
   product: PublicProductSummary;
   t: Messages;
+  lang: string;
   className: string;
 }) {
   if (!product.price)
     return <span className="text-[13px] text-store-muted">{t.priceUnavailable}</span>;
+  const regular = product.price.regular_min_amount;
   return (
-    <span className={`tabular-nums ${className}`}>{priceLabel(product.price, t.from).text}</span>
+    <span className="inline-flex flex-wrap items-baseline gap-x-2 gap-y-1">
+      <span className={`tabular-nums ${className}`}>{priceLabel(product.price, t.from).text}</span>
+      {regular && (
+        <s className="text-[13px] text-store-muted tabular-nums">
+          <span className="sr-only">{t.regularPrice}: </span>
+          {formatMoney(regular, product.price.currency)}
+        </s>
+      )}
+      {product.promotion && <PromotionBadge promotion={product.promotion} lang={lang} />}
+    </span>
   );
 }
 
@@ -77,7 +91,7 @@ export function ProductCard({ product, variant, lang, t, secondaryLang, priority
         </span>
         <span className="flex flex-col gap-1 px-0.5">
           <span className="text-[15px] leading-snug font-medium">{name}</span>
-          <Price product={product} t={t} className="text-[15px] font-semibold" />
+          <Price product={product} t={t} lang={lang} className="text-[15px] font-semibold" />
         </span>
       </Link>
     );
@@ -97,7 +111,7 @@ export function ProductCard({ product, variant, lang, t, secondaryLang, priority
           <span className="store-display text-[17px] leading-tight">{name}</span>
           {authors && <span className="text-[13px] text-store-muted">{authors}</span>}
           <span className="mt-0.5 flex flex-wrap items-baseline gap-2">
-            <Price product={product} t={t} className="text-[15px] font-bold" />
+            <Price product={product} t={t} lang={lang} className="text-[15px] font-bold" />
             {soldOut && (
               <span className="text-xs font-semibold text-store-muted">{t.outOfStock}</span>
             )}
@@ -126,7 +140,7 @@ export function ProductCard({ product, variant, lang, t, secondaryLang, priority
           )}
         </span>
         <span className="mt-auto flex items-center justify-between gap-2">
-          <Price product={product} t={t} className="text-[15px] font-bold" />
+          <Price product={product} t={t} lang={lang} className="text-[15px] font-bold" />
           {soldOut && (
             <span className="text-xs font-semibold text-store-muted">{t.outOfStock}</span>
           )}
@@ -158,7 +172,7 @@ export function ProductCard({ product, variant, lang, t, secondaryLang, priority
           {soldOut ? t.outOfStock : t.inStock}
         </span>
         <span className="mt-auto">
-          <Price product={product} t={t} className="text-[19px] font-bold" />
+          <Price product={product} t={t} lang={lang} className="text-[19px] font-bold" />
         </span>
       </Link>
     );
@@ -175,7 +189,7 @@ export function ProductCard({ product, variant, lang, t, secondaryLang, priority
       </span>
       <span className="min-h-[38px] text-sm leading-snug font-medium">{name}</span>
       <span className="mt-auto flex flex-wrap items-baseline justify-between gap-2">
-        <Price product={product} t={t} className="text-base font-bold" />
+        <Price product={product} t={t} lang={lang} className="text-base font-bold" />
         {soldOut && <span className="text-xs font-semibold text-store-muted">{t.outOfStock}</span>}
       </span>
     </Link>

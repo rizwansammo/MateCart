@@ -1,6 +1,11 @@
 'use client';
 
-import type { PublicImage, PublicProductDetail, PublicVariant } from '@matecart/shared-contracts';
+import type {
+  Cart,
+  PublicImage,
+  PublicProductDetail,
+  PublicVariant,
+} from '@matecart/shared-contracts';
 import { errorMessage, type PresentationVariant } from '@matecart/shared-ui';
 import Link from 'next/link';
 import { useState, type ReactNode } from 'react';
@@ -17,6 +22,9 @@ import {
   selectOption,
 } from '@/lib/variants';
 
+import { pixelValue, track } from '@/lib/meta-pixel';
+
+import { Countdown, PromotionBadge } from './promotion';
 import { FOCUS, StoreImage } from './ui';
 
 /**
@@ -207,11 +215,15 @@ function PriceAndStock({
   lang,
   today,
   look,
+  serverTime,
+  upcoming,
 }: {
   variant: PublicVariant | null;
   lang: string;
   today: string;
   look: PresentationVariant;
+  serverTime: string;
+  upcoming: PublicProductDetail['upcoming_sale'];
 }) {
   const t = messages(lang);
   if (!variant) return <p className="m-0 text-store-muted">{t.notAvailable}</p>;
@@ -253,6 +265,30 @@ function PriceAndStock({
           <span className="text-lg font-semibold text-store-muted">{t.priceUnavailable}</span>
         )}
       </div>
+      {price?.promotion && (
+        <div className="flex flex-wrap items-center gap-2">
+          <PromotionBadge promotion={price.promotion} lang={lang} />
+          {price.promotion.kind !== 'featured' && (
+            <Countdown
+              target={price.promotion.ends_at}
+              serverTime={serverTime}
+              lang={lang}
+              mode="ends"
+            />
+          )}
+        </div>
+      )}
+      {upcoming && !price?.promotion && (
+        <p className="m-0 flex flex-wrap items-center gap-2 rounded-base bg-info-bg px-3 py-2 text-[13px] text-info-fg">
+          <span className="font-semibold">{t.upcomingSale(upcoming.name)}</span>
+          <Countdown
+            target={upcoming.starts_at}
+            serverTime={serverTime}
+            lang={lang}
+            mode="starts"
+          />
+        </p>
+      )}
       <div className="flex flex-wrap items-center gap-x-3 gap-y-2 text-[13.5px]">
         <span
           className={`inline-flex h-7 items-center gap-1.5 rounded-base px-2.5 text-[12.5px] font-bold ${badge.tone}`}
@@ -288,6 +324,22 @@ function PriceAndStock({
   );
 }
 
+/** Meta AddToCart from the server's cart line (no-op unless the consented Pixel is loaded). */
+function reportAddToCart(cart: Cart | undefined, variant: PublicVariant, quantity: string) {
+  try {
+    const line = cart?.lines.find((entry) => entry.variant === variant.id);
+    const unit = pixelValue(line?.unit_price);
+    track(`add:${variant.id}:${Date.now()}`, 'AddToCart', {
+      content_ids: [variant.id],
+      content_type: 'product',
+      currency: line?.currency ?? variant.price?.currency,
+      value: unit === undefined ? undefined : Math.round(unit * Number(quantity) * 100) / 100,
+    });
+  } catch {
+    // Tracking never affects the cart.
+  }
+}
+
 function PurchaseBox({
   lang,
   variant,
@@ -308,7 +360,8 @@ function PurchaseBox({
     setBusy(true);
     setFeedback(null);
     try {
-      await addToCart(variant.id, quantity);
+      const cart = await addToCart(variant.id, quantity);
+      reportAddToCart(cart, variant, quantity);
       setFeedback({ ok: true, text: t.addedToCart });
     } catch (error) {
       setFeedback({ ok: false, text: errorMessage(error) });
@@ -405,7 +458,14 @@ export function ProductExperience({
       />
       <div className="flex min-w-0 flex-col gap-5">
         {header}
-        <PriceAndStock variant={variant} lang={lang} today={today} look={look} />
+        <PriceAndStock
+          variant={variant}
+          lang={lang}
+          today={today}
+          look={look}
+          serverTime={product.server_time}
+          upcoming={product.upcoming_sale}
+        />
         {variant && <Options product={product} variant={variant} lang={lang} onChange={choose} />}
         {highlights}
         <PurchaseBox lang={lang} variant={variant} cartEnabled={cartEnabled} />

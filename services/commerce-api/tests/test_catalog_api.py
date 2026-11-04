@@ -391,7 +391,9 @@ def test_the_public_catalogue_shows_only_published_safe_data(
         "currency": "BDT",
         "min_amount": "1200.0000",
         "max_amount": "1250.0000",
+        "regular_min_amount": None,  # Phase 12: set only while a promotion lowers a price
     }
+    assert summary["promotion"] is None
     assert summary["in_stock"] is True
 
     detail = visitor.get("/api/catalog/products/oxford-shirt/").json()
@@ -403,6 +405,7 @@ def test_the_public_catalogue_shows_only_published_safe_data(
         "currency": "BDT",
         "amount": "1250.0000",
         "compare_at_amount": "1400.0000",
+        "promotion": None,
     }
     assert [o["code"] for o in detail["options"][0]["values"]] == ["s", "m"]
     text = str(detail)

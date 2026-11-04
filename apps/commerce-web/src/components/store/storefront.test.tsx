@@ -42,11 +42,14 @@ beforeEach(() => {
 
 const categories = [
   {
+    id: 'cat-books',
     name: 'Books',
     slug: 'books',
     description: 'Poetry and fiction',
     image_url: null,
     translations: { bn: { name: 'বই' } },
+    seo_title: '',
+    seo_description: '',
     children: [],
   },
 ];
@@ -408,13 +411,20 @@ describe('product page', () => {
         'm',
         { size: 'm' },
         {
-          price: { currency: 'BDT', amount: '1250.0000', compare_at_amount: '1400.0000' },
+          price: {
+            currency: 'BDT',
+            amount: '1250.0000',
+            compare_at_amount: '1400.0000',
+            promotion: null,
+          },
         },
       ),
       variant(
         'l',
         { size: 'l' },
-        { price: { currency: 'BDT', amount: '1300.0000', compare_at_amount: null } },
+        {
+          price: { currency: 'BDT', amount: '1300.0000', compare_at_amount: null, promotion: null },
+        },
       ),
     ],
     {

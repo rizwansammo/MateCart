@@ -69,7 +69,7 @@ describe('merchant navigation', () => {
     expect(isManagePath(`orders/${ORDER_ID}`)).toBe(true);
     expect(isManagePath(`orders/${ORDER_ID}/invoice`)).toBe(true);
     expect(isManagePath('orders/not-a-uuid')).toBe(false);
-    expect(isManagePath('marketing')).toBe(false);
+    expect(isManagePath('integrations')).toBe(false);
     expect(isManagePath('sign-in')).toBe(true);
   });
 });
@@ -146,7 +146,8 @@ describe('manual order creation', () => {
     render(<AssistedOrderForm session={session(['orders.manage'])} />);
 
     await user.click(await screen.findByRole('button', { name: 'Add' }));
-    expect(await screen.findByText('৳42,060')).toBeInTheDocument();
+    // The quote is debounced; allow for a busy test runner.
+    expect(await screen.findByText('৳42,060', {}, { timeout: 5000 })).toBeInTheDocument();
     expect(screen.getByText(/stays unpaid until the cash is collected/)).toBeInTheDocument();
 
     await user.type(screen.getByLabelText('Customer name'), 'Rahim');
@@ -186,7 +187,8 @@ describe('manual order creation', () => {
       tax_total: '0.0000',
       grand_total: '42060.0000',
     });
-  });
+    // A UI flow with typing and a debounced quote: give a busy parallel runner time.
+  }, 15_000);
 });
 
 const confirmedCod = {

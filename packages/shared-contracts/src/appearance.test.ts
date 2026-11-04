@@ -42,6 +42,13 @@ const config = {
   ],
   translations: { bn: { tagline: 'ধীরে বোনা' } },
   local_date: '2026-10-27',
+  seo: { home_title: '', home_description: '', social_image_url: null, allow_indexing: true },
+  tracking: {
+    analytics: true,
+    meta_pixel_id: null,
+    purchase_timing: 'payment_verified',
+    consent_version: '1',
+  },
 };
 
 describe('appearance response boundaries', () => {
@@ -50,6 +57,21 @@ describe('appearance response boundaries', () => {
     expect(decoded.preset).toBe('fashion');
     expect(decoded.theme.primary_color).toBe('#1F6F4A');
     expect(decoded.translations.bn?.tagline).toBe('ধীরে বোনা');
+    expect(decoded.tracking.meta_pixel_id).toBeNull();
+  });
+  it('accepts only a numeric Pixel id and a known purchase timing (Phase 12)', () => {
+    const tracking = { ...config.tracking, meta_pixel_id: '123456789012345' };
+    expect(storefrontConfig({ ...config, tracking }).tracking.meta_pixel_id).toBe(
+      '123456789012345',
+    );
+    for (const bad of [
+      { ...tracking, meta_pixel_id: '<script>' },
+      { ...tracking, purchase_timing: 'always' },
+    ]) {
+      expect(() => storefrontConfig({ ...config, tracking: bad })).toThrow();
+    }
+    const seo = { ...config.seo, social_image_url: 'https://evil.invalid/a.png' };
+    expect(() => storefrontConfig({ ...config, seo })).toThrow();
   });
   it('carries the store-local date and rejects anything else (06.1)', () => {
     expect(storefrontConfig(config).local_date).toBe('2026-10-27');
@@ -162,6 +184,8 @@ describe('public storefront content (Phase 06)', () => {
       page_type: 'policy',
       published_at: '2026-10-26T10:00:00Z',
       translations: {},
+      seo_title: '',
+      seo_description: '',
     };
     expect(storefrontPage(page).page_type).toBe('policy');
     expect(() => storefrontPage({ ...page, page_type: 'script' })).toThrow();

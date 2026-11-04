@@ -6,6 +6,7 @@ import { cookies } from 'next/headers';
 import { cache } from 'react';
 
 import { LANGUAGE_COOKIE, messages, resolveLanguage, type Messages } from './i18n';
+import { isIndexable, trustedOrigin } from './seo';
 import { getStorefrontConfig } from './storefront-api';
 
 export interface StoreContext {
@@ -39,18 +40,22 @@ export const getStoreContext = cache(async (): Promise<StoreContext> => {
   return { config, theme, lang, t: messages(lang) };
 });
 
-/** Browser indexing is opt-in per deployment, so development and staging stores stay private. */
+/** The deployment opted in to indexing (`STOREFRONT_INDEXING=allow`) and has a trusted public
+ * HTTPS origin. The merchant's own preference is checked separately (`storeIndexable`). */
 export function indexingAllowed(): boolean {
-  return process.env.STOREFRONT_INDEXING?.trim() === 'allow';
+  return process.env.STOREFRONT_INDEXING?.trim() === 'allow' && publicOrigin() !== null;
 }
 
-/** The public origin for absolute metadata URLs (social sharing), when configured. */
+/** The trusted public origin (deployment configuration only, never the Host header). */
 export function publicOrigin(): URL | null {
-  const raw = process.env.STOREFRONT_PUBLIC_URL?.trim();
-  if (!raw) return null;
-  try {
-    return new URL(raw);
-  } catch {
-    return null;
-  }
+  return trustedOrigin(process.env.STOREFRONT_PUBLIC_URL);
+}
+
+/** Search engines may index this store: deployment, origin and merchant all allow it. */
+export function storeIndexable(config: StorefrontConfig): boolean {
+  return isIndexable({
+    deploymentAllows: process.env.STOREFRONT_INDEXING?.trim() === 'allow',
+    origin: publicOrigin(),
+    merchantAllows: config.seo.allow_indexing,
+  });
 }

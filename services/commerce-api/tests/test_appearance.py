@@ -375,6 +375,8 @@ def test_public_config_exposes_only_storefront_data(
         "footer_pages",
         "translations",
         "local_date",
+        "seo",
+        "tracking",
     }
     assert config["theme"]["primary_color"] == "#1F6F4A"
     assert config["store"]["tagline"] == "Hello"

@@ -47,6 +47,13 @@ export async function createCheckout(): Promise<Checkout> {
   return decodeCheckout(await authApi.post<unknown>('/api/checkout/', {}));
 }
 
+/** Phase 12: points to redeem on this checkout (0 removes them); the server validates. */
+export async function setLoyaltyPoints(id: string, points: number): Promise<Checkout> {
+  return decodeCheckout(
+    await authApi.patch<unknown>(`/api/checkout/${id}/`, { loyalty_points: points }),
+  );
+}
+
 export async function getCheckout(id: string): Promise<Checkout> {
   return decodeCheckout(await authApi.get<unknown>(`/api/checkout/${id}/`));
 }

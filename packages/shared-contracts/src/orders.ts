@@ -49,6 +49,8 @@ export const paymentMethod: Decoder<PaymentMethod> = oneOf(PAYMENT_METHODS);
 
 export interface OrderItem {
   id: string;
+  /** The ordered variant (Phase 12: Meta Purchase content ids match the server event). */
+  variant: string;
   product_name: string;
   variant_title: string;
   sku: string;
@@ -121,6 +123,7 @@ function orderItem(value: unknown): OrderItem {
   const o = object(value);
   return {
     id: string(o.id),
+    variant: string(o.variant),
     product_name: string(o.product_name),
     variant_title: string(o.variant_title),
     sku: string(o.sku),

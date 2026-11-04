@@ -1,7 +1,7 @@
 # Architecture
 
-Status: Phase 09 (fulfillment and courier) implemented locally, pending acceptance. Phases 01–08
-and their corrective subphases are accepted and closed. Sections marked **(planned)** describe later
+Status: Phase 12 (marketing, SEO and analytics) implemented locally, pending acceptance. Phases
+01–11 and their corrective subphases are accepted and closed. Sections marked **(planned)** describe later
 work. Schema: [DATA_MODEL.md](DATA_MODEL.md). Authentication: [AUTHENTICATION.md](AUTHENTICATION.md),
 security controls: [SECURITY.md](SECURITY.md).
 
@@ -198,6 +198,16 @@ Outside the database: cache keys use `tenant_cache_key(...)` (`tenant:<id>:...`)
   by default; provider callbacks are authenticated by that adapter and can only advance a shipment
   after staff dispatch. Customer order serialization exposes real shipment state without weakening
   the existing guest/customer ownership check.
+
+- **Marketing, SEO and analytics (Phase 12).** `commerce.marketing` owns campaigns, flash
+  sales, coupon management, loyalty points, SEO settings, consent records, first-party analytics
+  and the Meta integration (D-081 to D-085, [MARKETING.md](MARKETING.md)). Promotions enter
+  pricing through `pricing.quote()`. Placement commits flash units and loyalty points in its
+  transaction, and cancellation, payment, refund and delivery call `loyalty.sync_order`.
+  Tracking runs after placement and never fails an order. Conversions API delivery is a Celery
+  task outside locks. Storefront SEO (metadata, JSON-LD, robots, sitemap) is server-rendered by
+  commerce-web from public APIs and a trusted public origin; indexing is off unless the
+  deployment opts in.
 
 ### Independence from the Central Console
 

@@ -1,10 +1,195 @@
 # Progress and handoff
 
-Updated: 2026-11-03 (Asia/Dhaka).
+Updated: 2026-11-04 (Asia/Dhaka).
 
-## Phase 11.1: Merchant Dashboard Integrity Corrections (implemented locally; acceptance pending)
+## Phase 12: Marketing, SEO & Analytics (implemented locally; acceptance pending)
 
-**Active phase: 11 (correction 11.1).** Baseline `86308822c3aa694a28b1569232db5a6d21a60e38`
+**Active phase: 12.** Baseline `13043bb6ac533b2d70edefeb411ef74605cd1fde` (Phase 11.1, pushed by
+the owner; GitHub Actions 41656247516: 4/4 jobs, 1,144 tests). Phase 11 is accepted and closed.
+All Phase 12 work is in the local working tree only: not committed or pushed. Phase 12 is not
+accepted until the owner reviews it, pushes it and GitHub CI passes. Phase 13 has not been
+started.
+
+### Delivered
+
+- **Promotions (D-081).** New app `commerce.marketing`.
+  - Campaigns: percent, fixed or featured; products, categories (including subcategories) and
+    collections; lifecycle derived from the server clock; preview, performance and audit.
+  - Flash sales: unit and per-order limits, overlap guard, `flash_sales` module gate.
+  - One promotion per item: a flash sale wins, otherwise the lowest-price campaign.
+  - Promotional lines never take coupons. Coupon maths is unchanged when a cart has no
+    promotional lines. Merchants can now manage coupons.
+  - Prices flow through `pricing.quote()` into cart, review, manual orders and order snapshots.
+    Flash units are committed at placement under row locks and released once on cancellation.
+- **Loyalty (D-082).**
+  - Verified customers only. Points become usable after full payment and delivery.
+  - Redemption at checkout, debited under the account lock.
+  - Points are restored once on cancellation or full refund.
+  - Refund reversals record an explicit deficit instead of a negative balance.
+  - Idempotent `sync_order` with unique ledger references; append-only ledger (ORM and trigger).
+  - Audited staff adjustments that need a recent sign-in. Optional inactivity expiry.
+- **Consent and analytics (D-083).**
+  - Consent records under hashed consent ids, enforced on the server and in the browser.
+  - Hourly aggregate counters and server-counted add-to-cart and checkout events.
+  - Exact rolling 24-hour consented unique visitors (a 48-hour presence row) and per-store-day
+    uniques.
+  - Attribution from UTM tags, recorded only with consent.
+  - Retention clean-up and `manage.py prune_marketing_data`.
+  - Marketing analytics report and the 24-hour dashboard card.
+- **Meta (D-084).**
+  - The Pixel loads only when configured and with marketing consent.
+  - Server `Purchase` event with a shared `purchase.<order id>` id. Timing is the merchant's
+    choice; COD orders are never reported as paid.
+  - Consent-gated queue, discarded on withdrawal; retrying Celery delivery outside locks.
+  - The token comes only from the environment (empty locally and in tests).
+- **SEO (D-085).**
+  - Store defaults and per-item overrides (plain text).
+  - Safe indexing: needs the deployment opt-in, a trusted HTTPS origin and the merchant's
+    preference; never decided from the Host header.
+  - Canonical URLs, Open Graph and Twitter cards; JSON-LD with genuine offers and ratings only
+    from published reviews.
+  - Dynamic `robots.txt` and a segmented sitemap built from published records.
+- **Merchant UI.** One "Marketing" link with permission-filtered tabs: Overview, Campaigns,
+  Flash sales, Coupons, Loyalty, SEO, Analytics, Tracking & consent.
+- **Storefront.**
+  - Sale prices with a struck regular price, badges, a countdown and a "Starts in" notice.
+  - Promotion lines in cart and checkout.
+  - A points control at checkout and a Rewards section in the account.
+  - Consent banner and preferences, reachable from the footer.
+  - Tracking provider and Pixel.
+
+### Files and services
+
+- Backend:
+  - New: `commerce/marketing/` (models, migrations 0001–0002, promotions, loyalty, coupons,
+    consent, analytics, tracking, seo, serializers, views, urls, tasks, command).
+  - Changed: `pricing/services.py`, `checkout/{models,services,serializers,views}.py`,
+    `orders/{models,services,payments,serializers,views}.py`, `fulfillment/services.py`,
+    `catalog/{models,public}.py`, `content/{models,public}.py`, `stores/modules.py`,
+    `config/settings/{base,test}.py`, `config/urls.py`, `openapi.yaml`.
+  - New tests: `test_marketing_promotions.py` (30), `test_marketing_loyalty.py` (14),
+    `test_marketing_tracking.py` (26). Updated expectations in `test_catalog_api.py` and
+    `test_appearance.py`.
+- Migrations (additive; applied to the local dev database): `catalog.0002_seo_overrides`,
+  `checkout.0003_promotions_and_points`, `content.0002_seo_overrides`,
+  `orders.0005_promotions_and_points`, `marketing.0001_initial`,
+  `marketing.0002_append_only_records`.
+- Frontend:
+  - `packages/shared-contracts/src/marketing.ts` (+ tests) and extended
+    catalog/checkout/appearance/orders contracts.
+  - commerce-web: `components/manage/marketing*.tsx`, storefront `promotion.tsx`,
+    `tracking.tsx`, `json-ld.tsx`, `customer-rewards.tsx`, `lib/{consent,meta-pixel,seo,sitemap,page-metadata,zoned-time}.ts`,
+    `app/robots.ts`, `app/sitemap.xml/route.ts`, `app/sitemaps/[name]/route.ts`, and updated
+    layouts, pages, cart, checkout, order and account components.
+- `compose.yaml`: `META_CAPI_ACCESS_TOKEN: ''` for the commerce API. No new service, port,
+  volume or dependency (Python or npm).
+- Docs: `MARKETING.md` (new), `DECISIONS.md` (D-081 to D-085), `DATA_MODEL.md`,
+  `ARCHITECTURE.md`, `DEVELOPMENT_ROADMAP.md` (Phase 11 accepted, Phase 12 implemented
+  locally), `FEATURE_CHECKLIST.md`, this file.
+
+### Verification (observed locally, 2026-11-04)
+
+- `pnpm check`: passed (exit 0). Prettier, ESLint and TypeScript (4 packages) were clean.
+  Unit tests: contracts 70, shared UI 78, commerce web 136, Node scripts 5.
+- `pnpm build`: both production builds passed. `/robots.txt`, `/sitemap.xml` and
+  `/sitemaps/[name]` are dynamic routes.
+- `pnpm api:lint`: ruff, ruff format and mypy strict passed (commerce 257 files, control 52).
+  `makemigrations --check`: no changes. `manage.py check`: no issues. `pnpm api:schema`:
+  regenerated and validated with `--fail-on-warn` (commerce schema updated; control
+  unchanged).
+- `pnpm api:test`: commerce **908 passed**, control **57 passed**, 0 failed.
+- **Total: 1,254 automated tests passed, 0 failed**: the 1,144 baseline plus 110 new (70 backend,
+  9 contracts, 31 commerce web).
+- `pnpm health`: all checks passed. `docker compose config --quiet`: passed. Only the
+  `matecart-dev` commerce API and worker containers were restarted, to load the new code.
+- Concurrency covered by tests:
+  - five simultaneous placements against a 2-unit flash sale sell exactly 2;
+  - four simultaneous point deductions cannot overspend;
+  - the existing checkout, order and inventory concurrency suites still pass.
+
+- Defects found and fixed during verification:
+  - A new coupon's default minimum was an integer, which crashed the money check (caught by a
+    test).
+  - Checkout `loyalty.point_value` was rendered as a JSON number, so the storefront decoder
+    rejected the checkout for every loyalty member (caught in the browser). It now renders
+    through its serializer, and the test asserts the JSON string.
+  - Order items gained `variant`, so the browser Purchase and the server event list the same
+    content ids.
+  - One existing slow UI test (manual order quote) got a 15-second test-level timeout because
+    the parallel runner is busier with 31 more web tests.
+- **Browser acceptance** (headless Chrome over the DevTools protocol, no new packages; Meta
+  domains blocked at the network level, so nothing reached Meta):
+  - Merchant run: 29 of 32 checks. The 3 misses were the harness, confirmed by screenshot: 2
+    ran before a page reload finished, and 1 text match was too narrow (the SEO page does
+    explain the indexing conditions).
+  - Storefront run: 36 of 40. The misses: 2 were harness timing (the first checkout route
+    compile took more than 6 s), 1 was a cleanup request with the wrong CSRF cookie (the test
+    Pixel id was then removed through the shell), and 1 was the visitor id, which is written on
+    the next page view after consent.
+  - Targeted re-run: 9 of 9.
+  - Observed:
+    - every Marketing tab rendered;
+    - a campaign was created as a draft through the UI, previewed (৳3,200 → ৳2,880) and
+      activated through the confirmation dialog; the API confirmed it live;
+    - a flash sale was created and scheduled through the UI;
+    - a coupon was created through the UI;
+    - the content editor sees only SEO and is refused analytics;
+    - phone width has no horizontal overflow;
+    - the product page shows the sale price, struck regular price, badge, JSON-LD offer with
+      `priceValidUntil`, and `noindex` without a trusted URL; the upcoming flash sale shows
+      "Starts in";
+    - the banner appears on first visit with no visitor or source cookie and no Meta request;
+      the aggregate page view is sent;
+    - Reject optional leaves no identifiers. With a test Pixel id configured, no Meta request
+      happens before consent. Accept all creates `mc_vid` and attempts the Meta script (blocked
+      locally), and the Pixel queue shows one PageView per navigation plus ViewContent.
+      Withdrawing marketing in Cookie preferences stops all later Meta requests;
+    - the account shows 500 reward points; the cart shows the promotion; checkout applied 200
+      points: Points (200) −৳200, total ৳2,680;
+    - no uncaught page errors.
+  - Not clicked through: placing an order in the browser (placement with points, coupons and
+    flash limits is covered by API tests), the loyalty adjustment dialog, SEO override editing,
+    and robots/sitemap with a real public HTTPS origin (only the safe disabled state is
+    verifiable locally). Structured data was not run through an external validator. Live Meta
+    delivery was not exercised: there are no credentials, and only the fake client was used.
+
+### Local review data (controlled, additive)
+
+- Campaign "Phase 12 browser check campaign" (10 % off Brass Table Lamp, live for 2 days);
+  flash sale "Phase 12 browser check flash sale" (Bamboo Cutting Board ৳499, scheduled);
+  coupon `PHASE12CHECK` (5 %).
+- `flash_sales` and `loyalty` modules on; loyalty program on (default rules).
+- Accounts: content editor `phase12-browser-editor-<tag>@example.test`; verified customer
+  `phase12-browser-customer-<tag>@example.test` with a 500-point opening balance (audited
+  adjustment) and the lamp in its cart.
+- 10 units were received for the two products if their sellable stock was below 5.
+- Consent records and analytics counters from the browser runs.
+- Meta stays off with no Pixel id. The browser-check sessions were revoked and their tokens
+  deleted. Nothing pre-existing was deleted. To undo: cancel the campaign and flash sale,
+  deactivate the coupon, and switch the modules off in Settings.
+
+### Known limits (documented, not defects)
+
+- Catalogue price filters and sorting use regular prices.
+- Language is cookie-based on one URL, so there are no `hreflang` alternates; `<html lang>`
+  stays `en` in the shared root layout and the storefront shell sets `lang` on its content.
+- No scheduler: retention clean-up is queued by traffic (at most hourly) or run by command;
+  loyalty expiry is applied lazily.
+- Partial refunds do not restore redeemed points. Merchant UI is English only.
+- Live Meta credentials and a public HTTPS domain are deployment acceptance items (17/19).
+
+### Next step
+
+Owner reviews on localhost (checklist in the final report), commits and pushes; GitHub CI must
+pass. Then independent review and formal Phase 12 acceptance. Do not start Phase 13 before that.
+
+## Phase 11.1: Merchant Dashboard Integrity Corrections (accepted and closed)
+
+**Status: accepted and closed.** The owner pushed 11.1 as `13043bb6ac533b2d70edefeb411ef74605cd1fde`;
+GitHub Actions 41656247516 passed 4/4 jobs with 1,144 tests, and the independent review verified
+the three corrections. The text below is the historical record written before that push.
+
+Baseline `86308822c3aa694a28b1569232db5a6d21a60e38`
 (Phase 11 `03d7e0d` plus the CI typing fix), GitHub Actions run 41599996139: 4/4 jobs, 1,131
 tests. The corrections are in the local working tree only; not committed or pushed. Phase 11 is
 not accepted until the owner pushes them and GitHub CI passes. Phase 12 has not been started.
@@ -71,7 +256,7 @@ not accepted until the owner pushes them and GitHub CI passes. Phase 12 has not 
 Owner reviews on localhost, commits and pushes; GitHub CI must pass. Then independent review
 and formal Phase 11 acceptance. Do not start Phase 12 before that.
 
-## Phase 11: Merchant Management Dashboard (pushed as `03d7e0d`; acceptance pending with 11.1)
+## Phase 11: Merchant Management Dashboard (accepted and closed with 11.1 at `13043bb`)
 
 Historical record: implemented on the accepted baseline `6fe1a8c46643fb16463fb7d92264043e3447ec98`;
 the owner pushed it as `03d7e0d` and the CI typing fix as `8630882`. Phase 11 is accepted only

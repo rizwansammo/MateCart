@@ -78,10 +78,35 @@ export function page<T>(decode: Decoder<T>): Decoder<Page<T>> {
 
 // --- Public catalogue (/api/catalog/) -------------------------------------------------------------
 
+export const PROMOTION_KINDS = ['campaign', 'flash_sale', 'featured'] as const;
+export type PromotionKind = (typeof PROMOTION_KINDS)[number];
+/** A live promotion, evaluated by the server at request time (Phase 12, D-081). */
+export interface PublicPromotion {
+  kind: PromotionKind;
+  name: string;
+  badge: string;
+  ends_at: string;
+}
+export function publicPromotion(value: unknown): PublicPromotion {
+  const o = object(value);
+  return {
+    kind: oneOf(PROMOTION_KINDS)(o.kind),
+    name: string(o.name),
+    badge: string(o.badge),
+    ends_at: isoDateTime(o.ends_at),
+  };
+}
+export function isoDateTime(value: unknown): string {
+  const text = string(value);
+  if (Number.isNaN(Date.parse(text))) throw new Error('Invalid response');
+  return text;
+}
 export interface PriceRange {
   currency: string;
   min_amount: string;
   max_amount: string;
+  /** The lowest regular price, present only while a promotion lowers at least one variant. */
+  regular_min_amount: string | null;
 }
 export function priceRange(value: unknown): PriceRange {
   const o = object(value);
@@ -89,12 +114,14 @@ export function priceRange(value: unknown): PriceRange {
     currency: string(o.currency),
     min_amount: decimal(o.min_amount),
     max_amount: decimal(o.max_amount),
+    regular_min_amount: nullable(decimal)(o.regular_min_amount),
   };
 }
 export interface PublicPrice {
   currency: string;
   amount: string;
   compare_at_amount: string | null;
+  promotion: PublicPromotion | null;
 }
 export function publicPrice(value: unknown): PublicPrice {
   const o = object(value);
@@ -102,6 +129,7 @@ export function publicPrice(value: unknown): PublicPrice {
     currency: string(o.currency),
     amount: decimal(o.amount),
     compare_at_amount: nullable(decimal)(o.compare_at_amount),
+    promotion: nullable(publicPromotion)(o.promotion),
   };
 }
 export interface PublicImage {
@@ -132,6 +160,7 @@ export interface PublicProductSummary {
   image: PublicImage | null;
   in_stock: boolean;
   translations: Translations;
+  promotion: PublicPromotion | null;
   /** Book authors (Phase 06); empty for other products. */
   authors: string[];
 }
@@ -151,6 +180,7 @@ export function publicProductSummary(value: unknown): PublicProductSummary {
     image: nullable(publicImage)(o.image),
     in_stock: boolean(o.in_stock),
     translations: translations(o.translations),
+    promotion: nullable(publicPromotion)(o.promotion),
     authors: strings(o.authors),
   };
 }
@@ -211,6 +241,11 @@ export function specification(value: unknown): Specification {
 }
 export interface PublicProductDetail extends PublicProductSummary {
   description: string;
+  updated_at: string;
+  /** The next scheduled flash sale for this product (within 7 days), for an honest countdown. */
+  upcoming_sale: { name: string; starts_at: string; ends_at: string } | null;
+  /** The server clock when the response was built: countdowns correct the browser's skew. */
+  server_time: string;
   seo_title: string;
   seo_description: string;
   categories: { name: string; slug: string; is_primary: boolean }[];
@@ -316,6 +351,16 @@ export function publicProductDetail(value: unknown): PublicProductDetail {
   return {
     ...publicProductSummary(value),
     description: string(o.description),
+    updated_at: isoDateTime(o.updated_at),
+    upcoming_sale: nullable((entry) => {
+      const sale = object(entry);
+      return {
+        name: string(sale.name),
+        starts_at: isoDateTime(sale.starts_at),
+        ends_at: isoDateTime(sale.ends_at),
+      };
+    })(o.upcoming_sale),
+    server_time: isoDateTime(o.server_time),
     seo_title: string(o.seo_title),
     seo_description: string(o.seo_description),
     categories: array(o.categories, (entry) => {
@@ -343,40 +388,52 @@ export function publicProductDetail(value: unknown): PublicProductDetail {
   };
 }
 export interface CategoryNode {
+  id: string;
   name: string;
   slug: string;
   description: string;
   image_url: string | null;
   translations: Translations;
+  seo_title: string;
+  seo_description: string;
   children: CategoryNode[];
 }
 export function categoryNode(value: unknown): CategoryNode {
   const o = object(value);
   return {
+    id: string(o.id),
     name: string(o.name),
     slug: string(o.slug),
     description: string(o.description),
     image_url: nullable(mediaUrl)(o.image_url),
     translations: translations(o.translations),
+    seo_title: string(o.seo_title),
+    seo_description: string(o.seo_description),
     children: array(o.children, categoryNode),
   };
 }
 
 export interface PublicCollection {
+  id: string;
   name: string;
   slug: string;
   description: string;
   image_url: string | null;
   translations: Translations;
+  seo_title: string;
+  seo_description: string;
 }
 export function publicCollection(value: unknown): PublicCollection {
   const o = object(value);
   return {
+    id: string(o.id),
     name: string(o.name),
     slug: string(o.slug),
     description: string(o.description),
     image_url: nullable(mediaUrl)(o.image_url),
     translations: translations(o.translations),
+    seo_title: string(o.seo_title),
+    seo_description: string(o.seo_description),
   };
 }
 

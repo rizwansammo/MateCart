@@ -80,6 +80,16 @@ def sync_payment_status(order: Order) -> None:
         order.payment_status = OrderPaymentStatus.PAID
 
 
+def _after_payment_change(order: Order, *, verified: bool) -> None:
+    """Phase 12: loyalty follows the verified amounts (D-082), and a verified payment may queue
+    the server-side Purchase event (D-084). Neither can change the payment itself."""
+    from commerce.marketing import loyalty, tracking
+
+    loyalty.sync_order(order)
+    if verified:
+        tracking.on_payment_verified(order)
+
+
 # --- Online payment -------------------------------------------------------------------------------
 
 
@@ -232,6 +242,7 @@ def _apply_event(code: str, event: ProviderEvent) -> str:
             actor=None,
             actor_label="provider",
         )
+    _after_payment_change(order, verified=True)
     from commerce.aftersales.digital import issue_for_order
 
     issue_for_order(order)
@@ -306,6 +317,7 @@ def record_cod_collection(*, order_id: Any, actor: User) -> Order:
         order.amount_paid += intent.amount
         sync_payment_status(order)
         order.save(update_fields=["amount_paid", "payment_status", "updated_at"])
+        _after_payment_change(order, verified=True)
         _event(order, "cod_collected", from_status=order.status, actor=actor)
         record_audit_event(
             action="order.cod.collected",
@@ -345,6 +357,7 @@ def _complete_refund(order: Order, refund: Refund, outcome_ref: str, actor: User
     order.amount_refunded += refund.amount
     sync_payment_status(order)
     order.save(update_fields=["amount_refunded", "payment_status", "updated_at"])
+    _after_payment_change(order, verified=False)
     _event(order, "refunded", from_status=order.status, actor=actor, actor_label="provider")
     record_audit_event(
         action="order.refund.succeeded",

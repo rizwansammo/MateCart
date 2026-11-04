@@ -167,6 +167,9 @@ class Category(TenantOwnedModel, TimestampedModel):
         MediaAsset, null=True, blank=True, on_delete=models.PROTECT, related_name="+"
     )
     translations = models.JSONField(default=dict, blank=True)
+    # Phase 12 (D-085): optional search and social overrides (plain text).
+    seo_title = models.CharField(max_length=70, blank=True)
+    seo_description = models.CharField(max_length=320, blank=True)
 
     class Meta(TenantOwnedModel.Meta):
         verbose_name_plural = "categories"
@@ -199,6 +202,9 @@ class Collection(TenantOwnedModel, TimestampedModel):
         MediaAsset, null=True, blank=True, on_delete=models.PROTECT, related_name="+"
     )
     translations = models.JSONField(default=dict, blank=True)
+    # Phase 12 (D-085): optional search and social overrides (plain text).
+    seo_title = models.CharField(max_length=70, blank=True)
+    seo_description = models.CharField(max_length=320, blank=True)
 
     class Meta(TenantOwnedModel.Meta):
         constraints = [

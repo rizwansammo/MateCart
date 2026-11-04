@@ -39,6 +39,7 @@ from commerce.checkout.models import (
 from commerce.core.domain import ConflictError
 from commerce.identity.models import User
 from commerce.inventory import services as inventory
+from commerce.marketing import loyalty, promotions
 from commerce.stores.models import StoreSettings
 from commerce.stores.modules import enabled_modules
 from commerce.tenancy.context import get_active_tenant_id
@@ -100,6 +101,16 @@ class SlotUnavailable(PlacementBlocked):
 class ItemUnavailable(PlacementBlocked):
     default_code = "item_unavailable"
     default_detail = "An item is no longer available. Review your cart."
+
+
+class PromotionUnavailable(PlacementBlocked):
+    default_code = "promotion_unavailable"
+    default_detail = "A sale price is no longer available. Review your checkout again."
+
+
+class LoyaltyUnavailable(PlacementBlocked):
+    default_code = "loyalty_unavailable"
+    default_detail = "Your points balance changed. Review your checkout again."
 
 
 class ShippingUnavailable(PlacementBlocked):
@@ -396,6 +407,8 @@ def _place(
         shipping_method=target.shipping_method,
         shipping_method_name=target.shipping_method.name if target.shipping_method else "",
         coupon_code=target.coupon_code,
+        loyalty_points_redeemed=target.loyalty_points,
+        loyalty_discount=target.loyalty_discount,
         # An assisted order is never reachable with a browser credential (D-077).
         guest_access_hash=""
         if target.customer_id or assisted
@@ -417,11 +430,23 @@ def _place(
             line_total=line.line_subtotal,
             price_id=line.price_id,
             position=position,
+            regular_unit_price=line.regular_unit_price,
+            promotion_kind=line.promotion_kind,
+            promotion_id=line.promotion_id,
+            promotion_name=line.promotion_name,
         )
         for position, line in enumerate(lines)
     }
     _convert_reservations(target, order, items)
+    try:
+        promotions.commit_for_order(order, lines)
+    except promotions.PromotionUnavailable as exc:
+        raise PromotionUnavailable() from exc
     _redeem_coupon(target, order)
+    try:
+        loyalty.commit_for_order(order, points=target.loyalty_points)
+    except loyalty.LoyaltyUnavailable as exc:
+        raise LoyaltyUnavailable() from exc
     if not online:
         PaymentIntent.objects.create(
             order=order,
@@ -562,6 +587,7 @@ def _release_commitments(order: Order) -> None:
         redemption.status = RedemptionStatus.VOIDED
         redemption.voided_at = timezone.now()
         redemption.save(update_fields=["status", "voided_at", "updated_at"])
+    promotions.release_for_order(order)
     if order.delivery_slot_booked and order.delivery_slot_id is not None:
         slot = DeliverySlot.objects.select_for_update().get(pk=order.delivery_slot_id)
         # A booking is given back only while its window is still ahead.
@@ -603,6 +629,9 @@ def apply_transition(
         order.confirmed_at = now
     order.status = to_status
     order.save()
+    if to_status == OrderStatus.CANCELLED:
+        # Restores redeemed points and cancels the order's award, once (D-082).
+        loyalty.sync_order(order)
     _event(order, event, from_status=before, actor=actor, actor_label=actor_label, reason=reason)
     record_audit_event(
         action="order.status.changed",

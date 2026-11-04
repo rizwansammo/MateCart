@@ -159,6 +159,9 @@ class Order(TenantOwnedModel, TimestampedModel):
     delivery_slot_ends_at = models.DateTimeField(null=True, blank=True)
     delivery_slot_booked = models.BooleanField(default=False)
     coupon_code = models.CharField(max_length=32, blank=True)
+    # Phase 12 (D-082): redeemed loyalty points and their value, part of ``discount_total``.
+    loyalty_points_redeemed = models.PositiveIntegerField(default=0)
+    loyalty_discount = _money(default=0)
     placed_at = models.DateTimeField(default=timezone.now)
     confirmed_at = models.DateTimeField(null=True, blank=True)
     cancelled_at = models.DateTimeField(null=True, blank=True)
@@ -222,6 +225,10 @@ class Order(TenantOwnedModel, TimestampedModel):
                 name="orders_order_refund_within_paid",
             ),
             models.CheckConstraint(
+                condition=Q(loyalty_discount__gte=0) & Q(loyalty_discount__lte=F("discount_total")),
+                name="orders_order_loyalty_within_discount",
+            ),
+            models.CheckConstraint(
                 condition=~Q(status=OrderStatus.CANCELLED) | Q(cancelled_at__isnull=False),
                 name="orders_order_cancelled_has_time",
             ),
@@ -252,6 +259,11 @@ class OrderItem(TenantOwnedModel):
     line_total = _money()
     price_id = models.UUIDField()
     position = models.PositiveIntegerField()
+    # Phase 12 (D-081): the list price and promotion at placement (immutable, like the rest).
+    regular_unit_price = _money(null=True, blank=True)
+    promotion_kind = models.CharField(max_length=16, blank=True)
+    promotion_id = models.UUIDField(null=True, blank=True)
+    promotion_name = models.CharField(max_length=120, blank=True)
 
     class Meta(TenantOwnedModel.Meta):
         constraints = [
@@ -265,6 +277,11 @@ class OrderItem(TenantOwnedModel):
             models.CheckConstraint(
                 condition=Q(unit_price__gte=0) & Q(line_total__gte=0),
                 name="orders_item_amounts_nonnegative",
+            ),
+        ]
+        indexes = [
+            models.Index(
+                fields=["tenant", "promotion_kind", "promotion_id"], name="orders_item_promotion"
             ),
         ]
 

@@ -7,6 +7,7 @@ import {
   publicCollection,
   publicProductDetail,
   publicProductSummary,
+  sitemapFeed,
   storefrontConfig,
   storefrontPage,
   storefrontSection,
@@ -121,6 +122,33 @@ export const getProduct = cache(async (slug: string): Promise<PublicProductDetai
 export const getCollection = cache(async (slug: string): Promise<PublicCollection | null> =>
   isSlug(slug) ? request(`/api/catalog/collections/${slug}/`, publicCollection) : null,
 );
+
+/** Published review summary for structured data, or null when unavailable. */
+export const getReviewSummary = cache(
+  async (productId: string): Promise<{ average: number; count: number } | null> => {
+    try {
+      return await request(
+        `/api/products/${encodeURIComponent(productId)}/reviews/?page_size=1`,
+        (value) => {
+          if (typeof value !== 'object' || value === null) throw new Error('Invalid response');
+          const o = value as Record<string, unknown>;
+          const count = typeof o.review_count === 'number' ? o.review_count : 0;
+          const average = typeof o.average_rating === 'number' ? o.average_rating : null;
+          if (count <= 0 || average === null || average < 1 || average > 5) return null;
+          return { average, count };
+        },
+      );
+    } catch {
+      // Ratings are optional enrichment: a failure only omits them.
+      return null;
+    }
+  },
+);
+
+/** One bounded slice of published records for the sitemap. */
+export function getSitemapFeed(section: 'pages' | 'products', page: number) {
+  return request(`/api/storefront/sitemap/?section=${section}&page=${page}`, sitemapFeed);
+}
 
 export const getContentPage = cache(async (slug: string): Promise<StorefrontPage | null> =>
   isSlug(slug) ? request(`/api/storefront/pages/${slug}/`, storefrontPage) : null,

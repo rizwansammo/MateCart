@@ -6,6 +6,7 @@ import type { StoreContext } from '@/lib/store-context';
 
 import { StoreFooter } from './store-footer';
 import { StoreHeader } from './store-header';
+import { TrackingProvider } from './tracking';
 
 /**
  * The customer-facing frame of every storefront page. The preset theme is applied on the server
@@ -35,6 +36,7 @@ export function StoreShell({
           {children}
         </main>
         <StoreFooter ctx={ctx} categories={categories} />
+        <TrackingProvider config={ctx.config.tracking} lang={ctx.lang} />
       </div>
     </StoreThemeScope>
   );

@@ -3,6 +3,8 @@ import { notFound } from 'next/navigation';
 
 import { Breadcrumbs, CONTAINER, PlainText } from '@/components/store/ui';
 import { formatDate, localize } from '@/lib/i18n';
+import { pageMetadata } from '@/lib/page-metadata';
+import { clip, seoText } from '@/lib/seo';
 import { getStoreContext } from '@/lib/store-context';
 import { getContentPage } from '@/lib/storefront-api';
 
@@ -11,13 +13,26 @@ interface Props {
 }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
-  const [{ slug }, { lang }] = await Promise.all([params, getStoreContext()]);
+  const [{ slug }, { lang, config }] = await Promise.all([params, getStoreContext()]);
   const page = await getContentPage(slug);
   if (!page) return {};
-  return {
-    title: localize(page.translations, 'title', page.title, lang),
-    description: localize(page.translations, 'body', page.body, lang).slice(0, 160),
-  };
+  const defaultLanguage = config.store.default_language;
+  return pageMetadata({
+    title: seoText(
+      page.seo_title,
+      localize(page.translations, 'title', page.title, lang),
+      lang,
+      defaultLanguage,
+    ),
+    description: seoText(
+      page.seo_description,
+      clip(localize(page.translations, 'body', page.body, lang)),
+      lang,
+      defaultLanguage,
+    ),
+    path: `/pages/${page.slug}`,
+    type: 'article',
+  });
 }
 
 /** A published information or policy page (D-063). Drafts are never returned by the API. */

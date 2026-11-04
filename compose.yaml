@@ -37,6 +37,9 @@ x-commerce-api-environment: &commerce-api-environment
   MATECART_SMS_PROVIDER: ''
   MATECART_PAYMENT_PROVIDER: ''
   MATECART_COURIER_PROVIDER: ''
+  # No Meta Conversions API token locally: server-side Meta events stay unavailable and nothing
+  # is ever sent to Meta from development (docs/MARKETING.md).
+  META_CAPI_ACCESS_TOKEN: ''
   # Optional: Google OAuth client for local testing (docs/AUTHENTICATION.md). Empty hides the button.
   GOOGLE_OIDC_CLIENT_ID: ${MATECART_GOOGLE_OIDC_CLIENT_ID:-}
   GOOGLE_OIDC_CLIENT_SECRET: ${MATECART_GOOGLE_OIDC_CLIENT_SECRET:-}

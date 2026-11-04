@@ -988,6 +988,95 @@ idempotency_conflict`. The free-text reason, actor and a batch's supplier
   any. Alert rows show on-hand, available and sellable separately. The inventory page's level
   filters still describe physical levels.
 
+### D-081 · Promotion engine: campaigns, flash sales and no stacking (2026-11-04, Phase 12)
+
+- New app `commerce.marketing`. Campaigns (`discount` percent/fixed or `featured` badge-only)
+  target products, categories (with subcategories) and collections. Flash sales list variants
+  with a fixed sale price, an optional unit limit and a per-order limit, and need the
+  `flash_sales` module. Stored lifecycle `draft/active/paused/cancelled`. The displayed state
+  (`scheduled/live/ended`) is derived from the server clock, never from the browser. Live,
+  ended or cancelled promotions are read-only.
+- One promotion per variant, never stacked. A live flash sale wins when it fits the quantity and
+  limits. Otherwise the lowest-price live discount campaign applies (ties: earliest start, then
+  id); a campaign never brings a price to zero or below and fixed amounts need the same
+  currency. Otherwise a featured campaign adds a badge only.
+- `pricing.quote()` returns the promotional selling price on the default price list (quantity
+  aware), so cart, review, assisted orders and placement share it. Checkout lines and order
+  items snapshot regular price and promotion. Changes before review follow the existing
+  `price_changed` review. The reviewed price holds for the reservation window. Limited flash
+  units are committed at placement under the item row lock, so they are never oversold
+  (`promotion_unavailable` releases the hold). Cancellation releases them once.
+- Coupons (Phase 07) are unchanged and still validated and redeemed by checkout and placement.
+  Lines at a promotional price are not coupon-eligible: a coupon discounts only regular-price
+  lines, and a cart that is entirely on sale refuses it. Without promotional lines the
+  calculation is exactly the previous one. Merchants now manage coupons in `/manage/marketing`.
+  A used coupon's value and minimum are fixed.
+- Price filters and sorting in the public catalogue still use regular prices (documented
+  limitation).
+
+### D-082 · Loyalty points: verified earning, append-only ledger, deficit recovery (2026-11-04, Phase 12)
+
+- One program per store (off by default; the `loyalty` module and the program switch are both
+  needed). Only signed-in customers with a verified email or phone take part. Guest and
+  merchant-assisted orders never earn, and nothing is matched by email or phone.
+- A pending award is fixed at placement. It becomes usable only when the order is paid in full
+  and delivered (digital-only: paid). `sync_order` is target-based and idempotent, and runs after
+  cancellation, payment, refund and delivery. Ledger references are unique per business event.
+- Redemption is part of the order discount (`Order.loyalty_discount`, `loyalty_points_redeemed`).
+  It is capped by minimum, percentage cap and balance, and debited at placement under the account
+  lock. Points are restored once on cancellation or full refund, not on partial refunds.
+- Refund reversals never make the balance negative: the spent part becomes an explicit
+  `deficit`, repaid first from later earnings. Optional inactivity expiry is applied lazily.
+  Staff adjustments need `promotions.manage` + `customers.view`, a recent sign-in, a reason and
+  an idempotency key, and are audited. The ledger is append-only (ORM and PostgreSQL trigger).
+
+### D-083 · Consent and first-party analytics (2026-11-04, Phase 12)
+
+- Categories: strictly necessary (always), analytics and marketing (off until chosen). Decisions
+  are appended to `ConsentRecord` under the SHA-256 of a random consent id (no IP, agent or
+  account) and kept in the `mc_consent` cookie. Updates are refused by a trigger; deletion after
+  two years is the retention policy. Withdrawal clears tracking cookies, discards queued Meta
+  events and deletes the visitor's presence row.
+- Analytics are aggregates: hourly `EventCounter` rows (all visitors, no identifiers),
+  server-counted add-to-cart and checkout-started events, and one `VisitorPresence` row per
+  consented visitor (a keyed hash of a random cookie id, kept 48 h). `VisitorDailyStat` holds
+  per-day uniques. Rolling 24-hour unique visitors are exact; counters use the current hour plus
+  the previous 23. Orders and money always come from order and payment records.
+- Attribution is the last tagged (UTM) landing within 30 days, recorded only with analytics
+  consent, never for merchant-assisted orders. It is labelled a tracked channel, not causation.
+- No scheduler is added: clean-up is queued at most hourly by traffic and is available as
+  `manage.py prune_marketing_data`. Events are allowlisted, validated, bot-filtered and limited
+  to 120 per IP per minute. Analytics failures never block commerce.
+
+### D-084 · Meta Pixel and Conversions API (2026-11-04, Phase 12)
+
+- Off by default. The Pixel loads only with Meta enabled, a valid Pixel id and the visitor's
+  marketing consent. The server sends only `Purchase`, with `event_id = purchase.<order id>`
+  shared with the browser Pixel for deduplication.
+- Purchase timing is a merchant choice: on verified payment or collected cash (default), or at
+  placement. In the latter mode COD orders are reported `unpaid`.
+- Delivery rows (`MetaEventDelivery`) are unique per event id and created only with marketing
+  consent at placement. They are sent by an idempotent Celery task outside locks, with five
+  attempts at most, and discarded on withdrawal or when the integration is switched off.
+  Browser identifiers are cleared when an event finishes. Hashed contact matching is opt-in.
+- The access token is a deployment environment secret (`META_CAPI_ACCESS_TOKEN`, empty locally
+  and in tests), never stored, returned or logged. Server events also require the HTTPS
+  `MATECART_PUBLIC_BASE_URL`. The Graph API version is configurable (`v26.0` default). The
+  adapter uses the standard library, so no new dependency was added.
+
+### D-085 · SEO, indexing and canonical safety (2026-11-04, Phase 12)
+
+- Indexing needs `STOREFRONT_INDEXING=allow`, a trusted HTTPS `STOREFRONT_PUBLIC_URL` (not
+  localhost) and the merchant's preference (`store.settings`); otherwise `noindex`, a disallow-all
+  `robots.txt` and an empty sitemap. The Host header is never used.
+- `SeoSettings` (home title, description, social image, indexing preference) plus plain-text
+  `seo_title`/`seo_description` on categories, collections and pages (products already had
+  them). Editing needs `content.manage`. `<`/`>` are refused, and JSON-LD escapes `<`.
+- Sitemaps come from `GET /api/storefront/sitemap/`: a pages segment plus product segments of
+  5,000 URLs, published records only. Language is cookie-based on one URL per page, so no
+  `hreflang` is emitted. Public category and collection payloads now include `id` for view
+  events.
+
 ## Open questions for the owner
 
 | #   | Question                                                                                                                                   | Status                                                                                                    | Needed by |

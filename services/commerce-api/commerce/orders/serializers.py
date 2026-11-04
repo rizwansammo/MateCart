@@ -67,6 +67,7 @@ class OrderItemSerializer(serializers.ModelSerializer[OrderItem]):
         model = OrderItem
         fields = (
             "id",
+            "variant",
             "product_name",
             "variant_title",
             "sku",

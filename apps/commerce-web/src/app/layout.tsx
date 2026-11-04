@@ -31,15 +31,21 @@ const newsreader = Newsreader({
   display: 'swap',
 });
 
-// Store name, description and indexing come from store configuration in Phases 05-06.
+// Default for every route outside the storefront (dashboard, account, errors): private and
+// never indexed. The storefront layout replaces title, description, canonical and robots with
+// the store's own (D-085), so no store page advertises the platform.
 export const metadata: Metadata = {
   title: 'MateCart',
-  description: 'MateCart commerce web foundation build.',
   robots: { index: false, follow: false },
 };
 
 export default function RootLayout({ children }: Readonly<{ children: ReactNode }>) {
   return (
+    // One root layout serves the English dashboard and the storefront, and a route-independent
+    // layout cannot know which language a storefront visitor chose (a cookie) without fetching
+    // store configuration for every dashboard request. The storefront shell therefore declares
+    // the customer's language on its own wrapper (`lang` in StoreShell), which assistive
+    // technology and search engines apply to the content.
     <html
       lang="en"
       className={`${geist.variable} ${geistMono.variable} ${hindSiliguri.variable} ${instrumentSerif.variable} ${newsreader.variable}`}

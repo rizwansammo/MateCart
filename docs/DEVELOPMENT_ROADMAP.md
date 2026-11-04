@@ -16,8 +16,8 @@
 | 08  | Orders, Payments & Invoices                 | B — Commerce Application      | **Accepted and closed**, including 08.1 (`b2eb55f`, CI passed 4/4)                        |
 | 09  | Fulfillment & Courier                       | B — Commerce Application      | **Accepted and closed**, including 09.1 (`1ffdf36`, CI passed 4/4)                        |
 | 10  | Customer Accounts & After-sales             | B — Commerce Application      | **Accepted and closed**, including 10.1 (`6fe1a8c`, CI 41115310035: 4/4, 1,085 tests).    |
-| 11  | Merchant Management Dashboard               | B — Commerce Application      | **Implemented locally** (1,131 tests); owner review, commit and CI pending                |
-| 12  | Marketing, SEO & Analytics                  | C — Growth & Integrations     | Pending                                                                                   |
+| 11  | Merchant Management Dashboard               | B — Commerce Application      | **Accepted and closed**, including 11.1 (`13043bb`, CI 41656247516: 4/4, 1,144 tests).    |
+| 12  | Marketing, SEO & Analytics                  | C — Growth & Integrations     | **Implemented locally**; owner review, commit and CI pending                              |
 | 13  | Mail & Notification Engine                  | C — Growth & Integrations     | Pending                                                                                   |
 | 14  | Social Commerce & Unified Inbox             | C — Growth & Integrations     | Pending                                                                                   |
 | 15  | AI & Advanced Extensions                    | C — Growth & Integrations     | Pending                                                                                   |
@@ -179,16 +179,25 @@ GitHub Actions 41115310035, 4/4 jobs, 1,085 tests).
 Production merchant interface: operations, products, orders, inventory, customers, reports, staff and settings.
 The owner added merchant-assisted (manual) order creation to this phase.
 
-Implemented locally (D-077 to D-079): operational dashboard, orders with manual order creation through
-the existing checkout and placement services, shipments, products and catalogue, inventory, customers,
-after-sales, reports and settings in `/manage`, with permission-aware navigation. Pending owner review,
-commit/push, GitHub CI and independent acceptance.
+Accepted and closed with Correction 11.1 (D-077 to D-080): operational dashboard, orders with manual
+order creation through the existing checkout and placement services, shipments, products and
+catalogue, inventory, customers, after-sales, reports and settings in `/manage`, with
+permission-aware navigation. 11.1 enforced reviewed totals for manual orders, confirmed COD
+collection and sellable-stock alerts. Commit `13043bb`, GitHub Actions 41656247516 (4/4 jobs,
+1,144 tests).
 
 ## Stage C — Growth & Integrations
 
 ### Phase 12 — Marketing, SEO & Analytics
 
 Campaigns, loyalty, analytics, SEO, Meta Pixel and CAPI, tracking, consent management, rolling 24-hour visitor metrics.
+
+Implemented locally (D-081 to D-085, [MARKETING.md](MARKETING.md)): campaigns and flash sales on
+the existing pricing and checkout engine (one promotion per item, no coupon stacking), merchant
+coupon management, a verified loyalty ledger, store-aware SEO with safe indexing, sitemap and
+structured data, consent management, first-party analytics with exact rolling 24-hour visitors,
+and a consent-gated Meta Pixel and Conversions API (no live credentials configured). Pending
+owner review, commit/push, GitHub CI and acceptance.
 
 ### Phase 13 — Mail & Notification Engine
 

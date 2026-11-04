@@ -12,9 +12,11 @@ import {
   placeOrder,
   releaseCheckout,
   reviewCheckout,
+  setLoyaltyPoints,
   updateCheckout,
 } from '@/lib/checkout-client';
-import { formatMoney } from '@/lib/money';
+import { pixelValue, track } from '@/lib/meta-pixel';
+import { formatMoney, fromUnits, toUnits } from '@/lib/money';
 
 import { FOCUS } from './ui';
 
@@ -65,6 +67,21 @@ const COPY = {
     reservedUntil: 'Reserved until',
     required: 'Required for delivery',
     optional: 'Optional',
+    couponDiscount: 'Coupon',
+    pointsDiscount: (points: number) => `Points (${points})`,
+    points: 'Loyalty points',
+    pointsBalance: (balance: number, value: string) =>
+      `You have ${balance} points. Each point is worth ${value}.`,
+    pointsHint: (min: number, max: number) =>
+      max >= min
+        ? `Use ${min} to ${max} points on this order.`
+        : `You need at least ${min} points to use them.`,
+    usePoints: 'Use points',
+    useMax: 'Use the most',
+    removePoints: 'Remove points',
+    pointsField: 'Points to use',
+    regular: 'Regular price',
+    noCouponOnSale: 'Coupons apply only to items at their regular price, not to sale items.',
   },
   bn: {
     title: 'চেকআউট',
@@ -112,6 +129,21 @@ const COPY = {
     reservedUntil: 'সংরক্ষিত থাকবে',
     required: 'ডেলিভারির জন্য আবশ্যক',
     optional: 'ঐচ্ছিক',
+    couponDiscount: 'কুপন',
+    pointsDiscount: (points: number) => `পয়েন্ট (${points})`,
+    points: 'লয়্যালটি পয়েন্ট',
+    pointsBalance: (balance: number, value: string) =>
+      `আপনার ${balance} পয়েন্ট আছে। প্রতি পয়েন্টের মূল্য ${value}।`,
+    pointsHint: (min: number, max: number) =>
+      max >= min
+        ? `এই অর্ডারে ${min} থেকে ${max} পয়েন্ট ব্যবহার করুন।`
+        : `ব্যবহার করতে কমপক্ষে ${min} পয়েন্ট লাগবে।`,
+    usePoints: 'পয়েন্ট ব্যবহার করুন',
+    useMax: 'সর্বোচ্চ ব্যবহার করুন',
+    removePoints: 'পয়েন্ট সরান',
+    pointsField: 'ব্যবহারের পয়েন্ট',
+    regular: 'নিয়মিত দাম',
+    noCouponOnSale: 'কুপন শুধু নিয়মিত দামের পণ্যে প্রযোজ্য, সেলের পণ্যে নয়।',
   },
 } as const;
 
@@ -142,6 +174,7 @@ export function CheckoutApp({ id, lang }: { id: string; lang: string }) {
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const [method, setMethod] = useState<PaymentMethod | ''>('');
+  const [pointsInput, setPointsInput] = useState('');
   const key = useMemo(() => crypto.randomUUID(), []);
   // One key per page visit: a retried submission replays the same order instead of a new one.
   const orderKey = useMemo(() => crypto.randomUUID(), []);
@@ -155,6 +188,14 @@ export function CheckoutApp({ id, lang }: { id: string; lang: string }) {
           setSession(value);
           setFields(initial(value));
           if (value.order) router.push(`/orders/${value.order}` as Route);
+          // Meta InitiateCheckout, once per checkout (no-op without the consented Pixel).
+          track(`checkout:${value.id}`, 'InitiateCheckout', {
+            currency: value.currency,
+            value: pixelValue(value.grand_total),
+            num_items: value.lines.length,
+            content_ids: value.lines.map((line) => line.variant),
+            content_type: 'product',
+          });
         }
       })
       .catch((reason: unknown) => {
@@ -193,6 +234,20 @@ export function CheckoutApp({ id, lang }: { id: string; lang: string }) {
       });
       setSession(value);
       setFields(initial(value));
+    } catch (reason) {
+      setError(errorMessage(reason));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function redeem(points: number) {
+    setBusy(true);
+    setError('');
+    try {
+      const value = await setLoyaltyPoints(id, points);
+      setSession(value);
+      setPointsInput(value.loyalty_points ? String(value.loyalty_points) : '');
     } catch (reason) {
       setError(errorMessage(reason));
     } finally {
@@ -263,12 +318,22 @@ export function CheckoutApp({ id, lang }: { id: string; lang: string }) {
     cod: [copy.cod, copy.codHint],
     online: [copy.online, copy.onlineHint],
   };
+  const couponPart = fromUnits(
+    (toUnits(session.discount_total) ?? 0n) - (toUnits(session.loyalty_discount) ?? 0n),
+  );
   const totals: Array<[string, string]> = [
     [copy.subtotal, session.item_subtotal],
-    [copy.discount, `-${session.discount_total}`],
+    ...(session.loyalty_points > 0
+      ? ([
+          [copy.couponDiscount, `-${couponPart}`],
+          [copy.pointsDiscount(session.loyalty_points), `-${session.loyalty_discount}`],
+        ] as Array<[string, string]>)
+      : ([[copy.discount, `-${session.discount_total}`]] as Array<[string, string]>)),
     [copy.shipping, session.shipping_total],
     [copy.tax, session.tax_total],
   ];
+  const saleLines = session.lines.some((line) => !line.coupon_eligible);
+  const loyalty = session.loyalty;
 
   return (
     <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_380px] lg:items-start">
@@ -374,7 +439,10 @@ export function CheckoutApp({ id, lang }: { id: string; lang: string }) {
               </fieldset>
             )}
             <div className="grid gap-4 rounded-base border border-store-line bg-store-surface p-5 sm:grid-cols-2">
-              {field('coupon_code', `${copy.coupon} (${copy.optional})`)}
+              <div className="flex flex-col gap-1.5">
+                {field('coupon_code', `${copy.coupon} (${copy.optional})`)}
+                {saleLines && <p className="m-0 text-xs text-store-muted">{copy.noCouponOnSale}</p>}
+              </div>
               {session.requires_shipping && session.shipping_methods.length > 0 && (
                 <label className="flex flex-col gap-1.5 text-sm font-semibold">
                   {copy.method}
@@ -428,16 +496,93 @@ export function CheckoutApp({ id, lang }: { id: string; lang: string }) {
           </form>
         )}
       </div>
-      <aside className="rounded-base border border-store-line bg-store-surface p-5 lg:sticky lg:top-36">
+      {loyalty && !locked && (
+        <section
+          aria-labelledby="checkout-points"
+          className="grid gap-3 rounded-base border border-store-line bg-store-surface p-5 lg:col-start-1"
+        >
+          <h2 id="checkout-points" className="m-0 text-lg">
+            {copy.points}
+          </h2>
+          <p className="m-0 text-sm text-store-muted">
+            {copy.pointsBalance(
+              loyalty.balance,
+              formatMoney(loyalty.point_value, session.currency),
+            )}{' '}
+            {copy.pointsHint(loyalty.min_redeem_points, loyalty.max_points)}
+          </p>
+          {loyalty.max_points >= loyalty.min_redeem_points && (
+            <form
+              className="flex flex-wrap items-end gap-2"
+              onSubmit={(event) => {
+                event.preventDefault();
+                const points = Number(pointsInput);
+                if (Number.isInteger(points) && points >= 0) void redeem(points);
+              }}
+            >
+              <label className="flex flex-col gap-1.5 text-sm font-semibold">
+                {copy.pointsField}
+                <input
+                  type="number"
+                  inputMode="numeric"
+                  min={0}
+                  max={loyalty.max_points}
+                  step={1}
+                  value={
+                    pointsInput || (session.loyalty_points ? String(session.loyalty_points) : '')
+                  }
+                  onChange={(event) => setPointsInput(event.target.value)}
+                  className={`h-11 w-36 rounded-base border border-store-line bg-store-canvas px-3 font-normal ${FOCUS}`}
+                />
+              </label>
+              <button
+                type="submit"
+                disabled={busy}
+                className={`h-11 rounded-base border border-store-ink px-4 font-semibold disabled:opacity-50 ${FOCUS}`}
+              >
+                {copy.usePoints}
+              </button>
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() => void redeem(loyalty.max_points)}
+                className={`h-11 rounded-base border border-store-line px-4 font-semibold disabled:opacity-50 ${FOCUS}`}
+              >
+                {copy.useMax}
+              </button>
+              {session.loyalty_points > 0 && (
+                <button
+                  type="button"
+                  disabled={busy}
+                  onClick={() => void redeem(0)}
+                  className={`h-11 px-2 text-sm font-semibold underline disabled:opacity-50 ${FOCUS}`}
+                >
+                  {copy.removePoints}
+                </button>
+              )}
+            </form>
+          )}
+        </section>
+      )}
+      <aside className="rounded-base border border-store-line bg-store-surface p-5 lg:sticky lg:top-36 lg:col-start-2 lg:row-span-2 lg:row-start-1">
         <h2 className="mt-0 text-xl">{copy.summary}</h2>
         <ul className="m-0 list-none divide-y divide-store-line p-0">
           {session.lines.map((line) => (
             <li key={line.variant} className="flex justify-between gap-4 py-3 text-sm">
               <span>
                 {line.product_name} × {line.quantity}
+                {line.promotion_name && (
+                  <span className="block text-xs text-store-muted">{line.promotion_name}</span>
+                )}
               </span>
-              <span className="tabular-nums">
+              <span className="text-right tabular-nums">
                 {formatMoney(line.line_subtotal, session.currency)}
+                {line.regular_unit_price && line.regular_unit_price !== line.unit_price && (
+                  <s className="block text-xs text-store-muted">
+                    <span className="sr-only">{copy.regular}: </span>
+                    {formatMoney(line.regular_unit_price, session.currency)} × {line.quantity}
+                  </s>
+                )}
               </span>
             </li>
           ))}

@@ -160,6 +160,37 @@ const en = {
   copyright: (year: number, name: string) => `© ${year} ${name}. All rights reserved.`,
   noImage: 'No image',
   showImage: (index: number) => `Show image ${index}`,
+  // Phase 12: promotions, consent and rewards.
+  flashSale: 'Flash sale',
+  regularPrice: 'Regular price',
+  saleNoCoupons: 'Coupons apply only to items at their regular price.',
+  endsIn: (time: string) => `Ends in ${time}`,
+  startsIn: (time: string) => `Starts in ${time}`,
+  offerEnded: 'This offer has ended. Refreshing prices…',
+  upcomingSale: (name: string) => `Coming soon: ${name}`,
+  countdown: (d: number, h: number, m: number, s: number) =>
+    d > 0 ? `${d}d ${h}h ${m}m` : `${h}h ${m}m ${s}s`,
+  cookiePreferences: 'Cookie preferences',
+  consentTitle: 'Your privacy choices',
+  consentBody:
+    'We use cookies that the store needs to work (sign-in, cart and checkout). With your permission we also measure visits and show you relevant ads. Nothing optional runs until you choose.',
+  acceptAll: 'Accept all',
+  rejectOptional: 'Reject optional',
+  managePreferences: 'Manage preferences',
+  savePreferences: 'Save preferences',
+  alwaysOn: 'Always on',
+  consentNecessary: 'Strictly necessary',
+  consentNecessaryBody:
+    'Sign-in, cart, checkout, security and remembering this choice. These cannot be switched off.',
+  consentAnalytics: 'Analytics',
+  consentAnalyticsBody:
+    'A random visitor ID and the campaign link you arrived from, so the store can count unique visitors. Data stays with this store.',
+  consentMarketing: 'Marketing',
+  consentMarketingBody:
+    'Loads the Meta (Facebook) Pixel and lets the store report purchases to Meta for ads measurement.',
+  consentSaved: 'Your choice has been saved.',
+  consentFailed: 'We could not save your choice. Please try again.',
+  rewards: 'Rewards',
   productTypes: {
     standard: 'General',
     apparel: 'Clothing',
@@ -295,6 +326,36 @@ const bn: Messages = {
   copyright: (year: number, name: string) => `© ${year} ${name}। সর্বস্বত্ব সংরক্ষিত।`,
   noImage: 'ছবি নেই',
   showImage: (index: number) => `${index} নম্বর ছবি দেখুন`,
+  flashSale: 'ফ্ল্যাশ সেল',
+  regularPrice: 'নিয়মিত দাম',
+  saleNoCoupons: 'কুপন শুধু নিয়মিত দামের পণ্যে প্রযোজ্য।',
+  endsIn: (time: string) => `${time} পর শেষ`,
+  startsIn: (time: string) => `${time} পর শুরু`,
+  offerEnded: 'অফারটি শেষ হয়েছে। দাম হালনাগাদ হচ্ছে…',
+  upcomingSale: (name: string) => `শীঘ্রই আসছে: ${name}`,
+  countdown: (d: number, h: number, m: number, s: number) =>
+    d > 0 ? `${d} দিন ${h} ঘণ্টা ${m} মিনিট` : `${h} ঘণ্টা ${m} মিনিট ${s} সেকেন্ড`,
+  cookiePreferences: 'কুকি পছন্দ',
+  consentTitle: 'আপনার গোপনীয়তার পছন্দ',
+  consentBody:
+    'স্টোর চালাতে প্রয়োজনীয় কুকি (সাইন-ইন, কার্ট ও চেকআউট) আমরা ব্যবহার করি। আপনার অনুমতি পেলে ভিজিট গণনা ও প্রাসঙ্গিক বিজ্ঞাপনও দেখাই। আপনি বেছে না নেওয়া পর্যন্ত ঐচ্ছিক কিছুই চলে না।',
+  acceptAll: 'সব গ্রহণ করুন',
+  rejectOptional: 'ঐচ্ছিকগুলো বাতিল করুন',
+  managePreferences: 'পছন্দ ঠিক করুন',
+  savePreferences: 'পছন্দ সংরক্ষণ করুন',
+  alwaysOn: 'সবসময় চালু',
+  consentNecessary: 'অত্যাবশ্যক',
+  consentNecessaryBody:
+    'সাইন-ইন, কার্ট, চেকআউট, নিরাপত্তা এবং এই পছন্দ মনে রাখা। এগুলো বন্ধ করা যায় না।',
+  consentAnalytics: 'অ্যানালিটিক্স',
+  consentAnalyticsBody:
+    'একটি এলোমেলো ভিজিটর আইডি এবং আপনি যে ক্যাম্পেইন লিংক থেকে এসেছেন, যাতে স্টোর অনন্য ভিজিটর গুনতে পারে। তথ্য এই স্টোরেই থাকে।',
+  consentMarketing: 'মার্কেটিং',
+  consentMarketingBody:
+    'মেটা (ফেসবুক) পিক্সেল চালু করে এবং বিজ্ঞাপন পরিমাপের জন্য স্টোরকে মেটার কাছে কেনাকাটার তথ্য পাঠাতে দেয়।',
+  consentSaved: 'আপনার পছন্দ সংরক্ষিত হয়েছে।',
+  consentFailed: 'আপনার পছন্দ সংরক্ষণ করা যায়নি। আবার চেষ্টা করুন।',
+  rewards: 'রিওয়ার্ড',
   productTypes: {
     standard: 'সাধারণ',
     apparel: 'পোশাক',

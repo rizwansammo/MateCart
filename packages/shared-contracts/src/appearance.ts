@@ -255,6 +255,8 @@ export interface StorefrontPage {
   page_type: 'page' | 'policy';
   published_at: string;
   translations: Translations;
+  seo_title: string;
+  seo_description: string;
 }
 export function storefrontPage(value: unknown): StorefrontPage {
   const o = object(value);
@@ -267,6 +269,8 @@ export function storefrontPage(value: unknown): StorefrontPage {
     page_type: pageType,
     published_at: string(o.published_at),
     translations: translations(o.translations),
+    seo_title: string(o.seo_title),
+    seo_description: string(o.seo_description),
   };
 }
 
@@ -299,6 +303,21 @@ export interface StorefrontConfig {
   translations: Translations;
   /** Today in the store's time zone (YYYY-MM-DD), the day availability is computed for. */
   local_date: string;
+  /** Phase 12 (D-085): merchant search defaults, plain text. */
+  seo: {
+    home_title: string;
+    home_description: string;
+    social_image_url: string | null;
+    /** The merchant's preference only; the deployment decides whether indexing is possible. */
+    allow_indexing: boolean;
+  };
+  /** Phase 12 (D-083, D-084): what the browser may know about optional tracking. */
+  tracking: {
+    analytics: boolean;
+    meta_pixel_id: string | null;
+    purchase_timing: 'payment_verified' | 'order_placed';
+    consent_version: string;
+  };
 }
 export function storefrontConfig(value: unknown): StorefrontConfig {
   const o = object(value);
@@ -339,5 +358,36 @@ export function storefrontConfig(value: unknown): StorefrontConfig {
     }),
     translations: translations(o.translations),
     local_date: isoDate(o.local_date),
+    seo: storeSeo(o.seo),
+    tracking: storeTracking(o.tracking),
+  };
+}
+
+function storeSeo(value: unknown): StorefrontConfig['seo'] {
+  const o = object(value);
+  return {
+    home_title: string(o.home_title),
+    home_description: string(o.home_description),
+    social_image_url: nullable(mediaUrl)(o.social_image_url),
+    allow_indexing: boolean(o.allow_indexing),
+  };
+}
+
+const PIXEL_ID = /^[0-9]{5,20}$/;
+
+function storeTracking(value: unknown): StorefrontConfig['tracking'] {
+  const o = object(value);
+  const timing = string(o.purchase_timing);
+  if (timing !== 'payment_verified' && timing !== 'order_placed')
+    throw new Error('Invalid response');
+  return {
+    analytics: boolean(o.analytics),
+    meta_pixel_id: nullable((id: unknown) => {
+      const text = string(id);
+      if (!PIXEL_ID.test(text)) throw new Error('Invalid response');
+      return text;
+    })(o.meta_pixel_id),
+    purchase_timing: timing,
+    consent_version: string(o.consent_version),
   };
 }

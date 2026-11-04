@@ -41,6 +41,7 @@ const base = {
       id: 'item-1',
       product_name: 'Tea',
       variant_title: '',
+      variant: '00000000-0000-7000-8000-0000000000aa',
       sku: 'TEA',
       kind: 'physical',
       quantity: '2.000',

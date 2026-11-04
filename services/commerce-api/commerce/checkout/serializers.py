@@ -36,6 +36,18 @@ class CartLineSerializer(serializers.Serializer[services.LineQuote]):
     subtotal = serializers.DecimalField(max_digits=19, decimal_places=4, allow_null=True)
     available_quantity = serializers.DecimalField(max_digits=14, decimal_places=3, allow_null=True)
     issue = serializers.CharField()
+    # Phase 12 (D-081): the list price and the promotion behind ``unit_price``, if any.
+    regular_unit_price = serializers.DecimalField(
+        source="quote.regular_amount", max_digits=19, decimal_places=4, allow_null=True
+    )
+    promotion_kind = serializers.SerializerMethodField()
+    promotion_name = serializers.SerializerMethodField()
+
+    def get_promotion_kind(self, line: services.LineQuote) -> str:
+        return line.quote.promotion_kind if line.quote is not None else ""
+
+    def get_promotion_name(self, line: services.LineQuote) -> str:
+        return line.quote.promotion_name if line.quote is not None else ""
 
 
 class CartSerializer(serializers.Serializer[services.CartQuote]):
@@ -101,6 +113,7 @@ class CheckoutUpdateSerializer(serializers.Serializer[Any]):
     coupon_code = serializers.CharField(max_length=32, required=False, allow_blank=True)
     shipping_method = serializers.UUIDField(required=False, allow_null=True)
     delivery_slot = serializers.UUIDField(required=False, allow_null=True)
+    loyalty_points = serializers.IntegerField(required=False, min_value=0, max_value=10_000_000)
 
 
 class CheckoutReviewInputSerializer(serializers.Serializer[Any]):
@@ -116,6 +129,17 @@ class CheckoutLineSerializer(serializers.Serializer[Any]):
     quantity = serializers.DecimalField(max_digits=14, decimal_places=3)
     unit_price = serializers.DecimalField(max_digits=19, decimal_places=4)
     line_subtotal = serializers.DecimalField(max_digits=19, decimal_places=4)
+    regular_unit_price = serializers.DecimalField(max_digits=19, decimal_places=4, allow_null=True)
+    promotion_kind = serializers.CharField()
+    promotion_name = serializers.CharField()
+    coupon_eligible = serializers.BooleanField()
+
+
+class LoyaltyCheckoutSerializer(serializers.Serializer[Any]):
+    balance = serializers.IntegerField()
+    point_value = serializers.DecimalField(max_digits=19, decimal_places=4)
+    min_redeem_points = serializers.IntegerField()
+    max_points = serializers.IntegerField(help_text="Most points this checkout can use now.")
 
 
 class ShippingMethodSerializer(serializers.ModelSerializer[ShippingMethod]):
@@ -152,6 +176,9 @@ class CheckoutSerializer(serializers.Serializer[CheckoutSession]):
     shipping_total = serializers.DecimalField(max_digits=19, decimal_places=4)
     tax_total = serializers.DecimalField(max_digits=19, decimal_places=4)
     grand_total = serializers.DecimalField(max_digits=19, decimal_places=4)
+    loyalty_points = serializers.IntegerField()
+    loyalty_discount = serializers.DecimalField(max_digits=19, decimal_places=4)
+    loyalty = serializers.SerializerMethodField()
     lines = CheckoutLineSerializer(many=True)
     shipping_methods = serializers.SerializerMethodField()
     delivery_slots = serializers.SerializerMethodField()
@@ -169,6 +196,40 @@ class CheckoutSerializer(serializers.Serializer[CheckoutSession]):
     def get_delivery_slots(self, session: CheckoutSession) -> list[dict[str, Any]]:
         return list(
             DeliverySlotSerializer(services.available_delivery_slots(session), many=True).data
+        )
+
+    @extend_schema_field(LoyaltyCheckoutSerializer(allow_null=True))
+    def get_loyalty(self, session: CheckoutSession) -> dict[str, Any] | None:
+        """Points the signed-in customer could use here; null when loyalty does not apply."""
+        from commerce.marketing import loyalty
+        from commerce.marketing.models import LoyaltyAccount
+
+        current = loyalty.active_program()
+        if (
+            current is None
+            or session.customer_id is None
+            or current.currency != session.currency
+            or loyalty.eligible_customer(session.customer) is None
+        ):
+            return None
+        balance = (
+            LoyaltyAccount.objects.filter(customer_id=session.customer_id)
+            .values_list("balance", flat=True)
+            .first()
+            or 0
+        )
+        coupon_part = session.discount_total - session.loyalty_discount
+        cap = loyalty.redemption_cap(session.item_subtotal - coupon_part, current)
+        # Rendered through its serializer so money stays a decimal string like every other amount.
+        return dict(
+            LoyaltyCheckoutSerializer(
+                {
+                    "balance": balance,
+                    "point_value": current.point_value,
+                    "min_redeem_points": current.min_redeem_points,
+                    "max_points": min(balance, cap),
+                }
+            ).data
         )
 
     @extend_schema_field(serializers.ListField(child=serializers.CharField()))

@@ -39,6 +39,9 @@ class ContentPage(TenantOwnedModel, TimestampedModel):
     show_in_footer = models.BooleanField(default=True)
     position = models.PositiveIntegerField(default=0)
     translations = models.JSONField(default=dict, blank=True)
+    # Phase 12 (D-085): optional search and social overrides (plain text).
+    seo_title = models.CharField(max_length=70, blank=True)
+    seo_description = models.CharField(max_length=320, blank=True)
 
     class Meta(TenantOwnedModel.Meta):
         constraints = [

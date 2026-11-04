@@ -91,6 +91,7 @@ class LineQuote:
     subtotal: Decimal | None
     available_quantity: Decimal | None
     issue: str
+    quote: pricing.PriceQuote | None = None
 
 
 @dataclass(frozen=True)
@@ -260,7 +261,7 @@ def quote_cart(cart: Cart) -> CartQuote:
     valid = bool(items)
     for item in items:
         variant = item.variant
-        price = pricing.quote(variant)
+        price = pricing.quote(variant, quantity=item.quantity)
         issue, available = _variant_issue(variant, item.quantity)
         if price is not None and currency and price.currency != currency:
             issue = "currency_mismatch"
@@ -278,6 +279,7 @@ def quote_cart(cart: Cart) -> CartQuote:
                 subtotal=line_subtotal,
                 available_quantity=available,
                 issue=issue,
+                quote=price,
             )
         )
         count += int(item.quantity) if item.quantity == item.quantity.to_integral() else 1
@@ -376,7 +378,7 @@ def _sync_lines(session: CheckoutSession, quote: CartQuote) -> None:
     CheckoutLine.objects.filter(session=session).delete()
     rows: list[CheckoutLine] = []
     for line in quote.lines:
-        current = pricing.quote(line.variant)
+        current = line.quote
         if line.unit_price is not None and line.subtotal is not None and current is not None:
             rows.append(
                 CheckoutLine(
@@ -390,6 +392,11 @@ def _sync_lines(session: CheckoutSession, quote: CartQuote) -> None:
                     unit_price=line.unit_price,
                     line_subtotal=line.subtotal,
                     price_id=current.price_id,
+                    regular_unit_price=current.regular_amount,
+                    promotion_kind=current.promotion_kind,
+                    promotion_id=current.promotion_id,
+                    promotion_name=current.promotion_name[:120],
+                    coupon_eligible=current.coupon_eligible,
                 )
             )
     CheckoutLine.objects.bulk_create(rows)
@@ -466,6 +473,11 @@ def _validate_coupon(session: CheckoutSession, coupon: Coupon) -> Coupon:
         raise ValidationError({"coupon_code": ["This coupon has reached its usage limit."]})
     if session.item_subtotal < coupon.minimum_subtotal:
         raise ValidationError({"coupon_code": ["The cart subtotal is too low for this coupon."]})
+    if session.pk is not None and _coupon_base(session) <= 0:
+        # Promotional prices and coupons never combine (D-081).
+        raise ValidationError(
+            {"coupon_code": ["Coupons don't apply to items that are already on sale."]}
+        )
     if coupon.discount_type == CouponDiscountType.FIXED:
         if coupon.currency != session.currency:
             raise ValidationError({"coupon_code": ["This coupon uses a different currency."]})
@@ -500,14 +512,37 @@ def _revalidate_selected_coupon(session: CheckoutSession) -> None:
     session.coupon = _validate_coupon(session, coupon)
 
 
+def _coupon_base(session: CheckoutSession) -> Decimal:
+    """The part of the item subtotal a coupon may discount: lines at their regular price. With
+    no promotional lines this is the item subtotal, exactly as before Phase 12 (D-081)."""
+    rows = CheckoutLine.objects.filter(session=session).values_list(
+        "line_subtotal", "coupon_eligible"
+    )
+    if not rows:
+        return Decimal(session.item_subtotal)
+    return sum((amount for amount, eligible in rows if eligible), Decimal(0))
+
+
 def _calculate(session: CheckoutSession) -> None:
+    from commerce.marketing import loyalty
+
     discount = Decimal(0)
+    base = _coupon_base(session) if session.coupon is not None else session.item_subtotal
     if session.coupon is not None:
         if session.coupon.discount_type == CouponDiscountType.FIXED:
             discount = session.coupon.value
         else:
-            discount = session.item_subtotal * session.coupon.value / Decimal(100)
-    discount = _round_money(min(discount, session.item_subtotal), session.currency)
+            discount = base * session.coupon.value / Decimal(100)
+    discount = _round_money(min(discount, base, session.item_subtotal), session.currency)
+    points, points_value = loyalty.clamp_redemption(
+        customer_id=session.customer_id,
+        points=session.loyalty_points,
+        base=session.item_subtotal - discount,
+        currency=session.currency,
+    )
+    session.loyalty_points = points
+    session.loyalty_discount = points_value
+    discount += points_value
     shipping = Decimal(0)
     if session.requires_shipping and session.shipping_method is not None:
         method = session.shipping_method
@@ -663,6 +698,19 @@ def update_checkout(session: CheckoutSession, data: dict[str, Any]) -> CheckoutS
         if "delivery_slot" in data:
             value = data["delivery_slot"]
             target.delivery_slot = DeliverySlot.objects.filter(pk=value).first() if value else None
+        if "loyalty_points" in data:
+            from commerce.marketing import loyalty
+
+            requested = int(data["loyalty_points"] or 0)
+            target.loyalty_points = 0
+            _calculate(target)  # the coupon alone: points apply to what is left
+            loyalty.validate_redemption(
+                customer=target.customer,
+                points=requested,
+                base=target.item_subtotal - target.discount_total,
+                currency=target.currency,
+            )
+            target.loyalty_points = requested
         _calculate(target)
         validated(target, exclude=["tenant"])
         target.save()
@@ -699,20 +747,28 @@ def _validate_review_details(session: CheckoutSession) -> None:
         raise ValidationError(errors)
 
 
-def _snapshot_signature(session: CheckoutSession) -> list[tuple[Any, Decimal, Decimal, Any]]:
+def _snapshot_signature(session: CheckoutSession) -> list[tuple[Any, Decimal, Decimal, Any, Any]]:
     return list(
         CheckoutLine.objects.filter(session=session)
         .order_by("variant_id")
-        .values_list("variant_id", "quantity", "unit_price", "price_id")
+        .values_list("variant_id", "quantity", "unit_price", "price_id", "promotion_id")
     )
 
 
-def _quote_signature(quote: CartQuote) -> list[tuple[Any, Decimal, Decimal, Any]]:
+def _quote_signature(quote: CartQuote) -> list[tuple[Any, Decimal, Decimal, Any, Any]]:
     result = []
     for line in quote.lines:
-        current = pricing.quote(line.variant)
+        current = line.quote
         if current is not None:
-            result.append((line.variant.pk, line.item.quantity, current.amount, current.price_id))
+            result.append(
+                (
+                    line.variant.pk,
+                    line.item.quantity,
+                    current.amount,
+                    current.price_id,
+                    current.promotion_id,
+                )
+            )
     return sorted(result, key=lambda row: str(row[0]))
 
 
@@ -853,7 +909,15 @@ def review_checkout(
             change_error = PriceChanged if price_changed else CartChanged
         else:
             _revalidate_selected_coupon(target)
+            requested_points = target.loyalty_points
             _calculate(target)
+            if requested_points != target.loyalty_points:
+                # The points balance or cap changed since the customer chose them (D-082).
+                from commerce.marketing.loyalty import LoyaltyUnavailable
+
+                target.save()
+                change_error = LoyaltyUnavailable
+        if change_error is None:
             _validate_review_details(target)
             _lock_delivery_slot_hold(target)
             target.expires_at = timezone.now() + RESERVATION_LIFETIME

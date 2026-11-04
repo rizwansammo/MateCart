@@ -14,6 +14,8 @@ import { useEffect, useState } from 'react';
 import { cancelOrder, getOrder, startPayment } from '@/lib/checkout-client';
 import { formatMoney } from '@/lib/money';
 
+import { trackPurchase } from '@/lib/meta-pixel';
+
 import { FOCUS } from './ui';
 
 const COPY = {
@@ -137,7 +139,15 @@ const COPY = {
   },
 } as const;
 
-export function OrderApp({ id, lang }: { id: string; lang: string }) {
+export function OrderApp({
+  id,
+  lang,
+  purchaseTiming = 'payment_verified',
+}: {
+  id: string;
+  lang: string;
+  purchaseTiming?: 'payment_verified' | 'order_placed';
+}) {
   const copy = lang === 'bn' ? COPY.bn : COPY.en;
   const [order, setOrder] = useState<Order | null>(null);
   const [error, setError] = useState('');
@@ -148,7 +158,10 @@ export function OrderApp({ id, lang }: { id: string; lang: string }) {
     let live = true;
     getOrder(id)
       .then((value) => {
-        if (live) setOrder(value);
+        if (live) {
+          setOrder(value);
+          trackPurchase(value, purchaseTiming);
+        }
       })
       .catch((reason: unknown) => {
         if (live) setError(errorMessage(reason));
@@ -156,7 +169,7 @@ export function OrderApp({ id, lang }: { id: string; lang: string }) {
     return () => {
       live = false;
     };
-  }, [id]);
+  }, [id, purchaseTiming]);
 
   async function act(action: () => Promise<void>) {
     setBusy(true);

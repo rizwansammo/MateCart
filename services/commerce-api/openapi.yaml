@@ -336,6 +336,21 @@ paths:
       responses:
         '204':
           description: No response body
+  /api/account/loyalty/:
+    get:
+      operationId: account_loyalty
+      description: Base for every cookie-authenticated or sign-in endpoint.
+      tags:
+      - storefront-marketing
+      security:
+      - customerSession: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CustomerLoyalty'
+          description: ''
   /api/account/me/:
     get:
       operationId: account_me
@@ -581,6 +596,23 @@ paths:
               schema:
                 $ref: '#/components/schemas/CustomerAccount'
           description: ''
+  /api/analytics/events/:
+    post:
+      operationId: storefront_event
+      description: Base for every cookie-authenticated or sign-in endpoint.
+      tags:
+      - storefront-marketing
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EventInputRequest'
+        required: true
+      security:
+      - {}
+      responses:
+        '204':
+          description: No response body
   /api/cart/:
     get:
       operationId: cart_get
@@ -1120,6 +1152,27 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Checkout'
+          description: ''
+  /api/consent/:
+    post:
+      operationId: storefront_consent
+      description: Base for every cookie-authenticated or sign-in endpoint.
+      tags:
+      - storefront-marketing
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ConsentInputRequest'
+        required: true
+      security:
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Consent'
           description: ''
   /api/couriers/callbacks/{provider}/tracking/:
     post:
@@ -4011,6 +4064,715 @@ paths:
               schema:
                 $ref: '#/components/schemas/InvitationPreview'
           description: ''
+  /api/manage/marketing/:
+    get:
+      operationId: marketing_overview
+      description: Base for every cookie-authenticated or sign-in endpoint.
+      tags:
+      - manage-marketing
+      security:
+      - staffSession: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Overview'
+          description: ''
+  /api/manage/marketing/analytics/:
+    get:
+      operationId: marketing_analytics
+      description: Base for every cookie-authenticated or sign-in endpoint.
+      parameters:
+      - in: query
+        name: end
+        schema:
+          type: string
+          format: date
+      - in: query
+        name: range
+        schema:
+          enum:
+          - 24h
+          - 7d
+          - 30d
+          - custom
+          type: string
+          default: 7d
+          minLength: 1
+        description: |-
+          * `24h` - 24h
+          * `7d` - 7d
+          * `30d` - 30d
+          * `custom` - custom
+      - in: query
+        name: start
+        schema:
+          type: string
+          format: date
+      tags:
+      - manage-marketing
+      security:
+      - staffSession: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AnalyticsReport'
+          description: ''
+  /api/manage/marketing/analytics/live/:
+    get:
+      operationId: marketing_analytics_live
+      description: Base for every cookie-authenticated or sign-in endpoint.
+      tags:
+      - manage-marketing
+      security:
+      - staffSession: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LiveSummary'
+          description: ''
+  /api/manage/marketing/campaigns/:
+    get:
+      operationId: marketing_campaigns
+      description: Base for every cookie-authenticated or sign-in endpoint.
+      parameters:
+      - in: query
+        name: page
+        schema:
+          type: integer
+          maximum: 100000
+          minimum: 1
+          default: 1
+      - in: query
+        name: page_size
+        schema:
+          type: integer
+          maximum: 100
+          minimum: 1
+          default: 25
+      - in: query
+        name: search
+        schema:
+          type: string
+          minLength: 1
+          maxLength: 100
+      - in: query
+        name: state
+        schema:
+          enum:
+          - draft
+          - scheduled
+          - live
+          - paused
+          - ended
+          - cancelled
+          type: string
+          minLength: 1
+        description: |-
+          * `draft` - draft
+          * `scheduled` - scheduled
+          * `live` - live
+          * `paused` - paused
+          * `ended` - ended
+          * `cancelled` - cancelled
+      tags:
+      - manage-marketing
+      security:
+      - staffSession: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CampaignPage'
+          description: ''
+    post:
+      operationId: marketing_campaign_create
+      description: Base for every cookie-authenticated or sign-in endpoint.
+      tags:
+      - manage-marketing
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CampaignInputRequest'
+        required: true
+      security:
+      - staffSession: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CampaignDetail'
+          description: ''
+  /api/manage/marketing/campaigns/{campaign_id}/:
+    get:
+      operationId: marketing_campaign
+      description: Base for every cookie-authenticated or sign-in endpoint.
+      parameters:
+      - in: path
+        name: campaign_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - manage-marketing
+      security:
+      - staffSession: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CampaignDetail'
+          description: ''
+    patch:
+      operationId: marketing_campaign_update
+      description: Base for every cookie-authenticated or sign-in endpoint.
+      parameters:
+      - in: path
+        name: campaign_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - manage-marketing
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedCampaignUpdateRequest'
+      security:
+      - staffSession: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CampaignDetail'
+          description: ''
+  /api/manage/marketing/campaigns/{campaign_id}/status/:
+    post:
+      operationId: marketing_campaign_status
+      description: Base for every cookie-authenticated or sign-in endpoint.
+      parameters:
+      - in: path
+        name: campaign_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - manage-marketing
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StatusActionRequest'
+        required: true
+      security:
+      - staffSession: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CampaignDetail'
+          description: ''
+  /api/manage/marketing/coupons/:
+    get:
+      operationId: marketing_coupons
+      description: Base for every cookie-authenticated or sign-in endpoint.
+      parameters:
+      - in: query
+        name: active
+        schema:
+          type: boolean
+          nullable: true
+      - in: query
+        name: page
+        schema:
+          type: integer
+          maximum: 100000
+          minimum: 1
+          default: 1
+      - in: query
+        name: page_size
+        schema:
+          type: integer
+          maximum: 100
+          minimum: 1
+          default: 25
+      - in: query
+        name: search
+        schema:
+          type: string
+          minLength: 1
+          maxLength: 32
+      tags:
+      - manage-marketing
+      security:
+      - staffSession: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CouponPage'
+          description: ''
+    post:
+      operationId: marketing_coupon_create
+      description: Base for every cookie-authenticated or sign-in endpoint.
+      tags:
+      - manage-marketing
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CouponInputRequest'
+        required: true
+      security:
+      - staffSession: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Coupon'
+          description: ''
+  /api/manage/marketing/coupons/{coupon_id}/:
+    patch:
+      operationId: marketing_coupon_update
+      description: Base for every cookie-authenticated or sign-in endpoint.
+      parameters:
+      - in: path
+        name: coupon_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - manage-marketing
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedCouponUpdateRequest'
+      security:
+      - staffSession: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Coupon'
+          description: ''
+  /api/manage/marketing/flash-sales/:
+    get:
+      operationId: marketing_flash_sales
+      description: Base for every cookie-authenticated or sign-in endpoint.
+      parameters:
+      - in: query
+        name: page
+        schema:
+          type: integer
+          maximum: 100000
+          minimum: 1
+          default: 1
+      - in: query
+        name: page_size
+        schema:
+          type: integer
+          maximum: 100
+          minimum: 1
+          default: 25
+      - in: query
+        name: search
+        schema:
+          type: string
+          minLength: 1
+          maxLength: 100
+      - in: query
+        name: state
+        schema:
+          enum:
+          - draft
+          - scheduled
+          - live
+          - paused
+          - ended
+          - cancelled
+          type: string
+          minLength: 1
+        description: |-
+          * `draft` - draft
+          * `scheduled` - scheduled
+          * `live` - live
+          * `paused` - paused
+          * `ended` - ended
+          * `cancelled` - cancelled
+      tags:
+      - manage-marketing
+      security:
+      - staffSession: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FlashSalePage'
+          description: ''
+    post:
+      operationId: marketing_flash_sale_create
+      description: Base for every cookie-authenticated or sign-in endpoint.
+      tags:
+      - manage-marketing
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FlashSaleInputRequest'
+        required: true
+      security:
+      - staffSession: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FlashSaleDetail'
+          description: ''
+  /api/manage/marketing/flash-sales/{sale_id}/:
+    get:
+      operationId: marketing_flash_sale
+      description: Base for every cookie-authenticated or sign-in endpoint.
+      parameters:
+      - in: path
+        name: sale_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - manage-marketing
+      security:
+      - staffSession: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FlashSaleDetail'
+          description: ''
+    patch:
+      operationId: marketing_flash_sale_update
+      description: Base for every cookie-authenticated or sign-in endpoint.
+      parameters:
+      - in: path
+        name: sale_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - manage-marketing
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedFlashSaleUpdateRequest'
+      security:
+      - staffSession: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FlashSaleDetail'
+          description: ''
+  /api/manage/marketing/flash-sales/{sale_id}/status/:
+    post:
+      operationId: marketing_flash_sale_status
+      description: Base for every cookie-authenticated or sign-in endpoint.
+      parameters:
+      - in: path
+        name: sale_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - manage-marketing
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StatusActionRequest'
+        required: true
+      security:
+      - staffSession: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FlashSaleDetail'
+          description: ''
+  /api/manage/marketing/lookup/:
+    get:
+      operationId: marketing_lookup
+      description: Base for every cookie-authenticated or sign-in endpoint.
+      parameters:
+      - in: query
+        name: kind
+        schema:
+          enum:
+          - targets
+          - variants
+          type: string
+          default: targets
+          minLength: 1
+        description: |-
+          * `targets` - targets
+          * `variants` - variants
+      - in: query
+        name: q
+        schema:
+          type: string
+          maxLength: 100
+      tags:
+      - manage-marketing
+      security:
+      - staffSession: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/LookupRow'
+          description: ''
+  /api/manage/marketing/loyalty/:
+    get:
+      operationId: marketing_loyalty
+      description: Base for every cookie-authenticated or sign-in endpoint.
+      tags:
+      - manage-marketing
+      security:
+      - staffSession: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoyaltyStats'
+          description: ''
+    patch:
+      operationId: marketing_loyalty_update
+      description: Base for every cookie-authenticated or sign-in endpoint.
+      tags:
+      - manage-marketing
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedLoyaltyProgramInputRequest'
+      security:
+      - staffSession: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoyaltyStats'
+          description: ''
+  /api/manage/marketing/loyalty/adjust/:
+    post:
+      operationId: marketing_loyalty_adjust
+      description: 'Points change without a purchase: also needs a recent sign-in
+        or password confirmation.'
+      tags:
+      - manage-marketing
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoyaltyAdjustmentRequest'
+        required: true
+      security:
+      - staffSession: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LedgerEntry'
+          description: ''
+  /api/manage/marketing/loyalty/members/:
+    get:
+      operationId: marketing_loyalty_members
+      description: Base for every cookie-authenticated or sign-in endpoint.
+      parameters:
+      - in: query
+        name: page
+        schema:
+          type: integer
+          maximum: 100000
+          minimum: 1
+          default: 1
+      - in: query
+        name: page_size
+        schema:
+          type: integer
+          maximum: 100
+          minimum: 1
+          default: 25
+      - in: query
+        name: search
+        schema:
+          type: string
+          minLength: 1
+          maxLength: 100
+      tags:
+      - manage-marketing
+      security:
+      - staffSession: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoyaltyAccountRowPage'
+          description: ''
+  /api/manage/marketing/loyalty/members/{customer_id}/:
+    get:
+      operationId: marketing_loyalty_member
+      description: Base for every cookie-authenticated or sign-in endpoint.
+      parameters:
+      - in: path
+        name: customer_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - manage-marketing
+      security:
+      - staffSession: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/LedgerEntry'
+          description: ''
+  /api/manage/marketing/seo/:
+    get:
+      operationId: marketing_seo
+      description: Base for every cookie-authenticated or sign-in endpoint.
+      tags:
+      - manage-marketing
+      security:
+      - staffSession: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SeoSettings'
+          description: ''
+    patch:
+      operationId: marketing_seo_update
+      description: Base for every cookie-authenticated or sign-in endpoint.
+      tags:
+      - manage-marketing
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedSeoSettingsInputRequest'
+      security:
+      - staffSession: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SeoSettings'
+          description: ''
+  /api/manage/marketing/seo/{kind}/{item_id}/:
+    patch:
+      operationId: marketing_seo_override
+      description: Base for every cookie-authenticated or sign-in endpoint.
+      parameters:
+      - in: path
+        name: item_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: kind
+        schema:
+          type: string
+        required: true
+      tags:
+      - manage-marketing
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedSeoOverrideInputRequest'
+      security:
+      - staffSession: []
+      responses:
+        '204':
+          description: No response body
+  /api/manage/marketing/tracking/:
+    get:
+      operationId: marketing_tracking
+      description: Base for every cookie-authenticated or sign-in endpoint.
+      tags:
+      - manage-marketing
+      security:
+      - staffSession: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Tracking'
+          description: ''
+    patch:
+      operationId: marketing_tracking_update
+      description: Base for every cookie-authenticated or sign-in endpoint.
+      tags:
+      - manage-marketing
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedTrackingInputRequest'
+      security:
+      - staffSession: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Tracking'
+          description: ''
   /api/manage/media/assets/:
     get:
       operationId: manage_media_assets
@@ -5142,6 +5904,41 @@ paths:
               schema:
                 $ref: '#/components/schemas/PublicPage'
           description: ''
+  /api/storefront/sitemap/:
+    get:
+      operationId: storefront_sitemap
+      description: Base for every cookie-authenticated or sign-in endpoint.
+      parameters:
+      - in: query
+        name: page
+        schema:
+          type: integer
+          maximum: 100
+          minimum: 1
+          default: 1
+      - in: query
+        name: section
+        schema:
+          enum:
+          - pages
+          - products
+          type: string
+          minLength: 1
+        description: |-
+          * `pages` - pages
+          * `products` - products
+        required: true
+      tags:
+      - storefront-marketing
+      security:
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Sitemap'
+          description: ''
 components:
   schemas:
     ActiveThemeEnum:
@@ -5455,6 +6252,95 @@ components:
       - open_support
       - open_warranty
       - pending_reviews
+    Amount:
+      type: object
+      properties:
+        currency:
+          type: string
+        amount:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,15}(?:\.\d{0,4})?$
+      required:
+      - amount
+      - currency
+    AnalyticsReport:
+      type: object
+      properties:
+        range:
+          type: string
+        rolling:
+          type: boolean
+        start:
+          type: string
+          format: date-time
+        counter_start:
+          type: string
+          format: date-time
+        end:
+          type: string
+          format: date-time
+        first_day:
+          type: string
+          format: date
+          nullable: true
+        last_day:
+          type: string
+          format: date
+          nullable: true
+        traffic:
+          $ref: '#/components/schemas/Traffic'
+        funnel:
+          $ref: '#/components/schemas/Funnel'
+        orders:
+          $ref: '#/components/schemas/OrdersSummary'
+        series:
+          type: array
+          items:
+            $ref: '#/components/schemas/SeriesPoint'
+        top_products:
+          type: array
+          items:
+            $ref: '#/components/schemas/EngagedProduct'
+        sources:
+          type: array
+          items:
+            $ref: '#/components/schemas/SourceRow'
+        campaigns:
+          type: array
+          items:
+            $ref: '#/components/schemas/PromotionResult'
+        flash_sales:
+          type: array
+          items:
+            $ref: '#/components/schemas/PromotionResult'
+        coupons:
+          type: array
+          items:
+            $ref: '#/components/schemas/CouponUsage'
+        loyalty:
+          $ref: '#/components/schemas/LoyaltyActivity'
+        active_coupons:
+          type: integer
+      required:
+      - active_coupons
+      - campaigns
+      - counter_start
+      - coupons
+      - end
+      - first_day
+      - flash_sales
+      - funnel
+      - last_day
+      - loyalty
+      - orders
+      - range
+      - rolling
+      - series
+      - sources
+      - start
+      - top_products
+      - traffic
     ApparelDetails:
       type: object
       properties:
@@ -6436,6 +7322,18 @@ components:
           type: boolean
       required:
       - name
+    BrowserEventEnum:
+      enum:
+      - page_view
+      - product_view
+      - category_view
+      - collection_view
+      type: string
+      description: |-
+        * `page_view` - page_view
+        * `product_view` - product_view
+        * `category_view` - category_view
+        * `collection_view` - collection_view
     CallbackOutcome:
       type: object
       properties:
@@ -6450,6 +7348,211 @@ components:
           type: string
       required:
       - outcome
+    Campaign:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        description:
+          type: string
+        kind:
+          type: string
+        discount_type:
+          type: string
+        value:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,15}(?:\.\d{0,4})?$
+          nullable: true
+        currency:
+          type: string
+        badge_text:
+          type: string
+        starts_at:
+          type: string
+          format: date-time
+        ends_at:
+          type: string
+          format: date-time
+        status:
+          type: string
+        state:
+          type: string
+          readOnly: true
+        target_count:
+          type: integer
+          readOnly: true
+        performance:
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+      required:
+      - badge_text
+      - created_at
+      - currency
+      - description
+      - discount_type
+      - ends_at
+      - id
+      - kind
+      - name
+      - performance
+      - starts_at
+      - state
+      - status
+      - target_count
+      - updated_at
+      - value
+    CampaignDetail:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        description:
+          type: string
+        kind:
+          type: string
+        discount_type:
+          type: string
+        value:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,15}(?:\.\d{0,4})?$
+          nullable: true
+        currency:
+          type: string
+        badge_text:
+          type: string
+        starts_at:
+          type: string
+          format: date-time
+        ends_at:
+          type: string
+          format: date-time
+        status:
+          type: string
+        state:
+          type: string
+          readOnly: true
+        target_count:
+          type: integer
+          readOnly: true
+        performance:
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        targets:
+          type: array
+          items:
+            $ref: '#/components/schemas/TargetRef'
+        preview:
+          $ref: '#/components/schemas/Preview'
+      required:
+      - badge_text
+      - created_at
+      - currency
+      - description
+      - discount_type
+      - ends_at
+      - id
+      - kind
+      - name
+      - performance
+      - preview
+      - starts_at
+      - state
+      - status
+      - target_count
+      - targets
+      - updated_at
+      - value
+    CampaignInputRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 120
+        description:
+          type: string
+          maxLength: 500
+        kind:
+          $ref: '#/components/schemas/CampaignKindEnum'
+        discount_type:
+          oneOf:
+          - $ref: '#/components/schemas/CouponDiscountTypeEnum'
+          - $ref: '#/components/schemas/BlankEnum'
+        value:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,15}(?:\.\d{0,4})?$
+          nullable: true
+        badge_text:
+          type: string
+          maxLength: 24
+        starts_at:
+          type: string
+          format: date-time
+        ends_at:
+          type: string
+          format: date-time
+        targets:
+          $ref: '#/components/schemas/TargetsRequest'
+      required:
+      - ends_at
+      - kind
+      - name
+      - starts_at
+    CampaignKindEnum:
+      enum:
+      - discount
+      - featured
+      type: string
+      description: |-
+        * `discount` - Price discount
+        * `featured` - Featured products (no price change)
+    CampaignPage:
+      type: object
+      properties:
+        count:
+          type: integer
+        page:
+          type: integer
+        page_size:
+          type: integer
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/Campaign'
+      required:
+      - count
+      - page
+      - page_size
+      - results
+    CampaignTargetKindEnum:
+      enum:
+      - product
+      - category
+      - collection
+      type: string
+      description: |-
+        * `product` - product
+        * `category` - category
+        * `collection` - collection
     Cart:
       type: object
       properties:
@@ -6519,6 +7622,17 @@ components:
           nullable: true
         issue:
           type: string
+        regular_unit_price:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,15}(?:\.\d{0,4})?$
+          nullable: true
+        promotion_kind:
+          type: string
+          readOnly: true
+        promotion_name:
+          type: string
+          readOnly: true
       required:
       - available_quantity
       - currency
@@ -6527,7 +7641,10 @@ components:
       - kind
       - product_name
       - product_slug
+      - promotion_kind
+      - promotion_name
       - quantity
+      - regular_unit_price
       - sku
       - subtotal
       - unit_price
@@ -6895,6 +8012,17 @@ components:
           type: string
           format: decimal
           pattern: ^-?\d{0,15}(?:\.\d{0,4})?$
+        loyalty_points:
+          type: integer
+        loyalty_discount:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,15}(?:\.\d{0,4})?$
+        loyalty:
+          allOf:
+          - $ref: '#/components/schemas/LoyaltyCheckout'
+          nullable: true
+          readOnly: true
         lines:
           type: array
           items:
@@ -6949,6 +8077,9 @@ components:
       - id
       - item_subtotal
       - lines
+      - loyalty
+      - loyalty_discount
+      - loyalty_points
       - order
       - order_creation_available
       - payment_methods
@@ -6988,11 +8119,26 @@ components:
           type: string
           format: decimal
           pattern: ^-?\d{0,15}(?:\.\d{0,4})?$
+        regular_unit_price:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,15}(?:\.\d{0,4})?$
+          nullable: true
+        promotion_kind:
+          type: string
+        promotion_name:
+          type: string
+        coupon_eligible:
+          type: boolean
       required:
+      - coupon_eligible
       - kind
       - line_subtotal
       - product_name
+      - promotion_kind
+      - promotion_name
       - quantity
+      - regular_unit_price
       - sku
       - unit_price
       - variant
@@ -7288,6 +8434,174 @@ components:
             "..."}}.'
       required:
       - name
+    Consent:
+      type: object
+      properties:
+        analytics:
+          type: boolean
+        marketing:
+          type: boolean
+        policy_version:
+          type: string
+      required:
+      - analytics
+      - marketing
+      - policy_version
+    ConsentInputRequest:
+      type: object
+      properties:
+        analytics:
+          type: boolean
+        marketing:
+          type: boolean
+        origin:
+          $ref: '#/components/schemas/ConsentOriginEnum'
+      required:
+      - analytics
+      - marketing
+      - origin
+    ConsentOriginEnum:
+      enum:
+      - banner
+      - preferences
+      type: string
+      description: |-
+        * `banner` - banner
+        * `preferences` - preferences
+    Coupon:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        code:
+          type: string
+          pattern: ^[A-Z0-9][A-Z0-9_-]{1,31}$
+          maxLength: 32
+        discount_type:
+          $ref: '#/components/schemas/CouponDiscountTypeEnum'
+        value:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,15}(?:\.\d{0,4})?$
+        currency:
+          type: string
+          maxLength: 3
+        minimum_subtotal:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,15}(?:\.\d{0,4})?$
+        starts_at:
+          type: string
+          format: date-time
+          nullable: true
+        ends_at:
+          type: string
+          format: date-time
+          nullable: true
+        max_redemptions:
+          type: integer
+          maximum: 2147483647
+          minimum: 0
+          nullable: true
+        times_redeemed:
+          type: integer
+          maximum: 2147483647
+          minimum: 0
+        is_active:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - code
+      - created_at
+      - discount_type
+      - id
+      - value
+    CouponDiscountTypeEnum:
+      enum:
+      - percent
+      - fixed
+      type: string
+      description: |-
+        * `percent` - Percentage
+        * `fixed` - Fixed amount
+    CouponInputRequest:
+      type: object
+      properties:
+        code:
+          type: string
+          minLength: 1
+          maxLength: 32
+          pattern: ^[A-Z0-9][A-Z0-9_-]{1,31}$
+        discount_type:
+          $ref: '#/components/schemas/CouponDiscountTypeEnum'
+        value:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,15}(?:\.\d{0,4})?$
+        minimum_subtotal:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,15}(?:\.\d{0,4})?$
+        starts_at:
+          type: string
+          format: date-time
+          nullable: true
+        ends_at:
+          type: string
+          format: date-time
+          nullable: true
+        max_redemptions:
+          type: integer
+          maximum: 1000000
+          minimum: 1
+          nullable: true
+        is_active:
+          type: boolean
+      required:
+      - code
+      - discount_type
+      - value
+    CouponPage:
+      type: object
+      properties:
+        count:
+          type: integer
+        page:
+          type: integer
+        page_size:
+          type: integer
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/Coupon'
+      required:
+      - count
+      - page
+      - page_size
+      - results
+    CouponUsage:
+      type: object
+      properties:
+        code:
+          type: string
+        currency:
+          type: string
+        uses:
+          type: integer
+        discount:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,15}(?:\.\d{0,4})?$
+      required:
+      - code
+      - currency
+      - discount
+      - uses
     CourierBooking:
       type: object
       properties:
@@ -7440,6 +8754,62 @@ components:
       - orders
       - phone
       - phone_verified
+    CustomerLoyalty:
+      type: object
+      properties:
+        enabled:
+          type: boolean
+        balance:
+          type: integer
+        deficit:
+          type: integer
+        pending:
+          type: integer
+          description: Points waiting for payment and delivery.
+        lifetime_earned:
+          type: integer
+        lifetime_redeemed:
+          type: integer
+        point_value:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,15}(?:\.\d{0,4})?$
+          nullable: true
+        currency:
+          type: string
+          nullable: true
+        earn_points:
+          type: integer
+          nullable: true
+        earn_spend:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,15}(?:\.\d{0,4})?$
+          nullable: true
+        min_redeem_points:
+          type: integer
+          nullable: true
+        expiry_days:
+          type: integer
+          nullable: true
+        entries:
+          type: array
+          items:
+            $ref: '#/components/schemas/LedgerEntry'
+      required:
+      - balance
+      - currency
+      - deficit
+      - earn_points
+      - earn_spend
+      - enabled
+      - entries
+      - expiry_days
+      - lifetime_earned
+      - lifetime_redeemed
+      - min_redeem_points
+      - pending
+      - point_value
     CustomerRef:
       type: object
       properties:
@@ -7716,6 +9086,36 @@ components:
           maxLength: 254
       required:
       - email
+    EngagedProduct:
+      type: object
+      properties:
+        product:
+          type: string
+        name:
+          type: string
+        views:
+          type: integer
+        add_to_cart:
+          type: integer
+      required:
+      - add_to_cart
+      - name
+      - product
+      - views
+    EventInputRequest:
+      type: object
+      properties:
+        name:
+          $ref: '#/components/schemas/BrowserEventEnum'
+        object_id:
+          type: string
+          format: uuid
+          nullable: true
+        landing:
+          type: boolean
+          default: false
+      required:
+      - name
     Finance:
       type: object
       properties:
@@ -7758,6 +9158,216 @@ components:
       - net_collected
       - order_value
       - refunded
+    FlashItem:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        variant:
+          type: string
+          format: uuid
+        sku:
+          type: string
+        product_name:
+          type: string
+        variant_title:
+          type: string
+        sale_price:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,15}(?:\.\d{0,4})?$
+        currency:
+          type: string
+        regular_amount:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,15}(?:\.\d{0,4})?$
+          nullable: true
+        quantity_limit:
+          type: integer
+          nullable: true
+        per_order_limit:
+          type: integer
+          nullable: true
+        units_sold:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,11}(?:\.\d{0,3})?$
+      required:
+      - currency
+      - id
+      - per_order_limit
+      - product_name
+      - quantity_limit
+      - regular_amount
+      - sale_price
+      - sku
+      - units_sold
+      - variant
+      - variant_title
+    FlashItemInputRequest:
+      type: object
+      properties:
+        variant:
+          type: string
+          format: uuid
+        sale_price:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,15}(?:\.\d{0,4})?$
+        quantity_limit:
+          type: integer
+          maximum: 1000000
+          minimum: 1
+          nullable: true
+        per_order_limit:
+          type: integer
+          maximum: 10000
+          minimum: 1
+          nullable: true
+      required:
+      - sale_price
+      - variant
+    FlashSale:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        description:
+          type: string
+        starts_at:
+          type: string
+          format: date-time
+        ends_at:
+          type: string
+          format: date-time
+        status:
+          type: string
+        state:
+          type: string
+          readOnly: true
+        item_count:
+          type: integer
+          readOnly: true
+        performance:
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+      required:
+      - created_at
+      - description
+      - ends_at
+      - id
+      - item_count
+      - name
+      - performance
+      - starts_at
+      - state
+      - status
+      - updated_at
+    FlashSaleDetail:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        description:
+          type: string
+        starts_at:
+          type: string
+          format: date-time
+        ends_at:
+          type: string
+          format: date-time
+        status:
+          type: string
+        state:
+          type: string
+          readOnly: true
+        item_count:
+          type: integer
+          readOnly: true
+        performance:
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/FlashItem'
+        module_enabled:
+          type: boolean
+      required:
+      - created_at
+      - description
+      - ends_at
+      - id
+      - item_count
+      - items
+      - module_enabled
+      - name
+      - performance
+      - starts_at
+      - state
+      - status
+      - updated_at
+    FlashSaleInputRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 120
+        description:
+          type: string
+          maxLength: 500
+        starts_at:
+          type: string
+          format: date-time
+        ends_at:
+          type: string
+          format: date-time
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/FlashItemInputRequest'
+          maxItems: 200
+      required:
+      - ends_at
+      - name
+      - starts_at
+    FlashSalePage:
+      type: object
+      properties:
+        count:
+          type: integer
+        page:
+          type: integer
+        page_size:
+          type: integer
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/FlashSale'
+      required:
+      - count
+      - page
+      - page_size
+      - results
     FooterPage:
       type: object
       properties:
@@ -7881,6 +9491,31 @@ components:
       - id
       - score
       - status
+    Funnel:
+      type: object
+      properties:
+        product_views:
+          type: integer
+        add_to_cart:
+          type: integer
+        checkout_started:
+          type: integer
+        storefront_orders:
+          type: integer
+        converting_visitors:
+          type: integer
+        conversion_rate:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,5}(?:\.\d{0,1})?$
+          nullable: true
+      required:
+      - add_to_cart
+      - checkout_started
+      - conversion_rate
+      - converting_visitors
+      - product_views
+      - storefront_orders
     GoogleStart:
       type: object
       properties:
@@ -8187,6 +9822,41 @@ components:
       required:
       - key
       - orders
+    LedgerEntry:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        kind:
+          type: string
+        points:
+          type: integer
+        deficit_change:
+          type: integer
+        balance_after:
+          type: integer
+        deficit_after:
+          type: integer
+        order_number:
+          type: string
+          nullable: true
+          readOnly: true
+        note:
+          type: string
+        occurred_at:
+          type: string
+          format: date-time
+      required:
+      - balance_after
+      - deficit_after
+      - deficit_change
+      - id
+      - kind
+      - note
+      - occurred_at
+      - order_number
+      - points
     LibraryItem:
       type: object
       properties:
@@ -8219,6 +9889,61 @@ components:
       - remaining_downloads
       - state
       - variant_title
+    LiveSummary:
+      type: object
+      properties:
+        window_start:
+          type: string
+          format: date-time
+          description: 'Counters: current hour and 23 before it.'
+        exact_start:
+          type: string
+          format: date-time
+          description: 'Visitors and orders: exactly 24 h ago.'
+        now:
+          type: string
+          format: date-time
+        unique_visitors:
+          type: integer
+          description: Consented visitors only.
+        page_views:
+          type: integer
+        consented_page_views:
+          type: integer
+        product_views:
+          type: integer
+        add_to_cart:
+          type: integer
+        checkout_started:
+          type: integer
+        storefront_orders:
+          type: integer
+        converting_visitors:
+          type: integer
+        conversion_rate:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,5}(?:\.\d{0,1})?$
+          nullable: true
+        consent_coverage:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,5}(?:\.\d{0,1})?$
+          nullable: true
+      required:
+      - add_to_cart
+      - checkout_started
+      - consent_coverage
+      - consented_page_views
+      - conversion_rate
+      - converting_visitors
+      - exact_start
+      - now
+      - page_views
+      - product_views
+      - storefront_orders
+      - unique_visitors
+      - window_start
     Liveness:
       type: object
       properties:
@@ -8364,6 +10089,32 @@ components:
       required:
       - email
       - password
+    LookupRow:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        kind:
+          $ref: '#/components/schemas/MarketingLookupKindEnum'
+        name:
+          type: string
+        detail:
+          type: string
+        regular_amount:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,15}(?:\.\d{0,4})?$
+          nullable: true
+        currency:
+          type: string
+      required:
+      - currency
+      - detail
+      - id
+      - kind
+      - name
+      - regular_amount
     LowStockItem:
       type: object
       properties:
@@ -8412,6 +10163,185 @@ components:
       - sku
       - variant
       - variant_title
+    LoyaltyAccountRow:
+      type: object
+      properties:
+        customer:
+          type: string
+          format: uuid
+        name:
+          type: string
+        email:
+          type: string
+          nullable: true
+        balance:
+          type: integer
+        deficit:
+          type: integer
+        lifetime_earned:
+          type: integer
+        lifetime_redeemed:
+          type: integer
+        last_activity_at:
+          type: string
+          format: date-time
+          nullable: true
+      required:
+      - balance
+      - customer
+      - deficit
+      - email
+      - last_activity_at
+      - lifetime_earned
+      - lifetime_redeemed
+      - name
+    LoyaltyAccountRowPage:
+      type: object
+      properties:
+        count:
+          type: integer
+        page:
+          type: integer
+        page_size:
+          type: integer
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/LoyaltyAccountRow'
+      required:
+      - count
+      - page
+      - page_size
+      - results
+    LoyaltyActivity:
+      type: object
+      properties:
+        earned:
+          type: integer
+        redeemed:
+          type: integer
+        restored:
+          type: integer
+        reversed:
+          type: integer
+        expired:
+          type: integer
+        adjusted:
+          type: integer
+        pending_awards:
+          type: integer
+      required:
+      - adjusted
+      - earned
+      - expired
+      - pending_awards
+      - redeemed
+      - restored
+      - reversed
+    LoyaltyAdjustmentRequest:
+      type: object
+      properties:
+        customer:
+          type: string
+          format: uuid
+        points:
+          type: integer
+          maximum: 1000000
+          minimum: -1000000
+        reason:
+          type: string
+          minLength: 5
+          maxLength: 200
+        idempotency_key:
+          type: string
+          minLength: 8
+          maxLength: 80
+      required:
+      - customer
+      - idempotency_key
+      - points
+      - reason
+    LoyaltyCheckout:
+      type: object
+      properties:
+        balance:
+          type: integer
+        point_value:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,15}(?:\.\d{0,4})?$
+        min_redeem_points:
+          type: integer
+        max_points:
+          type: integer
+          description: Most points this checkout can use now.
+      required:
+      - balance
+      - max_points
+      - min_redeem_points
+      - point_value
+    LoyaltyProgram:
+      type: object
+      properties:
+        is_enabled:
+          type: boolean
+        currency:
+          type: string
+          maxLength: 3
+        earn_points:
+          type: integer
+          maximum: 2147483647
+          minimum: 0
+        earn_spend:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,15}(?:\.\d{0,4})?$
+        point_value:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,15}(?:\.\d{0,4})?$
+        min_redeem_points:
+          type: integer
+          maximum: 2147483647
+          minimum: 0
+        max_redeem_percent:
+          type: integer
+          maximum: 100
+          minimum: 1
+        expiry_days:
+          type: integer
+          maximum: 2147483647
+          minimum: 0
+          nullable: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - currency
+      - updated_at
+    LoyaltyStats:
+      type: object
+      properties:
+        program:
+          $ref: '#/components/schemas/LoyaltyProgram'
+        module_enabled:
+          type: boolean
+        members:
+          type: integer
+        outstanding_points:
+          type: integer
+        outstanding_deficit:
+          type: integer
+        pending_awards:
+          type: integer
+      required:
+      - members
+      - module_enabled
+      - outstanding_deficit
+      - outstanding_points
+      - pending_awards
+      - program
     ManualCourierRequest:
       type: object
       properties:
@@ -8431,6 +10361,18 @@ components:
             maxLength: 0
       required:
       - courier_name
+    MarketingLookupKindEnum:
+      enum:
+      - product
+      - category
+      - collection
+      - variant
+      type: string
+      description: |-
+        * `product` - product
+        * `category` - category
+        * `collection` - collection
+        * `variant` - variant
     MediaAsset:
       type: object
       properties:
@@ -9883,6 +11825,100 @@ components:
       - page
       - page_size
       - results
+    OrderValue:
+      type: object
+      properties:
+        currency:
+          type: string
+        amount:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,15}(?:\.\d{0,4})?$
+        orders:
+          type: integer
+      required:
+      - amount
+      - currency
+      - orders
+    OrdersSummary:
+      type: object
+      properties:
+        storefront_orders:
+          type: integer
+        storefront_cancelled:
+          type: integer
+        assisted_orders:
+          type: integer
+        order_value:
+          type: array
+          items:
+            $ref: '#/components/schemas/OrderValue'
+        collected:
+          type: array
+          items:
+            $ref: '#/components/schemas/Amount'
+      required:
+      - assisted_orders
+      - collected
+      - order_value
+      - storefront_cancelled
+      - storefront_orders
+    Overview:
+      type: object
+      properties:
+        live_campaigns:
+          type: integer
+          nullable: true
+        scheduled_campaigns:
+          type: integer
+          nullable: true
+        live_flash_sales:
+          type: integer
+          nullable: true
+        scheduled_flash_sales:
+          type: integer
+          nullable: true
+        active_coupons:
+          type: integer
+          nullable: true
+        loyalty_enabled:
+          type: boolean
+          nullable: true
+        loyalty_members:
+          type: integer
+          nullable: true
+        flash_sales_module:
+          type: boolean
+        loyalty_module:
+          type: boolean
+        tracking:
+          allOf:
+          - $ref: '#/components/schemas/TrackingStatus'
+          nullable: true
+        analytics_enabled:
+          type: boolean
+          nullable: true
+        live:
+          allOf:
+          - $ref: '#/components/schemas/LiveSummary'
+          nullable: true
+        seo_indexing_preference:
+          type: boolean
+          nullable: true
+      required:
+      - active_coupons
+      - analytics_enabled
+      - flash_sales_module
+      - live
+      - live_campaigns
+      - live_flash_sales
+      - loyalty_enabled
+      - loyalty_members
+      - loyalty_module
+      - scheduled_campaigns
+      - scheduled_flash_sales
+      - seo_indexing_preference
+      - tracking
     Page:
       type: object
       properties:
@@ -10145,6 +12181,38 @@ components:
             maxLength: 0
         is_active:
           type: boolean
+    PatchedCampaignUpdateRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 120
+        description:
+          type: string
+          maxLength: 500
+        kind:
+          $ref: '#/components/schemas/CampaignKindEnum'
+        discount_type:
+          oneOf:
+          - $ref: '#/components/schemas/CouponDiscountTypeEnum'
+          - $ref: '#/components/schemas/BlankEnum'
+        value:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,15}(?:\.\d{0,4})?$
+          nullable: true
+        badge_text:
+          type: string
+          maxLength: 24
+        starts_at:
+          type: string
+          format: date-time
+        ends_at:
+          type: string
+          format: date-time
+        targets:
+          $ref: '#/components/schemas/TargetsRequest'
     PatchedCaseTransitionRequest:
       type: object
       properties:
@@ -10243,6 +12311,10 @@ components:
           type: string
           format: uuid
           nullable: true
+        loyalty_points:
+          type: integer
+          maximum: 10000000
+          minimum: 0
     PatchedCollectionWriteRequest:
       type: object
       properties:
@@ -10269,6 +12341,53 @@ components:
         translations:
           description: 'Additional languages only: {"bn": {"name": "...", "description":
             "..."}}.'
+    PatchedCouponUpdateRequest:
+      type: object
+      properties:
+        value:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,15}(?:\.\d{0,4})?$
+        minimum_subtotal:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,15}(?:\.\d{0,4})?$
+        starts_at:
+          type: string
+          format: date-time
+          nullable: true
+        ends_at:
+          type: string
+          format: date-time
+          nullable: true
+        max_redemptions:
+          type: integer
+          maximum: 1000000
+          minimum: 1
+          nullable: true
+        is_active:
+          type: boolean
+    PatchedFlashSaleUpdateRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 120
+        description:
+          type: string
+          maxLength: 500
+        starts_at:
+          type: string
+          format: date-time
+        ends_at:
+          type: string
+          format: date-time
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/FlashItemInputRequest'
+          maxItems: 200
     PatchedLevelUpdateRequest:
       type: object
       properties:
@@ -10305,6 +12424,36 @@ components:
         notes:
           type: string
           maxLength: 1000
+    PatchedLoyaltyProgramInputRequest:
+      type: object
+      properties:
+        is_enabled:
+          type: boolean
+        earn_points:
+          type: integer
+          maximum: 100000
+          minimum: 1
+        earn_spend:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,15}(?:\.\d{0,4})?$
+        point_value:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,15}(?:\.\d{0,4})?$
+        min_redeem_points:
+          type: integer
+          maximum: 1000000
+          minimum: 1
+        max_redeem_percent:
+          type: integer
+          maximum: 100
+          minimum: 1
+        expiry_days:
+          type: integer
+          maximum: 3650
+          minimum: 30
+          nullable: true
     PatchedMediaUpdateRequest:
       type: object
       properties:
@@ -10484,6 +12633,49 @@ components:
           type: string
           maxLength: 200
         translations: {}
+    PatchedSeoOverrideInputRequest:
+      type: object
+      properties:
+        seo_title:
+          type: string
+          maxLength: 70
+        seo_description:
+          type: string
+          maxLength: 320
+    PatchedSeoSettingsInputRequest:
+      type: object
+      properties:
+        home_title:
+          type: string
+          maxLength: 70
+        home_description:
+          type: string
+          maxLength: 320
+        social_image:
+          type: string
+          format: uuid
+          nullable: true
+        allow_indexing:
+          type: boolean
+    PatchedTrackingInputRequest:
+      type: object
+      properties:
+        analytics_enabled:
+          type: boolean
+        meta_enabled:
+          type: boolean
+        meta_pixel_id:
+          type: string
+          maxLength: 20
+        meta_capi_enabled:
+          type: boolean
+        meta_send_hashed_contact:
+          type: boolean
+        meta_purchase_timing:
+          $ref: '#/components/schemas/PurchaseTimingEnum'
+        meta_test_event_code:
+          type: string
+          maxLength: 40
     PatchedUpdateCartItemRequest:
       type: object
       properties:
@@ -10637,6 +12829,23 @@ components:
           format: uri
       required:
       - redirect_url
+    PerformanceCurrency:
+      type: object
+      properties:
+        currency:
+          type: string
+        sales:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,15}(?:\.\d{0,4})?$
+        discount:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,15}(?:\.\d{0,4})?$
+      required:
+      - currency
+      - discount
+      - sales
     PermissionsEnum:
       enum:
       - staff.manage
@@ -10711,6 +12920,14 @@ components:
       description: |-
         * `signed_in` - signed_in
         * `needs_name` - needs_name
+    PixelStateEnum:
+      enum:
+      - active
+      - 'off'
+      type: string
+      description: |-
+        * `active` - active
+        * `off` - off
     PlaceOrderRequest:
       type: object
       properties:
@@ -10729,6 +12946,56 @@ components:
         operational_notes:
           type: string
           maxLength: 500
+    Preview:
+      type: object
+      properties:
+        products:
+          type: integer
+        variants:
+          type: integer
+        rows:
+          type: array
+          items:
+            $ref: '#/components/schemas/PreviewRow'
+      required:
+      - products
+      - rows
+      - variants
+    PreviewRow:
+      type: object
+      properties:
+        variant:
+          type: string
+          format: uuid
+        sku:
+          type: string
+        product_name:
+          type: string
+        product_status:
+          type: string
+        currency:
+          type: string
+        regular_amount:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,15}(?:\.\d{0,4})?$
+          nullable: true
+        promotional_amount:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,15}(?:\.\d{0,4})?$
+          nullable: true
+        applies:
+          type: boolean
+      required:
+      - applies
+      - currency
+      - product_name
+      - product_status
+      - promotional_amount
+      - regular_amount
+      - sku
+      - variant
     Price:
       type: object
       properties:
@@ -11359,6 +13626,50 @@ components:
         * `grocery` - Grocery
         * `electronics` - Electronics
         * `book` - Book
+    PromotionActionEnum:
+      enum:
+      - activate
+      - pause
+      - cancel
+      type: string
+      description: |-
+        * `activate` - activate
+        * `pause` - pause
+        * `cancel` - cancel
+    PromotionKindEnum:
+      enum:
+      - campaign
+      - flash_sale
+      - featured
+      type: string
+      description: |-
+        * `campaign` - campaign
+        * `flash_sale` - flash_sale
+        * `featured` - featured
+    PromotionResult:
+      type: object
+      properties:
+        orders:
+          type: integer
+        units:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,11}(?:\.\d{0,3})?$
+        by_currency:
+          type: array
+          items:
+            $ref: '#/components/schemas/PerformanceCurrency'
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+      required:
+      - by_currency
+      - id
+      - name
+      - orders
+      - units
     ProviderEnum:
       enum:
       - manufacturer
@@ -11404,6 +13715,9 @@ components:
     PublicCategoryNode:
       type: object
       properties:
+        id:
+          type: string
+          format: uuid
         name:
           type: string
         slug:
@@ -11415,6 +13729,10 @@ components:
           nullable: true
           readOnly: true
         translations: {}
+        seo_title:
+          type: string
+        seo_description:
+          type: string
         children:
           type: array
           items:
@@ -11424,8 +13742,11 @@ components:
       required:
       - children
       - description
+      - id
       - image_url
       - name
+      - seo_description
+      - seo_title
       - slug
       - translations
     PublicCategoryRef:
@@ -11444,6 +13765,9 @@ components:
     PublicCollection:
       type: object
       properties:
+        id:
+          type: string
+          format: uuid
         name:
           type: string
         slug:
@@ -11455,10 +13779,17 @@ components:
           nullable: true
           readOnly: true
         translations: {}
+        seo_title:
+          type: string
+        seo_description:
+          type: string
       required:
       - description
+      - id
       - image_url
       - name
+      - seo_description
+      - seo_title
       - slug
       - translations
     PublicCollectionPage:
@@ -11543,10 +13874,16 @@ components:
           type: string
           format: date-time
         translations: {}
+        seo_title:
+          type: string
+        seo_description:
+          type: string
       required:
       - body
       - page_type
       - published_at
+      - seo_description
+      - seo_title
       - slug
       - title
       - translations
@@ -11564,10 +13901,15 @@ components:
           format: decimal
           pattern: ^-?\d{0,15}(?:\.\d{0,4})?$
           nullable: true
+        promotion:
+          allOf:
+          - $ref: '#/components/schemas/PublicPromotion'
+          nullable: true
       required:
       - amount
       - compare_at_amount
       - currency
+      - promotion
     PublicPriceRange:
       type: object
       properties:
@@ -11581,10 +13923,18 @@ components:
           type: string
           format: decimal
           pattern: ^-?\d{0,15}(?:\.\d{0,4})?$
+        regular_min_amount:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,15}(?:\.\d{0,4})?$
+          nullable: true
+          description: The lowest regular price, when a promotion lowers at least
+            one variant.
       required:
       - currency
       - max_amount
       - min_amount
+      - regular_min_amount
     PublicProductDetail:
       type: object
       properties:
@@ -11615,6 +13965,10 @@ components:
         in_stock:
           type: boolean
         translations: {}
+        promotion:
+          allOf:
+          - $ref: '#/components/schemas/PublicPromotion'
+          nullable: true
         authors:
           type: array
           items:
@@ -11622,6 +13976,17 @@ components:
           readOnly: true
         description:
           type: string
+        updated_at:
+          type: string
+          format: date-time
+        upcoming_sale:
+          allOf:
+          - $ref: '#/components/schemas/PublicUpcomingSale'
+          nullable: true
+        server_time:
+          type: string
+          format: date-time
+          description: Server clock for countdowns.
         seo_title:
           type: string
         seo_description:
@@ -11683,12 +14048,16 @@ components:
       - options
       - price
       - product_type
+      - promotion
       - seo_description
       - seo_title
+      - server_time
       - slug
       - specifications
       - summary
       - translations
+      - upcoming_sale
+      - updated_at
       - variants
     PublicProductOption:
       type: object
@@ -11736,6 +14105,10 @@ components:
         in_stock:
           type: boolean
         translations: {}
+        promotion:
+          allOf:
+          - $ref: '#/components/schemas/PublicPromotion'
+          nullable: true
         authors:
           type: array
           items:
@@ -11750,6 +14123,7 @@ components:
       - name
       - price
       - product_type
+      - promotion
       - slug
       - summary
       - translations
@@ -11771,6 +14145,25 @@ components:
       - page
       - page_size
       - results
+    PublicPromotion:
+      type: object
+      description: 'A live promotion (Phase 12, D-081): server-evaluated, never a
+        client claim.'
+      properties:
+        kind:
+          $ref: '#/components/schemas/PromotionKindEnum'
+        name:
+          type: string
+        badge:
+          type: string
+        ends_at:
+          type: string
+          format: date-time
+      required:
+      - badge
+      - ends_at
+      - kind
+      - name
     PublicReview:
       type: object
       properties:
@@ -11844,6 +14237,21 @@ components:
       - subtitle
       - title
       - translations
+    PublicUpcomingSale:
+      type: object
+      properties:
+        name:
+          type: string
+        starts_at:
+          type: string
+          format: date-time
+        ends_at:
+          type: string
+          format: date-time
+      required:
+      - ends_at
+      - name
+      - starts_at
     PublicVariant:
       type: object
       properties:
@@ -11939,6 +14347,14 @@ components:
         * `pending` - Pending moderation
         * `published` - Published
         * `rejected` - Rejected
+    PurchaseTimingEnum:
+      enum:
+      - payment_verified
+      - order_placed
+      type: string
+      description: |-
+        * `payment_verified` - When payment is verified or cash is collected
+        * `order_placed` - When the order is placed
     Readiness:
       type: object
       properties:
@@ -12450,6 +14866,68 @@ components:
       - reauthenticated
       - recovery_codes_remaining
       - totp
+    SeoItem:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        kind:
+          type: string
+        name:
+          type: string
+        slug:
+          type: string
+        public:
+          type: boolean
+        seo_title:
+          type: string
+        seo_description:
+          type: string
+      required:
+      - id
+      - kind
+      - name
+      - public
+      - seo_description
+      - seo_title
+      - slug
+    SeoSettings:
+      type: object
+      properties:
+        home_title:
+          type: string
+        home_description:
+          type: string
+        social_image:
+          type: string
+          format: uuid
+          nullable: true
+        social_image_url:
+          type: string
+          nullable: true
+        allow_indexing:
+          type: boolean
+        can_change_indexing:
+          type: boolean
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/SeoItem'
+        products_missing_seo:
+          type: integer
+        active_products:
+          type: integer
+      required:
+      - active_products
+      - allow_indexing
+      - can_change_indexing
+      - home_description
+      - home_title
+      - items
+      - products_missing_seo
+      - social_image
+      - social_image_url
     Serial:
       type: object
       properties:
@@ -12528,6 +15006,37 @@ components:
         * `sold` - Sold
         * `damaged` - Damaged
         * `lost` - Lost
+    SeriesPoint:
+      type: object
+      properties:
+        bucket:
+          type: string
+          description: Store-local hour (24 h) or date.
+        page_views:
+          type: integer
+        add_to_cart:
+          type: integer
+        checkout_started:
+          type: integer
+        unique_visitors:
+          type: integer
+          nullable: true
+      required:
+      - add_to_cart
+      - bucket
+      - checkout_started
+      - page_views
+      - unique_visitors
+    ServerEventStateEnum:
+      enum:
+      - active
+      - missing_credentials
+      - 'off'
+      type: string
+      description: |-
+        * `active` - active
+        * `missing_credentials` - missing_credentials
+        * `off` - off
     ShipmentStatusEnum:
       enum:
       - ready
@@ -12734,6 +15243,72 @@ components:
       description: |-
         * `signed_in` - signed_in
         * `mfa_required` - mfa_required
+    Sitemap:
+      type: object
+      properties:
+        count:
+          type: integer
+          description: Published products.
+        page_size:
+          type: integer
+        entries:
+          type: array
+          items:
+            $ref: '#/components/schemas/SitemapEntry'
+      required:
+      - count
+      - entries
+      - page_size
+    SitemapEntry:
+      type: object
+      properties:
+        type:
+          $ref: '#/components/schemas/SitemapEntryTypeEnum'
+        slug:
+          type: string
+        updated_at:
+          type: string
+          format: date-time
+      required:
+      - slug
+      - type
+      - updated_at
+    SitemapEntryTypeEnum:
+      enum:
+      - product
+      - category
+      - collection
+      - page
+      type: string
+      description: |-
+        * `product` - product
+        * `category` - category
+        * `collection` - collection
+        * `page` - page
+    SourceRow:
+      type: object
+      properties:
+        utm_source:
+          type: string
+        utm_medium:
+          type: string
+        utm_campaign:
+          type: string
+        landings:
+          type: integer
+        orders:
+          type: integer
+        order_value:
+          type: array
+          items:
+            $ref: '#/components/schemas/Amount'
+      required:
+      - landings
+      - order_value
+      - orders
+      - utm_campaign
+      - utm_medium
+      - utm_source
     Specification:
       type: object
       properties:
@@ -12843,6 +15418,13 @@ components:
         * `payment_required` - payment_required
         * `awaiting_resource` - awaiting_resource
         * `unavailable` - unavailable
+    StatusActionRequest:
+      type: object
+      properties:
+        action:
+          $ref: '#/components/schemas/PromotionActionEnum'
+      required:
+      - action
     StockCounts:
       type: object
       properties:
@@ -12969,6 +15551,45 @@ components:
       - languages
       - name
       - tagline
+    StoreSeo:
+      type: object
+      description: 'Phase 12 (D-085): merchant search defaults. Plain text; the storefront
+        escapes it.'
+      properties:
+        home_title:
+          type: string
+        home_description:
+          type: string
+        social_image_url:
+          type: string
+          nullable: true
+        allow_indexing:
+          type: boolean
+          description: Merchant preference only.
+      required:
+      - allow_indexing
+      - home_description
+      - home_title
+      - social_image_url
+    StoreTracking:
+      type: object
+      description: 'Phase 12 (D-083, D-084): what the browser may know. Never tokens
+        or server state.'
+      properties:
+        analytics:
+          type: boolean
+        meta_pixel_id:
+          type: string
+          nullable: true
+        purchase_timing:
+          $ref: '#/components/schemas/PurchaseTimingEnum'
+        consent_version:
+          type: string
+      required:
+      - analytics
+      - consent_version
+      - meta_pixel_id
+      - purchase_timing
     StorefrontConfig:
       type: object
       properties:
@@ -12992,14 +15613,20 @@ components:
         local_date:
           type: string
           format: date
+        seo:
+          $ref: '#/components/schemas/StoreSeo'
+        tracking:
+          $ref: '#/components/schemas/StoreTracking'
       required:
       - active_theme
       - footer_pages
       - local_date
       - modules
       - preset
+      - seo
       - store
       - theme
+      - tracking
       - translations
     SummaryRow:
       type: object
@@ -13018,6 +15645,41 @@ components:
       - average_order_value
       - currency
       - order_value
+    TargetRef:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        kind:
+          $ref: '#/components/schemas/CampaignTargetKindEnum'
+      required:
+      - id
+      - kind
+      - name
+    TargetsRequest:
+      type: object
+      properties:
+        products:
+          type: array
+          items:
+            type: string
+            format: uuid
+          maxItems: 500
+        categories:
+          type: array
+          items:
+            type: string
+            format: uuid
+          maxItems: 500
+        collections:
+          type: array
+          items:
+            type: string
+            format: uuid
+          maxItems: 500
     Team:
       type: object
       properties:
@@ -13118,6 +15780,43 @@ components:
       - qr_svg
       - secret
       - uri
+    Tracking:
+      type: object
+      properties:
+        analytics_enabled:
+          type: boolean
+        meta_enabled:
+          type: boolean
+        meta_pixel_id:
+          type: string
+        meta_capi_enabled:
+          type: boolean
+        meta_send_hashed_contact:
+          type: boolean
+        meta_purchase_timing:
+          type: string
+        meta_test_event_code:
+          type: string
+        status:
+          $ref: '#/components/schemas/TrackingStatus'
+        consent_records_30d:
+          type: integer
+        consent_marketing_30d:
+          type: integer
+        consent_analytics_30d:
+          type: integer
+      required:
+      - analytics_enabled
+      - consent_analytics_30d
+      - consent_marketing_30d
+      - consent_records_30d
+      - meta_capi_enabled
+      - meta_enabled
+      - meta_pixel_id
+      - meta_purchase_timing
+      - meta_send_hashed_contact
+      - meta_test_event_code
+      - status
     TrackingModeEnum:
       enum:
       - none
@@ -13128,6 +15827,56 @@ components:
         * `none` - Quantity only
         * `batch` - Batches and expiry
         * `serial` - Serial numbers
+    TrackingStatus:
+      type: object
+      properties:
+        browser_pixel:
+          $ref: '#/components/schemas/PixelStateEnum'
+        server_events:
+          $ref: '#/components/schemas/ServerEventStateEnum'
+        token_configured:
+          type: boolean
+        public_url_configured:
+          type: boolean
+        pending_events:
+          type: integer
+        failed_events:
+          type: integer
+        sent_events:
+          type: integer
+      required:
+      - browser_pixel
+      - failed_events
+      - pending_events
+      - public_url_configured
+      - sent_events
+      - server_events
+      - token_configured
+    Traffic:
+      type: object
+      properties:
+        page_views:
+          type: integer
+        consented_page_views:
+          type: integer
+        consent_coverage:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,5}(?:\.\d{0,1})?$
+          nullable: true
+        unique_visitors:
+          type: integer
+        product_views:
+          type: integer
+        category_views:
+          type: integer
+      required:
+      - category_views
+      - consent_coverage
+      - consented_page_views
+      - page_views
+      - product_views
+      - unique_visitors
     TransferRequest:
       type: object
       properties:

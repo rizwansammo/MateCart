@@ -221,27 +221,65 @@ def remove_price(*, variant: ProductVariant, price_list: PriceList, actor: User 
 
 @dataclass(frozen=True)
 class PriceQuote:
-    """A price as checkout will snapshot it (Phase 07): amount, currency and the source row."""
+    """A price as checkout will snapshot it (Phase 07): amount, currency and the source row.
+
+    Phase 12: on the default list, ``amount`` is the selling price after at most one promotion
+    (D-081); ``regular_amount`` is the list price and ``promotion_*`` identify the promotion.
+    """
 
     amount: Decimal
     compare_at_amount: Decimal | None
     currency: str
     price_id: Any
     price_list_id: Any
+    regular_amount: Decimal | None = None
+    promotion_kind: str = ""
+    promotion_id: Any = None
+    promotion_name: str = ""
+
+    @property
+    def coupon_eligible(self) -> bool:
+        """Lines at a promotional price never take a coupon as well (no stacking, D-081)."""
+        return self.promotion_kind not in ("campaign", "flash_sale")
 
 
-def quote(variant: ProductVariant, price_list: PriceList | None = None) -> PriceQuote | None:
-    """The variant's current price in ``price_list`` (default list when omitted), or None."""
-    target = price_list or find_default_price_list()
+def quote(
+    variant: ProductVariant,
+    price_list: PriceList | None = None,
+    *,
+    quantity: Decimal | None = None,
+) -> PriceQuote | None:
+    """The variant's current selling price in ``price_list`` (default list when omitted), or
+    None. Promotions apply to the default list only, for ``quantity`` units (default 1)."""
+    default = find_default_price_list()
+    target = price_list or default
     if target is None:
         return None
     price = Price.objects.filter(price_list=target, variant=variant).first()
     if price is None:
         return None
+    if default is None or target.pk != default.pk:
+        return PriceQuote(
+            amount=price.amount,
+            compare_at_amount=price.compare_at_amount,
+            currency=price.currency,
+            price_id=price.pk,
+            price_list_id=target.pk,
+            regular_amount=price.amount,
+        )
+    from commerce.marketing.promotions import resolve
+
+    offer = resolve(
+        [variant], {variant.pk: price}, quantities={variant.pk: quantity or Decimal(1)}
+    )[variant.pk]
     return PriceQuote(
-        amount=price.amount,
-        compare_at_amount=price.compare_at_amount,
+        amount=offer.amount,
+        compare_at_amount=offer.regular_amount if offer.discounted else price.compare_at_amount,
         currency=price.currency,
         price_id=price.pk,
         price_list_id=target.pk,
+        regular_amount=price.amount,
+        promotion_kind=offer.kind if offer.discounted else "",
+        promotion_id=offer.promotion_id if offer.discounted else None,
+        promotion_name=offer.name if offer.discounted else "",
     )

@@ -23,6 +23,7 @@ const COPY = {
     checkout: 'Continue to checkout',
     loading: 'Loading your cart…',
     unavailable: 'This item needs attention before checkout.',
+    regular: 'Regular price',
   },
   bn: {
     title: 'আপনার কার্ট',
@@ -34,6 +35,7 @@ const COPY = {
     checkout: 'চেকআউটে যান',
     loading: 'আপনার কার্ট লোড হচ্ছে…',
     unavailable: 'চেকআউটের আগে এই পণ্যটি দেখুন।',
+    regular: 'নিয়মিত দাম',
   },
 } as const;
 
@@ -133,8 +135,19 @@ export function CartApp({ lang }: { lang: string }) {
                   </p>
                   {line.issue && <p className="my-1 text-sm text-danger-fg">{copy.unavailable}</p>}
                   {line.unit_price && line.currency && (
-                    <p className="m-0 text-sm tabular-nums">
+                    <p className="m-0 flex flex-wrap items-baseline gap-2 text-sm tabular-nums">
                       {formatMoney(line.unit_price, line.currency)}
+                      {line.regular_unit_price && line.regular_unit_price !== line.unit_price && (
+                        <s className="text-xs text-store-muted">
+                          <span className="sr-only">{copy.regular}: </span>
+                          {formatMoney(line.regular_unit_price, line.currency)}
+                        </s>
+                      )}
+                      {line.promotion_name && (
+                        <span className="text-xs font-semibold text-danger-fg">
+                          {line.promotion_name}
+                        </span>
+                      )}
                     </p>
                   )}
                 </div>

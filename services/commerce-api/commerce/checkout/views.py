@@ -2,6 +2,7 @@
 
 from typing import Any, cast
 
+from django.utils import timezone
 from drf_spectacular.utils import extend_schema
 from rest_framework import status
 from rest_framework.permissions import AllowAny, BasePermission, IsAuthenticated
@@ -76,6 +77,7 @@ class CartItemsView(StorefrontAPIView):
         services.add_item(
             cart=access.cart, variant_id=values["variant"], quantity=values["quantity"]
         )
+        _count(request, "add_to_cart", dimension=str(values["variant"]))
         return self.cart_response(serialize_cart(access.cart), access)
 
 
@@ -99,6 +101,18 @@ class CartItemView(StorefrontAPIView):
         return self.cart_response(serialize_cart(access.cart), access)
 
 
+def _count(request: Request, event: str, *, dimension: str = "") -> None:
+    """Phase 12 aggregate counter (D-083): no identifier; best-effort, never blocks the cart."""
+    from commerce.marketing import analytics, consent, tracking
+
+    if not tracking.current().analytics_enabled:
+        return
+    granted = consent.from_request(request)
+    analytics.record_server_event(
+        event, consented=granted is not None and granted.analytics, dimension=dimension
+    )
+
+
 class CheckoutCreateView(StorefrontAPIView):
     @extend_schema(
         operation_id="checkout_create",
@@ -108,7 +122,10 @@ class CheckoutCreateView(StorefrontAPIView):
     )
     def post(self, request: Request) -> Response:
         access = self.cart_access(request)
+        started = timezone.now()
         session = services.create_checkout(cart=access.cart)
+        if session.created_at >= started:  # a new checkout, not a resumed one
+            _count(request, "checkout_started")
         return self.cart_response(
             serialize_checkout(session), access, status_code=status.HTTP_201_CREATED
         )

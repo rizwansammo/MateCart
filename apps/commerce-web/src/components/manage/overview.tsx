@@ -2,7 +2,7 @@
 
 import { useCallback, useState } from 'react';
 import type { Dashboard, StaffSession } from '@matecart/shared-contracts';
-import { dashboard } from '@matecart/shared-contracts';
+import { dashboard, liveSummary } from '@matecart/shared-contracts';
 import { Alert } from '@matecart/shared-ui';
 import {
   CASE_KIND,
@@ -25,6 +25,7 @@ import {
   query,
   useLoad,
 } from './kit';
+import { LiveVisitors } from './marketing';
 
 const RANGES = [
   { days: 1, label: 'Today' },
@@ -152,6 +153,7 @@ export function Overview({ session }: { session: StaffSession }) {
         </Card>
       )}
       {data?.finance && <Finance data={data.finance} />}
+      {can('reports.view') && <DashboardVisitors />}
       {data?.orders && data.operations && (
         <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
           <Stat
@@ -331,4 +333,14 @@ export function Overview({ session }: { session: StaffSession }) {
       </div>
     </div>
   );
+}
+
+/** Phase 12: the rolling 24-hour visitor figures; never mixed with the financial cards above. */
+function DashboardVisitors() {
+  const load = useCallback(
+    async () => liveSummary(await api.get<unknown>('/api/manage/marketing/analytics/live/')),
+    [],
+  );
+  const { data } = useLoad(load);
+  return data ? <LiveVisitors live={data} /> : null;
 }

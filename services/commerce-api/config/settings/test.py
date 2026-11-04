@@ -31,6 +31,8 @@ MATECART_PAYMENT_PROVIDER = ""
 MATECART_COURIER_PROVIDER = ""
 GOOGLE_OIDC_CLIENT_ID = ""
 GOOGLE_OIDC_CLIENT_SECRET = ""
+# Meta Conversions API: never configured in tests; tests that need it use a fake client.
+META_CAPI_ACCESS_TOKEN = ""
 
 CELERY_TASK_ALWAYS_EAGER = True
 CELERY_TASK_EAGER_PROPAGATES = True

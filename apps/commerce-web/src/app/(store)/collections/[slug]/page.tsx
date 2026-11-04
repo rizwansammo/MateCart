@@ -6,6 +6,9 @@ import { PAGE_SIZE } from '@/components/store/product-card';
 import { apiQuery, parseListingQuery, type SearchParams } from '@/lib/catalog-query';
 import { categoryLinks } from '@/lib/categories';
 import { localize } from '@/lib/i18n';
+import { TrackView } from '@/components/store/tracking';
+import { pageMetadata } from '@/lib/page-metadata';
+import { clip, seoText } from '@/lib/seo';
 import { getStoreContext } from '@/lib/store-context';
 import { getCategoryTree, getCollection, getProducts } from '@/lib/storefront-api';
 
@@ -15,14 +18,26 @@ interface Props {
 }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
-  const [{ slug }, { lang }] = await Promise.all([params, getStoreContext()]);
+  const [{ slug }, { lang, config }] = await Promise.all([params, getStoreContext()]);
   const collection = await getCollection(slug);
   if (!collection) return {};
-  return {
-    title: localize(collection.translations, 'name', collection.name, lang),
-    description:
-      localize(collection.translations, 'description', collection.description, lang) || undefined,
-  };
+  const defaultLanguage = config.store.default_language;
+  return pageMetadata({
+    title: seoText(
+      collection.seo_title,
+      localize(collection.translations, 'name', collection.name, lang),
+      lang,
+      defaultLanguage,
+    ),
+    description: seoText(
+      collection.seo_description,
+      clip(localize(collection.translations, 'description', collection.description, lang)),
+      lang,
+      defaultLanguage,
+    ),
+    path: `/collections/${collection.slug}`,
+    image: collection.image_url ? { url: collection.image_url, alt: collection.name } : null,
+  });
 }
 
 export default async function CollectionPage({ params, searchParams }: Props) {
@@ -42,17 +57,24 @@ export default async function CollectionPage({ params, searchParams }: Props) {
   const { t, lang } = ctx;
   const name = localize(collection.translations, 'name', collection.name, lang);
   return (
-    <CatalogListing
-      ctx={ctx}
-      pathname={`/collections/${slug}`}
-      query={query}
-      results={results}
-      title={name}
-      intro={localize(collection.translations, 'description', collection.description, lang)}
-      crumbs={[{ label: t.home, href: '/' }, { label: name }]}
-      categoryLinks={categoryLinks(tree, null, lang)}
-      featured
-      typeFilter={ctx.theme.preset.id === 'general'}
-    />
+    <>
+      <TrackView
+        event="collection_view"
+        objectId={collection.id}
+        analytics={ctx.config.tracking.analytics}
+      />
+      <CatalogListing
+        ctx={ctx}
+        pathname={`/collections/${slug}`}
+        query={query}
+        results={results}
+        title={name}
+        intro={localize(collection.translations, 'description', collection.description, lang)}
+        crumbs={[{ label: t.home, href: '/' }, { label: name }]}
+        categoryLinks={categoryLinks(tree, null, lang)}
+        featured
+        typeFilter={ctx.theme.preset.id === 'general'}
+      />
+    </>
   );
 }

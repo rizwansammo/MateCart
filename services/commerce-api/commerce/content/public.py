@@ -17,6 +17,8 @@ from commerce.catalog.serializers import public_media_url
 from commerce.core.domain import found
 from commerce.identity.auth import CsrfProtectedAPIView
 from commerce.inventory.services import store_today
+from commerce.marketing import seo, tracking
+from commerce.marketing.models import PurchaseTiming
 from commerce.stores import appearance, modules, themes
 
 from .models import ContentPage, HomeSection, PageStatus, PageType, SectionType
@@ -71,6 +73,24 @@ class FooterPageSerializer(serializers.Serializer[Any]):
         }
 
 
+class StoreSeoSerializer(serializers.Serializer[Any]):
+    """Phase 12 (D-085): merchant search defaults. Plain text; the storefront escapes it."""
+
+    home_title = serializers.CharField()
+    home_description = serializers.CharField()
+    social_image_url = serializers.CharField(allow_null=True)
+    allow_indexing = serializers.BooleanField(help_text="Merchant preference only.")
+
+
+class StoreTrackingSerializer(serializers.Serializer[Any]):
+    """Phase 12 (D-083, D-084): what the browser may know. Never tokens or server state."""
+
+    analytics = serializers.BooleanField()
+    meta_pixel_id = serializers.CharField(allow_null=True)
+    purchase_timing = serializers.ChoiceField(choices=PurchaseTiming.choices)
+    consent_version = serializers.CharField()
+
+
 class StorefrontConfigSerializer(serializers.Serializer[Any]):
     store = StoreInfoSerializer()
     preset = serializers.CharField()
@@ -84,6 +104,8 @@ class StorefrontConfigSerializer(serializers.Serializer[Any]):
     # Phase 06.1: today's date in the store's time zone (store_today), so storefront labels such
     # as pre-orders use the same calendar day as availability. A date only, never the time.
     local_date = serializers.DateField()
+    seo = StoreSeoSerializer()
+    tracking = StoreTrackingSerializer()
 
 
 class PublicSectionSerializer(serializers.Serializer[Any]):
@@ -105,6 +127,8 @@ class PublicPageSerializer(serializers.Serializer[Any]):
     page_type = serializers.ChoiceField(choices=PageType.choices)
     published_at = serializers.DateTimeField()
     translations = serializers.JSONField()
+    seo_title = serializers.CharField()
+    seo_description = serializers.CharField()
 
 
 def _published() -> Any:
@@ -147,8 +171,20 @@ class StorefrontConfigView(PublicView):
             .order_by("position", "title", "pk"),
             "translations": theme.translations,
             "local_date": store_today(),
+            "seo": _seo(),
+            "tracking": tracking.public_config(),
         }
         return Response(StorefrontConfigSerializer(payload).data)
+
+
+def _seo() -> dict[str, Any]:
+    row = seo.current()
+    return {
+        "home_title": row.home_title,
+        "home_description": row.home_description,
+        "social_image_url": _url(row.social_image_id),
+        "allow_indexing": row.allow_indexing,
+    }
 
 
 class StorefrontHomeView(PublicView):

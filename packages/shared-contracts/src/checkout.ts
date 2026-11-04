@@ -28,6 +28,10 @@ export interface CartLine {
   subtotal: string | null;
   available_quantity: string | null;
   issue: CartIssue;
+  /** Phase 12: the list price and promotion behind ``unit_price`` ('' when none). */
+  regular_unit_price: string | null;
+  promotion_kind: string;
+  promotion_name: string;
 }
 
 export interface Cart {
@@ -61,6 +65,9 @@ function cartLine(value: unknown): CartLine {
       'insufficient_stock',
       'currency_mismatch',
     ] as const)(o.issue),
+    regular_unit_price: nullable(decimal)(o.regular_unit_price),
+    promotion_kind: string(o.promotion_kind),
+    promotion_name: string(o.promotion_name),
   };
 }
 
@@ -85,6 +92,19 @@ export interface CheckoutLine {
   quantity: string;
   unit_price: string;
   line_subtotal: string;
+  regular_unit_price: string | null;
+  promotion_kind: string;
+  promotion_name: string;
+  /** False for lines at a promotional price: coupons never stack on them (D-081). */
+  coupon_eligible: boolean;
+}
+
+/** Points the signed-in customer could use on this checkout (D-082). */
+export interface LoyaltyCheckout {
+  balance: number;
+  point_value: string;
+  min_redeem_points: number;
+  max_points: number;
 }
 
 export interface ShippingMethod {
@@ -128,6 +148,9 @@ export interface Checkout {
   shipping_total: string;
   tax_total: string;
   grand_total: string;
+  loyalty_points: number;
+  loyalty_discount: string;
+  loyalty: LoyaltyCheckout | null;
   lines: CheckoutLine[];
   shipping_methods: ShippingMethod[];
   delivery_slots: DeliverySlot[];
@@ -149,6 +172,20 @@ function checkoutLine(value: unknown): CheckoutLine {
     quantity: decimal(o.quantity),
     unit_price: decimal(o.unit_price),
     line_subtotal: decimal(o.line_subtotal),
+    regular_unit_price: nullable(decimal)(o.regular_unit_price),
+    promotion_kind: string(o.promotion_kind),
+    promotion_name: string(o.promotion_name),
+    coupon_eligible: boolean(o.coupon_eligible),
+  };
+}
+
+function loyaltyCheckout(value: unknown): LoyaltyCheckout {
+  const o = object(value);
+  return {
+    balance: number(o.balance),
+    point_value: decimal(o.point_value),
+    min_redeem_points: number(o.min_redeem_points),
+    max_points: number(o.max_points),
   };
 }
 
@@ -199,6 +236,9 @@ export function checkout(value: unknown): Checkout {
     shipping_total: decimal(o.shipping_total),
     tax_total: decimal(o.tax_total),
     grand_total: decimal(o.grand_total),
+    loyalty_points: number(o.loyalty_points),
+    loyalty_discount: decimal(o.loyalty_discount),
+    loyalty: nullable(loyaltyCheckout)(o.loyalty),
     lines: array(o.lines, checkoutLine),
     shipping_methods: array(o.shipping_methods, shippingMethod),
     delivery_slots: array(o.delivery_slots, deliverySlot),

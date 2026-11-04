@@ -264,11 +264,11 @@ Update the status in the same change that completes a feature.
 - [~] CDN compatibility (06: per-request HTML, cacheable public media; shared HTML caching 17)
 - [x] Checkout duplicate-submission and temporary-reservation overselling protection (07) and one-order-per-checkout, single conversion and single deduction (08)
 - [ ] Resource-based scaling decisions; client-owned VPS limits respected (17, 18)
-- [ ] Distinguish rolling 24-hour visitors from concurrent active users (12, 16)
+- [x] Distinguish rolling 24-hour visitors from concurrent active users (12; console view 16)
 
 ## Traffic monitoring
 
-- [ ] Rolling 24-hour visitor statistics in the merchant dashboard (12)
+- [x] Rolling 24-hour visitor statistics in the merchant dashboard (12)
 - [ ] Rolling 24-hour visitors per store in the Central Console (16)
 - [ ] Console: recent active sessions, request rates, error rates, response times, database and queue health, resource utilisation (16)
 - [ ] Capacity-aware alert thresholds per store, not one global visitor number (16)
@@ -309,7 +309,7 @@ Delivery requirements:
 
 ## Growth, social and AI
 
-- [ ] Campaigns, loyalty, SEO, analytics, Meta Pixel and CAPI, consent management (12)
+- [x] Campaigns, loyalty, SEO, analytics, Meta Pixel and CAPI, consent management (12; acceptance pending)
 - [ ] Facebook, Messenger, WhatsApp, website chat; unified inbox; social commerce (14)
 - [ ] Provider-independent AI layer, GroqCloud first; product content, image analysis, support replies, marketing, BI (15)
 
@@ -329,7 +329,7 @@ Accepted and closed with 10.1: `6fe1a8c`, GitHub Actions 41115310035, 4/4 jobs, 
 - [x] Purchase and tenant isolation tests, API contracts, migrations and final CI
 - [x] Final independent review and Phase 10 acceptance
 
-## Merchant management dashboard (Phase 11 and 11.1; implemented locally, acceptance pending)
+## Merchant management dashboard (Phase 11; accepted and closed with 11.1)
 
 - [x] `/manage` operational dashboard: store-day ranges; order value, verified collections,
       refunds, COD and courier cash kept separate; work queues; stock alerts; empty states
@@ -354,8 +354,33 @@ Accepted and closed with 10.1: `6fe1a8c`, GitHub Actions 41115310035, 4/4 jobs, 
 - [x] 11.1 integrity corrections (D-080): manual orders place only the reviewed, current server
       total; COD collection needs explicit confirmation and recent authentication; stock alerts
       use sellable stock (expired batches excluded) and count each variant once
-- [ ] Merchant UI translation (English only); shipping, tax, coupon and slot editing UIs
-- [ ] Owner review, commit/push, GitHub CI and independent acceptance
+- [ ] Merchant UI translation (English only); shipping, tax and slot editing UIs (coupon editing: Phase 12)
+- [x] Owner commit/push (`13043bb`), GitHub CI 41656247516 (4/4, 1,144 tests) and independent acceptance
+
+## Marketing, SEO and analytics (Phase 12; implemented locally, acceptance pending)
+
+- [x] Campaigns: percent/fixed/featured, product/category/collection targets, server-derived
+      lifecycle, preview, performance, audit (D-081)
+- [x] Flash sales on the existing pricing and checkout engine: limits, per-order limits,
+      concurrency-safe units, release on cancellation, module gate (D-081)
+- [x] One promotion per item; promotional lines never take coupons; unchanged coupon maths
+      without promotions; merchant coupon management (D-081)
+- [x] Loyalty: verified earning after payment and delivery, redemption at checkout, restore on
+      cancellation/full refund, reversal with deficit, append-only ledger, audited adjustments (D-082)
+- [x] Consent records and enforcement on the server; first-party events, hourly counters, exact
+      rolling 24-hour visitors, store-day uniques, attribution, retention (D-083)
+- [x] Meta settings, consent-gated Conversions API Purchase with shared event ids, retries and
+      discards; token only in the deployment environment (D-084)
+- [x] SEO settings and overrides, sitemap feed from published records, safe indexing rules (D-085)
+- [x] Merchant Marketing area (overview, campaigns, flash sales, coupons, loyalty, SEO,
+      analytics, tracking) and the 24-hour visitors card
+- [x] Storefront: promotional prices and countdowns, points at checkout, rewards page, consent
+      banner, tracking and Pixel loading (consent-gated), metadata, JSON-LD, robots and sitemap
+- [x] Focused headless browser acceptance (merchant, storefront, consent and Meta gating with
+      Meta domains blocked); PROGRESS.md lists what was and was not clicked through
+- [ ] Owner review, commit/push, GitHub CI and acceptance
+- [ ] Live Meta credentials and a public HTTPS domain (deployment acceptance, Phase 17/19)
+- [-] Catalogue price filters and sorting by promotional price (regular prices are used)
 
 ## Other pending features (must not be dropped)
 
@@ -369,7 +394,7 @@ Accepted and closed with 10.1: `6fe1a8c`, GitHub Actions 41115310035, 4/4 jobs, 
 - [ ] WooCommerce and Shopify migration; bulk product import (15)
 - [~] Secure digital download delivery and buyer libraries (10)
 - [ ] Advanced invoice customisation and QR support (basic printable invoice in 08; customisation and QR deferred)
-- [ ] Privacy consent and advanced marketing tracking (12)
+- [x] Privacy consent and advanced marketing tracking (12; acceptance pending)
 - [~] Reliable cross-module reporting (11: authoritative sales, cash, after-sales and stock reports)
 - [ ] Full production-quality type safety and tests (ongoing; enforced from 01; verified in 18)
 

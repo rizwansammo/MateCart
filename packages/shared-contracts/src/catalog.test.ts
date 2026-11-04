@@ -17,7 +17,12 @@ const summary = {
   summary: '',
   product_type: 'apparel',
   brand: null,
-  price: { currency: 'BDT', min_amount: '1200.0000', max_amount: '1250.0000' },
+  price: {
+    currency: 'BDT',
+    min_amount: '1200.0000',
+    max_amount: '1250.0000',
+    regular_min_amount: null,
+  },
   image: {
     url: '/api/catalog/media/01a17556-19e9-775f-9347-4a9e33e66841/',
     alt_text: 'Front',
@@ -27,7 +32,13 @@ const summary = {
   },
   in_stock: true,
   translations: { bn: { name: 'অক্সফোর্ড শার্ট' } },
+  promotion: null,
   authors: [],
+};
+const detailExtras = {
+  updated_at: '2026-11-03T10:00:00Z',
+  upcoming_sale: null,
+  server_time: '2026-11-03T10:00:00Z',
 };
 
 describe('catalogue response boundaries', () => {
@@ -54,6 +65,7 @@ describe('catalogue response boundaries', () => {
   it('decodes a product detail with variants and specifications', () => {
     const detail = publicProductDetail({
       ...summary,
+      ...detailExtras,
       description: 'Cotton shirt',
       seo_title: '',
       seo_description: '',
@@ -72,7 +84,12 @@ describe('catalogue response boundaries', () => {
           net_unit: '',
           release_date: null,
           isbn: null,
-          price: { currency: 'BDT', amount: '1250.0000', compare_at_amount: '1400.0000' },
+          price: {
+            currency: 'BDT',
+            amount: '1250.0000',
+            compare_at_amount: '1400.0000',
+            promotion: null,
+          },
           in_stock: true,
         },
       ],
@@ -106,6 +123,7 @@ describe('catalogue response boundaries', () => {
   it('rejects incomplete details and size guides outside the API', () => {
     const detail = (extra: object) => ({
       ...summary,
+      ...detailExtras,
       description: '',
       seo_title: '',
       seo_description: '',
@@ -170,34 +188,65 @@ describe('catalogue response boundaries', () => {
   });
   it('decodes public collections', () => {
     const collection = publicCollection({
+      id: 'col-1',
       name: 'Editor picks',
       slug: 'editor-picks',
       description: '',
       image_url: null,
       translations: {},
+      seo_title: '',
+      seo_description: '',
     });
     expect(collection.slug).toBe('editor-picks');
     expect(() => publicCollection({ ...collection, image_url: '//evil.invalid/x.png' })).toThrow();
   });
   it('decodes nested category trees', () => {
     const node = categoryNode({
+      id: 'cat-1',
       name: 'Men',
       slug: 'men',
       description: '',
       image_url: null,
       translations: {},
+      seo_title: 'Menswear',
+      seo_description: '',
       children: [
         {
+          id: 'cat-2',
           name: 'Shirts',
           slug: 'shirts',
           description: '',
           image_url: null,
           translations: {},
+          seo_title: '',
+          seo_description: '',
           children: [],
         },
       ],
     });
     expect(node.children[0]?.slug).toBe('shirts');
+    expect(node.seo_title).toBe('Menswear');
+  });
+  it('decodes genuine promotions and rejects invented kinds (Phase 12)', () => {
+    const promotion = {
+      kind: 'flash_sale',
+      name: 'Eid flash',
+      badge: 'Flash sale',
+      ends_at: '2026-11-04T18:00:00Z',
+    };
+    const decoded = publicProductSummary({
+      ...summary,
+      price: { ...summary.price, min_amount: '999.0000', regular_min_amount: '1200.0000' },
+      promotion,
+    });
+    expect(decoded.promotion?.kind).toBe('flash_sale');
+    expect(decoded.price?.regular_min_amount).toBe('1200.0000');
+    expect(() =>
+      publicProductSummary({ ...summary, promotion: { ...promotion, kind: 'mystery' } }),
+    ).toThrow();
+    expect(() =>
+      publicProductSummary({ ...summary, promotion: { ...promotion, ends_at: 'soon' } }),
+    ).toThrow();
   });
 });
 

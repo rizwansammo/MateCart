@@ -448,6 +448,10 @@ def transition_shipment(
             actor_label="courier_provider" if actor is None else "",
             changes={"status": {"from": before, "to": to_status}, "note": note},
         )
+        if to_status == ShipmentStatus.DELIVERED:
+            from commerce.marketing import loyalty
+
+            loyalty.sync_order(order)  # delivery can make earned points usable (D-082)
         return shipment
 
 

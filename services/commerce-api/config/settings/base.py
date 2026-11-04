@@ -48,6 +48,8 @@ INSTALLED_APPS = [
     "commerce.fulfillment",
     # Phase 10: customer purchase-linked after sales records.
     "commerce.aftersales",
+    # Phase 12: campaigns, flash sales, loyalty, SEO, consent, analytics and Meta tracking.
+    "commerce.marketing",
     # Phase 05: store content (pages, homepage sections). Theme and modules live in stores.
     "commerce.content",
 ]
@@ -162,6 +164,11 @@ MATECART_PAYMENT_PROVIDER = env("MATECART_PAYMENT_PROVIDER", default="")
 # Dotted path to one courier adapter. Empty keeps external booking/callbacks unavailable while the
 # authenticated manual shipment workflow remains fully operational.
 MATECART_COURIER_PROVIDER = env("MATECART_COURIER_PROVIDER", default="")
+# Phase 12 (D-084): Meta Conversions API. The access token is a deployment secret: it is read
+# only here, never stored in the database, returned by an API or logged. Empty = server-side
+# delivery unavailable (the browser Pixel can still be configured by the merchant).
+META_CAPI_ACCESS_TOKEN = env("META_CAPI_ACCESS_TOKEN", default="")
+META_GRAPH_API_VERSION = env("META_GRAPH_API_VERSION", default="v26.0")
 # "Continue with Google" (OpenID Connect). Both empty keeps the option hidden.
 GOOGLE_OIDC_CLIENT_ID = env("GOOGLE_OIDC_CLIENT_ID", default="")
 GOOGLE_OIDC_CLIENT_SECRET = env("GOOGLE_OIDC_CLIENT_SECRET", default="")
@@ -272,6 +279,20 @@ SPECTACULAR_SETTINGS = {
         "AfterSalesCaseStatusEnum": "commerce.aftersales.models.CaseStatus",
         "PurchaseReviewStatusEnum": "commerce.aftersales.models.ReviewStatus",
         "DigitalEntitlementStatusEnum": "commerce.aftersales.models.EntitlementStatus",
+        "PromotionKindEnum": "commerce.marketing.promotions.PUBLIC_KINDS",
+        "CampaignKindEnum": "commerce.marketing.models.CampaignKind",
+        "PromotionStatusEnum": "commerce.marketing.models.PromotionStatus",
+        "PromotionStateEnum": "commerce.marketing.serializers.PROMOTION_STATES",
+        "PromotionActionEnum": "commerce.marketing.serializers.PROMOTION_ACTIONS",
+        "CampaignTargetKindEnum": "commerce.marketing.serializers.TARGET_KINDS",
+        "MarketingLookupKindEnum": "commerce.marketing.serializers.LOOKUP_KINDS",
+        "SitemapEntryTypeEnum": "commerce.marketing.serializers.SITEMAP_TYPES",
+        "ConsentOriginEnum": "commerce.marketing.serializers.CONSENT_ORIGINS",
+        "BrowserEventEnum": "commerce.marketing.serializers.BROWSER_EVENTS",
+        "PixelStateEnum": "commerce.marketing.serializers.PIXEL_STATES",
+        "ServerEventStateEnum": "commerce.marketing.serializers.SERVER_EVENT_STATES",
+        "AnalyticsRangeEnum": "commerce.marketing.serializers.ANALYTICS_RANGES",
+        "PurchaseTimingEnum": "commerce.marketing.models.PurchaseTiming",
     },
 }
 API_SCHEMA_ENABLED = env.bool("DJANGO_API_SCHEMA_ENABLED", default=False)

@@ -271,7 +271,7 @@ Every table below is tenant-owned unless marked otherwise. Arrows are FKs and ca
 | **Communications** (14)                                                      | `Conversation` (channel) · `Message` · `ChannelConnection`                                                                                                                                                                                                                                       | Provider ids unique per tenant and channel.                                                                                                  |
 | **Media** (04 implemented)                                                   | `MediaAsset` (storage path via `tenant_storage_path`, mime, size, checksum)                                                                                                                                                                                                                      | Paths namespaced `tenants/<id>/...`; files never shared across tenants.                                                                      |
 | **Integrations** (08, 09, 12–15)                                             | `IntegrationConnection` (provider, status) · `IntegrationCredential` (encrypted secret, key version)                                                                                                                                                                                             | Secrets encrypted at rest with a per-deployment key; never logged, never in audit `changes`.                                                 |
-| **Analytics** (12)                                                           | `VisitorDailyStat` (rolling 24-hour and daily aggregates) · `EventCounter`                                                                                                                                                                                                                       | Aggregates only; raw tracking respects consent.                                                                                              |
+| **Analytics** (12, implemented)                                              | `EventCounter` (hourly) · `VisitorPresence` (48 h, consented) · `VisitorDailyStat` · `OrderAttribution` · `ConsentRecord` · `MetaEventDelivery`                                                                                                                                                  | Aggregates and pseudonymous presence only; see "Phase 12" below.                                                                             |
 | **Audit** (02, ongoing)                                                      | `AuditEvent` (implemented)                                                                                                                                                                                                                                                                       | Every phase adds its own `action` names (for example `order.cancelled`).                                                                     |
 
 ### Control-plane blueprint (Phase 16, control-api database)
@@ -326,3 +326,35 @@ accepts an order with neither customer nor guest credential, but only for a non-
 `source_reference`, `customer_request_attested` (checked true), the request key digest (unique per
 tenant, the idempotency guard) and a request fingerprint. `orders.0004` makes it immutable with a
 PostgreSQL trigger (UPDATE and DELETE raise), matching order history.
+
+## Phase 12 marketing, SEO and analytics schema
+
+App `marketing` (migrations `marketing.0001`, `0002` triggers) plus additive columns elsewhere.
+Every table is tenant-owned and every tenant-owned foreign key has a composite tenant
+constraint. Rules: [MARKETING.md](MARKETING.md), D-081 to D-085.
+
+| Model                         | Key fields and invariants                                                                                                                                                                                   |
+| ----------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `Campaign` / `CampaignTarget` | Kind `discount`/`featured`; percent (0–100 exclusive, no currency) or fixed (ISO currency); window CHECK; status CHECK. Targets: exactly one of product, category, collection (CHECK), unique per campaign. |
+| `FlashSale` / `FlashSaleItem` | Window CHECK; items unique per sale and variant; sale price ≥ 0; `units_sold ≤ quantity_limit` (CHECK); positive limits.                                                                                    |
+| `FlashSaleUsage`              | Units an order took; unique per item and order; `committed`/`released` with a consistent release time.                                                                                                      |
+| `LoyaltyProgram`              | One per store; positive rates; cap 1–100 %; expiry ≥ 30 days or none.                                                                                                                                       |
+| `LoyaltyAccount`              | One per customer; `balance` and `deficit` never negative; lifetime totals.                                                                                                                                  |
+| `LoyaltyLedger`               | Append-only (ORM guard + trigger refusing UPDATE and DELETE). Signed `points` and `deficit_change`, balances after; unique `reference`; adjustments require an actor.                                       |
+| `LoyaltyAward`                | One per order; `earned_points ≤ points`; `pending`/`earned`/`cancelled`.                                                                                                                                    |
+| `SeoSettings`                 | One per store; home title/description, social image (media asset), indexing preference.                                                                                                                     |
+| `TrackingSettings`            | One per store; analytics switch; Meta switch requires a Pixel id (5–20 digits); CAPI and hashed-matching switches; purchase timing. No secrets.                                                             |
+| `ConsentRecord`               | Append-only decision (trigger refuses UPDATE; retention may DELETE): SHA-256 subject, analytics, marketing, policy version, origin.                                                                         |
+| `EventCounter`                | Hourly aggregate, unique `(bucket, event, dimension, consented)`; event allowlist CHECK.                                                                                                                    |
+| `VisitorPresence`             | One row per consented visitor (keyed SHA-256), last seen, last order; kept 48 h.                                                                                                                            |
+| `VisitorDailyStat`            | Per store-local date: unique and converting visitors.                                                                                                                                                       |
+| `OrderAttribution`            | One per storefront order: UTM source/medium/campaign of the last tagged landing (consented only).                                                                                                           |
+| `MetaEventDelivery`           | Unique `event_id`; consent digest; temporary `fbp`/`fbc`/user agent cleared when finished; status `waiting/pending/sending/sent/failed/discarded`; attempts.                                                |
+
+Additive columns: `CheckoutSession.loyalty_points`/`loyalty_discount` (CHECK within the discount
+total); `CheckoutLine` and `OrderItem` `regular_unit_price`, `promotion_kind`, `promotion_id`,
+`promotion_name` (the item index `orders_item_promotion`); `CheckoutLine.coupon_eligible`;
+`Order.loyalty_points_redeemed`/`loyalty_discount` (CHECK within `discount_total`);
+`seo_title`/`seo_description` on `Category`, `Collection`, `ContentPage`. Existing rows take
+the defaults. No existing column changed meaning: `discount_total` remains the total order
+discount (coupon plus points).

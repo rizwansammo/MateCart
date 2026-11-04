@@ -30,20 +30,45 @@ describe('money (decimal strings, never floats)', () => {
     expect(formatMoney('1500.0000', 'JPY')).toBe('¥1,500');
   });
   it('computes savings exactly and only for a real discount', () => {
-    expect(saving({ currency: 'BDT', amount: '54999.0000', compare_at_amount: '59999.0000' })).toBe(
-      '5000.0000',
-    );
-    expect(saving({ currency: 'BDT', amount: '0.3000', compare_at_amount: '0.1000' })).toBeNull();
-    expect(saving({ currency: 'BDT', amount: '10.0000', compare_at_amount: null })).toBeNull();
+    expect(
+      saving({
+        currency: 'BDT',
+        amount: '54999.0000',
+        compare_at_amount: '59999.0000',
+        promotion: null,
+      }),
+    ).toBe('5000.0000');
+    expect(
+      saving({ currency: 'BDT', amount: '0.3000', compare_at_amount: '0.1000', promotion: null }),
+    ).toBeNull();
+    expect(
+      saving({ currency: 'BDT', amount: '10.0000', compare_at_amount: null, promotion: null }),
+    ).toBeNull();
     expect(fromUnits(toUnits('0.1000')! + toUnits('0.2000')!)).toBe('0.3000');
   });
   it('labels ranges with "From" the lowest price', () => {
     const t = messages('en');
     expect(
-      priceLabel({ currency: 'BDT', min_amount: '92.0000', max_amount: '440.0000' }, t.from),
+      priceLabel(
+        {
+          currency: 'BDT',
+          min_amount: '92.0000',
+          max_amount: '440.0000',
+          regular_min_amount: null,
+        },
+        t.from,
+      ),
     ).toEqual({ text: 'From ৳92', isRange: true });
     expect(
-      priceLabel({ currency: 'BDT', min_amount: '850.0000', max_amount: '850.0000' }, t.from),
+      priceLabel(
+        {
+          currency: 'BDT',
+          min_amount: '850.0000',
+          max_amount: '850.0000',
+          regular_min_amount: null,
+        },
+        t.from,
+      ),
     ).toEqual({ text: '৳850', isRange: false });
   });
 });
@@ -133,6 +158,9 @@ describe('languages', () => {
 
 describe('category tree', () => {
   const node = (slug: string, children: CategoryNode[] = []): CategoryNode => ({
+    id: `cat-${slug}`,
+    seo_title: '',
+    seo_description: '',
     name: slug,
     slug,
     description: '',

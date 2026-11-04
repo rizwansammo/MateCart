@@ -68,11 +68,14 @@ function contextWith(preset: PresetId, themeId: string): StoreContext {
 }
 
 const categories = ['women', 'men'].map((slug) => ({
+  id: `cat-${slug}`,
   name: slug,
   slug,
   description: '',
   image_url: null,
   translations: {},
+  seo_title: '',
+  seo_description: '',
   children: [],
 }));
 const products = [

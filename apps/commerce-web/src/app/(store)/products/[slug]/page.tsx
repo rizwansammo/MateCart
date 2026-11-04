@@ -16,8 +16,12 @@ import { Breadcrumbs, CONTAINER, PlainText, SectionHeading } from '@/components/
 import { secondaryLanguage } from '@/components/store/home-sections';
 import type { SearchParams } from '@/lib/catalog-query';
 import { localize } from '@/lib/i18n';
+import { JsonLd } from '@/components/store/json-ld';
+import { TrackView } from '@/components/store/tracking';
+import { pageMetadata } from '@/lib/page-metadata';
+import { absolute, breadcrumbJsonLd, clip, productJsonLd, seoText } from '@/lib/seo';
 import { getStoreContext, publicOrigin } from '@/lib/store-context';
-import { getProduct, getProducts } from '@/lib/storefront-api';
+import { getProduct, getProducts, getReviewSummary } from '@/lib/storefront-api';
 
 interface Props {
   params: Promise<{ slug: string }>;
@@ -33,27 +37,21 @@ const RELATED: Record<PresentationVariant, number> = {
 };
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
-  const [{ slug }, { lang }] = await Promise.all([params, getStoreContext()]);
+  const [{ slug }, { lang, config }] = await Promise.all([params, getStoreContext()]);
   const product = await getProduct(slug);
   if (!product) return {};
   const name = localize(product.translations, 'name', product.name, lang);
-  const description =
-    product.seo_description ||
+  const fallback =
     localize(product.translations, 'summary', product.summary, lang) ||
-    localize(product.translations, 'description', product.description, lang).slice(0, 160) ||
-    undefined;
+    clip(localize(product.translations, 'description', product.description, lang));
+  const defaultLanguage = config.store.default_language;
   const image = product.images[0];
-  return {
-    title: product.seo_title || name,
-    description,
-    openGraph: {
-      title: name,
-      description,
-      // Absolute image URLs need the public origin; without it, no image is advertised.
-      images:
-        image && publicOrigin() ? [{ url: image.url, alt: image.alt_text || name }] : undefined,
-    },
-  };
+  return pageMetadata({
+    title: seoText(product.seo_title, name, lang, defaultLanguage),
+    description: seoText(product.seo_description, fallback, lang, defaultLanguage),
+    path: `/products/${product.slug}`,
+    image: image ? { url: image.url, alt: image.alt_text || name } : null,
+  });
 }
 
 export default async function ProductPage({ params, searchParams }: Props) {
@@ -79,6 +77,32 @@ export default async function ProductPage({ params, searchParams }: Props) {
     .slice(0, RELATED[presentation.card]);
 
   const description = localize(product.translations, 'description', product.description, lang);
+  const origin = publicOrigin();
+  const url = absolute(origin, `/products/${product.slug}`);
+  // Ratings only from published reviews, and only when the reviews module is on.
+  const rating = ctx.config.modules.includes('product_reviews')
+    ? await getReviewSummary(product.id)
+    : null;
+  const structured = productJsonLd(product, {
+    name,
+    description: clip(
+      localize(product.translations, 'summary', product.summary, lang) || description,
+      500,
+    ),
+    url,
+    origin,
+    today: ctx.config.local_date,
+    rating,
+  });
+  const crumbs = breadcrumbJsonLd(
+    [
+      { name: t.home, path: '/' },
+      ...(primary ? [{ name: primary.name, path: `/categories/${primary.slug}` }] : []),
+      { name, path: `/products/${product.slug}` },
+    ],
+    origin,
+  );
+  const shown = product.variants.find((v) => v.price) ?? null;
   const facts = factRows(product, t, lang);
   const tabs = [
     ...(description
@@ -99,6 +123,18 @@ export default async function ProductPage({ params, searchParams }: Props) {
 
   return (
     <div className={`${CONTAINER} flex flex-col gap-10 pt-5 pb-16`}>
+      <JsonLd data={structured} />
+      <JsonLd data={crumbs} />
+      <TrackView
+        event="product_view"
+        objectId={product.id}
+        analytics={ctx.config.tracking.analytics}
+        content={
+          shown?.price
+            ? { id: shown.id, currency: shown.price.currency, amount: shown.price.amount }
+            : undefined
+        }
+      />
       <Breadcrumbs
         label={t.home}
         items={[

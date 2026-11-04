@@ -74,6 +74,10 @@ class PlaceOrderView(CheckoutOwnerMixin, StorefrontAPIView):
             idempotency_key=values["idempotency_key"],
             actor=_actor(request),
         )
+        if not placement.replayed:
+            from commerce.marketing import tracking
+
+            tracking.on_order_placed(request=request, order=placement.order)
         response = Response(
             OrderSerializer(placement.order).data,
             status=status.HTTP_200_OK if placement.replayed else status.HTTP_201_CREATED,

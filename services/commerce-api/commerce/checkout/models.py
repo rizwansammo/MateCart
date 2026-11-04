@@ -7,7 +7,7 @@ from typing import Any
 from django.contrib.postgres.fields import ArrayField
 from django.core.validators import MaxValueValidator, MinValueValidator, RegexValidator
 from django.db import models
-from django.db.models import Q
+from django.db.models import F, Q
 
 from commerce.catalog.models import ProductVariant
 from commerce.core.contact import E164_PATTERN
@@ -345,6 +345,10 @@ class CheckoutSession(TenantOwnedModel, TimestampedModel):
     shipping_total = _money(default=0)
     tax_total = _money(default=0)
     grand_total = _money(default=0)
+    # Phase 12 (D-082): points the customer chose to redeem and their value. ``discount_total``
+    # is the coupon discount plus ``loyalty_discount``.
+    loyalty_points = models.PositiveIntegerField(default=0)
+    loyalty_discount = _money(default=0)
 
     class Meta(TenantOwnedModel.Meta):
         constraints = [
@@ -383,6 +387,10 @@ class CheckoutSession(TenantOwnedModel, TimestampedModel):
                 & Q(grand_total__gte=0),
                 name="checkout_session_totals_nonnegative",
             ),
+            models.CheckConstraint(
+                condition=Q(loyalty_discount__gte=0) & Q(loyalty_discount__lte=F("discount_total")),
+                name="checkout_session_loyalty_within_discount",
+            ),
         ]
         indexes = [models.Index(fields=["tenant", "expires_at"], name="checkout_session_expiry")]
 
@@ -400,6 +408,12 @@ class CheckoutLine(TenantOwnedModel):
     unit_price = _money()
     line_subtotal = _money()
     price_id = models.UUIDField()
+    # Phase 12 (D-081): the list price and the promotion that set ``unit_price``, if any.
+    regular_unit_price = _money(null=True, blank=True)
+    promotion_kind = models.CharField(max_length=16, blank=True)
+    promotion_id = models.UUIDField(null=True, blank=True)
+    promotion_name = models.CharField(max_length=120, blank=True)
+    coupon_eligible = models.BooleanField(default=True)
 
     class Meta(TenantOwnedModel.Meta):
         constraints = [

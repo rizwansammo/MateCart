@@ -32,7 +32,7 @@ export function variant(
     net_unit: '',
     release_date: null,
     isbn: null,
-    price: { currency: 'BDT', amount: '100.0000', compare_at_amount: null },
+    price: { currency: 'BDT', amount: '100.0000', compare_at_amount: null, promotion: null },
     in_stock: true,
     ...extra,
   };
@@ -53,8 +53,12 @@ export function productWith(
     image: null,
     in_stock: true,
     translations: {},
+    promotion: null,
     authors: [],
     description: '',
+    updated_at: '2026-10-27T00:00:00Z',
+    upcoming_sale: null,
+    server_time: '2026-10-27T00:00:00Z',
     seo_title: '',
     seo_description: '',
     categories: [],
@@ -78,10 +82,16 @@ export function summary(extra: Partial<PublicProductSummary> = {}): PublicProduc
     summary: '',
     product_type: 'book',
     brand: null,
-    price: { currency: 'BDT', min_amount: '250.0000', max_amount: '450.0000' },
+    price: {
+      currency: 'BDT',
+      min_amount: '250.0000',
+      max_amount: '450.0000',
+      regular_min_amount: null,
+    },
     image: null,
     in_stock: true,
     translations: { bn: { name: 'গীতাঞ্জলি' } },
+    promotion: null,
     authors: ['Rabindranath Tagore'],
     ...extra,
   };
@@ -123,6 +133,13 @@ export function storeConfig(extra: Partial<StorefrontConfig['store']> = {}): Sto
     ],
     translations: { bn: { tagline: 'প্রতিদিনের পণ্য', announcement: 'নমুনা দাম' } },
     local_date: '2026-10-27',
+    seo: { home_title: '', home_description: '', social_image_url: null, allow_indexing: true },
+    tracking: {
+      analytics: false,
+      meta_pixel_id: null,
+      purchase_timing: 'payment_verified',
+      consent_version: '1',
+    },
   };
 }
 

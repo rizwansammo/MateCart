@@ -208,8 +208,23 @@ REGISTRY: tuple[ModuleSpec, ...] = (
         frozenset({B, D}),
         requires=("cart_checkout",),
     ),
-    ModuleSpec("flash_sales", "Flash sales", "Time-limited deals with countdowns.", "12", False),
-    ModuleSpec("loyalty", "Loyalty points", "Rewards for repeat customers.", "12", False),
+    # Phase 12 (D-081, D-082): implemented, off until the merchant switches them on.
+    ModuleSpec(
+        "flash_sales",
+        "Flash sales",
+        "Time-limited deals with countdowns.",
+        "12",
+        True,
+        requires=("cart_checkout",),
+    ),
+    ModuleSpec(
+        "loyalty",
+        "Loyalty points",
+        "Rewards for repeat customers.",
+        "12",
+        True,
+        requires=("cart_checkout", "customer_accounts"),
+    ),
     ModuleSpec("live_chat", "Live chat", "Website chat and unified inbox.", "14", False),
     ModuleSpec("ai_assistant", "AI assistant", "AI help with product content.", "15", False),
 )
