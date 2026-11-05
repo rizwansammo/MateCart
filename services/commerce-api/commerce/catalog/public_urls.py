@@ -1,10 +1,15 @@
 from django.urls import path
 
-from . import public
+from . import public, recommendation_views
 
 urlpatterns = [
     path("products/", public.PublicProductListView.as_view(), name="public-products"),
     path("products/<slug:slug>/", public.PublicProductDetailView.as_view(), name="public-product"),
+    path(
+        "products/<slug:slug>/related/",
+        recommendation_views.PublicRelatedProductsView.as_view(),
+        name="public-product-related",
+    ),
     path("categories/", public.PublicCategoryTreeView.as_view(), name="public-categories"),
     path("collections/", public.PublicCollectionListView.as_view(), name="public-collections"),
     path(

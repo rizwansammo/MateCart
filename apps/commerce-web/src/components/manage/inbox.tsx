@@ -29,6 +29,7 @@ import {
   whatsAppTemplates,
 } from '@matecart/shared-contracts';
 import { Alert, ApiError, Button, Dialog, TextField, errorMessage } from '@matecart/shared-ui';
+import { InboxAssistant } from './ai-assist';
 import { AssistedOrderForm } from './assisted-order';
 import { InboxAnalyticsView } from './inbox-analytics';
 import {
@@ -1120,6 +1121,17 @@ function Composer({
                 : policy.template_reason}
             </p>
           )}
+        </div>
+      )}
+      {replying && (
+        <div className="mb-2">
+          <InboxAssistant
+            conversationId={conversation.id}
+            onUseReply={(draft) => {
+              setMode('reply');
+              setText(draft);
+            }}
+          />
         </div>
       )}
       {error && (

@@ -14,3 +14,5 @@ export * from './manage';
 export * from './marketing';
 export * from './notifications';
 export * from './communications';
+export * from './ai';
+export * from './transfers';

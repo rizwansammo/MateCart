@@ -229,6 +229,21 @@ Outside the database: cache keys use `tenant_cache_key(...)` (`tenant:<id>:...`)
   call the assisted order engine (D-077) unchanged. Website chat needs no external service, and a
   Meta outage never affects website chat or checkout.
 
+### AI assistant and data transfer (Phase 15)
+
+- `commerce.ai`: provider-independent AI layer (D-101 to D-104). Business features build a
+  provider request; adapters (GroqCloud, a labelled test provider) declare model capabilities.
+  Requests are durable rows processed by Celery outside any lock; outputs are validated drafts
+  applied only by staff through the owning domain service.
+- `commerce.transfers`: imports, exports and WooCommerce/Shopify migrations through one
+  staged, previewed, approved and resumable pipeline (D-105 to D-109). Customers and orders
+  from another store are read-only history, never live accounts or orders.
+- `commerce.core.outbound`: the single SSRF-safe HTTPS client for AI providers, migration
+  sources and imported images (D-103).
+- Related products are deterministic catalogue data (D-110).
+- AI and migration sources are optional: their failure never affects storefront, checkout,
+  orders, payments, fulfilment, notifications or messaging. Reference: [AI_AND_DATA.md](AI_AND_DATA.md).
+
 ### Independence from the Central Console
 
 - Stores never need `control-api` at runtime. Licensing and configuration must not depend on a continuously reachable central endpoint.
@@ -314,6 +329,5 @@ Redis broker, JSON-only serialisation, `acks_late` + `reject_on_worker_lost` + p
 | Theme showcase (themes.matecart.pro), premium theme licences, console assignment UI | later; console 16, operations 17 |
 | Production reverse proxy, production images, GHCR releases, installer, agent, TLS   | 17                               |
 | Rate limiting, bot protection, CDN, horizontal scaling validation                   | 12, 17, 18                       |
-| AI provider abstraction (GroqCloud first)                                           | 15                               |
 | Store → console metrics channel, alerting                                           | 12, 13, 16                       |
 | Row-level security and verified domain → tenant resolution (pooled mode)            | if approved                      |

@@ -50,7 +50,34 @@ const SECTIONS: readonly { pattern: RegExp; permission: string | null }[] = [
   { pattern: new RegExp(`^inbox/${UUID}$`), permission: 'messages.manage' },
   { pattern: new RegExp(`^inbox/${UUID}/order$`), permission: 'orders.manage' },
   { pattern: /^settings\/social$/, permission: 'store.settings' },
+  // Phase 15: the AI workspace (each tab needs its feature's permission; the overview lists
+  // only what the role may use) and data import, export and migration.
+  { pattern: /^ai$/, permission: null },
+  { pattern: /^ai\/(products|images)$/, permission: 'catalog.manage' },
+  { pattern: /^ai\/marketing$/, permission: 'promotions.manage' },
+  { pattern: /^ai\/insights$/, permission: 'reports.view' },
+  { pattern: /^ai\/(usage|settings)$/, permission: 'store.settings' },
+  { pattern: /^data(\/(migrate|export|history|jobs))?$/, permission: null },
+  { pattern: new RegExp(`^data/jobs/${UUID}$`), permission: null },
 ];
+
+/** Permissions that use at least one AI feature (or its settings). */
+export const AI_PERMISSIONS = [
+  'catalog.manage',
+  'messages.manage',
+  'promotions.manage',
+  'reports.view',
+  'store.settings',
+] as const;
+
+/** Permissions that open the data import, export and migration workspace. */
+export const DATA_PERMISSIONS = [
+  'catalog.manage',
+  'store.settings',
+  'customers.view',
+  'orders.manage',
+  'reports.view',
+] as const;
 
 /** Permissions that open at least one marketing tab. */
 export const MARKETING_PERMISSIONS = [
@@ -124,6 +151,7 @@ export function navigation(permissions: readonly string[]): NavGroup[] {
         ...(MARKETING_PERMISSIONS.some(can)
           ? [{ href: '/manage/marketing', label: 'Marketing' }]
           : []),
+        ...(AI_PERMISSIONS.some(can) ? [{ href: '/manage/ai', label: 'AI assistant' }] : []),
       ],
     },
     {
@@ -146,6 +174,7 @@ export function navigation(permissions: readonly string[]): NavGroup[] {
             ]
           : []),
         ...(can('staff.manage') ? [{ href: '/manage/team', label: 'Team & access' }] : []),
+        ...(DATA_PERMISSIONS.some(can) ? [{ href: '/manage/data', label: 'Import & export' }] : []),
         { href: '/manage/settings', label: 'Settings' },
         { href: '/manage/account/security', label: 'Account security' },
       ],

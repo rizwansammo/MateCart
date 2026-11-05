@@ -23,6 +23,8 @@ import { navigation, requiredPermission } from '@/lib/manage-routes';
 import { AppearanceSettings } from './appearance-app';
 import { ContentSettings } from './content-app';
 import { AfterSalesWorkspace } from './manage/aftersales';
+import { AIWorkspace } from './manage/ai';
+import { DataWorkspace } from './manage/data';
 import { AssistedOrderForm } from './manage/assisted-order';
 import { CatalogManager } from './manage/catalog';
 import { CustomerList, CustomerProfile } from './manage/customers';
@@ -368,6 +370,10 @@ function Section({ path, session }: { path: string; session: StaffSession }) {
       return <TeamSettings />;
     case 'marketing':
       return <MarketingWorkspace path={path} session={session} />;
+    case 'ai':
+      return <AIWorkspace path={path} session={session} />;
+    case 'data':
+      return <DataWorkspace path={path} session={session} />;
     default:
       return <SecuritySettings api={api} base="/api/manage/account" />;
   }

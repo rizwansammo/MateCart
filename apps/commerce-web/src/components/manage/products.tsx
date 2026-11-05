@@ -18,8 +18,10 @@ import {
   namedEntity,
   storefrontConfig,
 } from '@matecart/shared-contracts';
-import { Alert, Button, ConfirmDialog, TextField, errorMessage } from '@matecart/shared-ui';
+import { Alert, Button, ConfirmDialog, Dialog, TextField, errorMessage } from '@matecart/shared-ui';
 import { TextArea, uploadImage } from '../appearance-app';
+import { ProductAssistant, productTextFields } from './ai-assist';
+import { RelatedProducts } from './related-products';
 import {
   Badge,
   Card,
@@ -1004,6 +1006,7 @@ export function ProductEditor({ id, session }: { id: string; session: StaffSessi
   const [notice, setNotice] = useState('');
   const [busy, setBusy] = useState('');
   const [archiving, setArchiving] = useState(false);
+  const [assisting, setAssisting] = useState(false);
   const canSeeCosts = session.permissions.includes('catalog.costs');
   useEffect(() => {
     void api
@@ -1083,10 +1086,25 @@ export function ProductEditor({ id, session }: { id: string; session: StaffSessi
                 Archive
               </Button>
             )}
+            <Button variant="secondary" onClick={() => setAssisting(true)}>
+              AI draft
+            </Button>
           </>
         }
       />
       <Feedback error={error} notice={notice} />
+      {assisting && (
+        <Dialog title="AI draft for this product" onClose={() => setAssisting(false)}>
+          <ProductAssistant
+            product={productTextFields(product)}
+            canBangla
+            onApplied={async () => {
+              setForm(null);
+              await reload();
+            }}
+          />
+        </Dialog>
+      )}
       {product.publication_problems.length > 0 && product.status !== 'active' && (
         <Alert tone="info">Before publishing: {product.publication_problems.join(' ')}</Alert>
       )}
@@ -1237,6 +1255,7 @@ export function ProductEditor({ id, session }: { id: string; session: StaffSessi
               View stock levels →
             </a>
           </Card>
+          <RelatedProducts productId={product.id} />
         </div>
       </div>
       {archiving && (

@@ -1360,17 +1360,126 @@ idempotency_conflict`. The free-text reason, actor and a batch's supplier
 - **Unchanged.** Conversation lifecycle, guest and customer credentials, membership, Origin
   checks, and the closed conversation's history in the inbox and under retention.
 
+### D-101 · Provider-independent AI layer with durable, reviewable requests (2026-11-05, Phase 15)
+
+- **Decision.** A `commerce.ai` app inside the commerce API (no separate AI service). Business
+  features build a `GenerationRequest`; providers implement `AIProvider` (`list_models`,
+  `generate`) and declare per-model capabilities (text, JSON object, strict JSON schema,
+  vision). A feature whose capability the chosen model lacks is refused before any call; there
+  is never a silent fallback to another model.
+- **Requests** are durable rows processed by Celery (`ai.run_request`), claimed under a row
+  lock, with provider-reported token usage, safe error codes and the validated result. Prompts
+  are never stored. Only documented rate-limit refusals are retried (at most 3 attempts);
+  timeouts and 5xx are not, because a resend could be processed twice.
+- **Review.** Results are drafts visible only to the requester. Applying is an explicit action
+  through the owning service (catalogue, media, marketing) with overwrite confirmation and an
+  `ai.draft.applied` audit event; support replies only fill the composer.
+- **Test provider.** Deterministic "[Test]" fixtures for development and tests
+  (`MATECART_AI_TEST_PROVIDER`), labelled everywhere, refused in production.
+- **Module.** `ai_assistant` is now available (off by default). Off stops new requests and fails
+  queued ones.
+
+### D-102 · GroqCloud first, from documentation, with strict output validation (2026-11-05, Phase 15)
+
+- Fixed endpoint `https://api.groq.com/openai/v1`; `max_completion_tokens`, `temperature` and
+  `response_format` only. Strict `json_schema` on models documented to support it (gpt-oss),
+  JSON mode otherwise; MateCart validates every answer against the same schema either way.
+- An explicit registry of documented models (console.groq.com/docs, 2026-11-05). Vision models
+  are preview models today; the dashboard marks them. Unknown listed models are not selectable.
+- Verification lists models with the stored key; a chosen model that disappears turns the
+  status to "model unavailable" without changing the choice.
+- The API key is entered in the dashboard, encrypted with `MATECART_ENCRYPTION_KEY`, shown only
+  as its last four characters, needs a recent sign-in to change and is never audited.
+
+### D-103 · One SSRF-safe outbound HTTPS client (2026-11-05, Phase 15)
+
+`commerce.core.outbound` serves GroqCloud, WooCommerce, Shopify and imported images: HTTPS host
+names on port 443, every resolved address public, the socket pinned to the vetted address (TLS
+still verifies the host name), redirects off unless allowed and re-validated per hop, credentials
+dropped across hosts, explicit timeouts and size limits, coded errors. Tests replace its
+`transport` seam; nothing in the test suite reaches the internet.
+
+### D-104 · AI context: authorised, minimal and separated from instructions (2026-11-05, Phase 15)
+
+- The worker re-checks the requester's membership and feature permission, then reads only that
+  feature's records. Store and customer data go in one delimited block that the trusted system
+  message declares untrusted; delimiter sequences inside data are neutralised.
+- Support excerpts: last 12 messages, e-mail addresses, phone numbers and digit runs masked,
+  notes never read; order and shipment facts only with `orders.manage`, produced by the server
+  and shown apart from customer claims and AI interpretation. Support features require a
+  settings manager's confirmation that customers are told (D-104 consent switch).
+- Insights send only aggregates from the existing report services filtered by permission;
+  cost prices and margins are never sent. Images are re-encoded (≤1280 px JPEG, metadata
+  dropped) and sent inline, never as links.
+- Retention: results 30 days, metadata 400 days.
+
+### D-105 · Data transfer jobs: preview before write, item-level idempotency (2026-11-05, Phase 15)
+
+A `commerce.transfers` app with `DataTransferJob`, `DataTransferFile`, `ImportItem` and
+`ExternalSourceMapping`. Staging and classification write no business data (the preview);
+approval is explicit; execution is per item in its own transaction through the domain services,
+claimed under a lock so a duplicate task run is harmless; progress comes from item rows;
+cancellation stops between items; resume processes pending items only; the sweep resumes jobs
+with a stale heartbeat. Absent records are never deleted. CSV output is formula-safe.
+
+### D-106 · One normalised record shape for files and migrations (2026-11-05, Phase 15)
+
+CSV, JSON Lines, WooCommerce and Shopify all become the same product, category, customer, order
+and coupon dictionaries before validation, which reuses the catalogue's own SKU, barcode and
+ISBN normalisers, `Decimal` money at the currency's minor unit and preset product-type rules.
+HTML becomes plain text. Currency conversion is never invented: a source in another currency
+blocks product migration until an approved policy exists (Q12).
+
+### D-107 · Read-only migration sources; documented credentials; simulator (2026-11-05, Phase 15)
+
+WooCommerce REST v3 with a Read consumer key; Shopify Admin GraphQL 2026-10 with an existing
+custom-app token or Dev Dashboard client credentials (no passwords, nothing installed in the
+source, nothing written). Shopify bulk operations above 1,000 products. A labelled development
+simulator (`MATECART_MIGRATION_SIMULATOR`) allows local acceptance; production refuses it.
+Credentials are encrypted, never returned, erased on disconnect.
+
+### D-108 · Customers and orders migrate as read-only history; reversal is compensation (2026-11-05, Phase 15)
+
+- Imported customers become `HistoricalCustomer` rows (no account, login, password or hash;
+  contact details not verified; the source's marketing flag is not consent). Imported orders
+  become `HistoricalOrder` rows with source statuses and totals as recorded; they never pass
+  through order placement, so no payment, COD collection, shipment, reservation, notification,
+  coupon redemption or loyalty points is created and reports exclude them. Account activation
+  for imported customers is an owner decision (Q11).
+- Coupons are imported switched off; unrepresentable restrictions are listed.
+- "Reverse import" removes only what the job created and nothing used since (sold products kept,
+  stocked products archived, unused ones deleted), never a global rollback.
+- Customer and order payloads in staged items are cleared when the job finishes.
+
+### D-109 · Exports and sensitive data (2026-11-05, Phase 15)
+
+Products, categories and inventory need `catalog.manage`; customers need `customers.view` +
+`store.settings`; order history needs `orders.manage` + `reports.view` and excludes addresses
+and payment details. Sensitive exports need a recent sign-in to create and download, and every
+download is audited. Files are private, tenant-scoped, `no-store`, and expire after 7 days.
+
+### D-110 · Related products are deterministic; AI is not needed (2026-11-05, Phase 15)
+
+Related products are ranked from shared categories, collections, brand and tags, with merchant
+pins and hides (`ProductRecommendation`), and only published, priced, sellable products are
+shown. No visitor profiles or other customers' purchases are used. AI ranking is not built:
+the deterministic list is explainable and keeps working without a provider. The storefront
+falls back to the category listing if the list is unavailable.
+
 ## Open questions for the owner
 
-| #   | Question                                                                                                                                                                                                      | Status                                                                                                                | Needed by            |
-| --- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- | -------------------- |
-| Q1  | Does the **Optimus Custom** font licence allow redistribution and web embedding?                                                                                                                              | Open. Not relevant to Phase 02.                                                                                       | Phase 05             |
-| Q2  | Is **Redis 8** licensing (RSALv2 / SSPLv1 / AGPLv3) acceptable for client deployments, or should we switch to **Valkey** (BSD-3, drop-in)?                                                                    | Open. Redis stays as adopted; nothing in Phase 02 depends on it. Reviewed with infrastructure.                        | Phase 17             |
-| Q3  | Initial market: Bangladesh?                                                                                                                                                                                   | **Resolved (Phase 02 brief):** Bangladesh is the first market; data structures are international (D-031).             | —                    |
-| Q4  | Merchant dashboard placement                                                                                                                                                                                  | **Resolved:** `/manage` on the storefront domain in commerce-web (D-044).                                             | —                    |
-| Q5  | Branching and first commit.                                                                                                                                                                                   | **Resolved:** Phase 01 committed on `main` (`8f3e34b`).                                                               | —                    |
-| Q6  | Customer login methods                                                                                                                                                                                        | **Resolved:** email/password, phone OTP and Google OIDC; real provider gates apply (D-043).                           | —                    |
-| Q7  | Customer versus merchant identity                                                                                                                                                                             | **Resolved:** separate accounts, credentials, sessions and permissions, even for matching emails (D-040).             | —                    |
-| Q8  | One shared NetaMate Meta app for every store, or a Meta app per store? Messenger and Instagram webhooks are per app, so a shared app needs a central webhook router, which conflicts with store independence. | Open. Phase 14 works per deployment (each store's own app and webhook URL); a router would be a Phase 16/17 decision. | Before live Meta use |
-| Q9  | Should NetaMate apply for Meta's Human Agent feature (7-day replies) and app review for the messaging permissions?                                                                                            | Open. Disabled until approved (`META_HUMAN_AGENT_APPROVED`).                                                          | Before live Meta use |
-| Q10 | Are the default retention periods (closed conversations 365 days, guest chats 180 days) right for your clients?                                                                                               | Open. Defaults set conservatively and configurable (D-096).                                                           | Phase 18             |
+| #   | Question                                                                                                                                                                                                      | Status                                                                                                                | Needed by                    |
+| --- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- | ---------------------------- |
+| Q1  | Does the **Optimus Custom** font licence allow redistribution and web embedding?                                                                                                                              | Open. Not relevant to Phase 02.                                                                                       | Phase 05                     |
+| Q2  | Is **Redis 8** licensing (RSALv2 / SSPLv1 / AGPLv3) acceptable for client deployments, or should we switch to **Valkey** (BSD-3, drop-in)?                                                                    | Open. Redis stays as adopted; nothing in Phase 02 depends on it. Reviewed with infrastructure.                        | Phase 17                     |
+| Q3  | Initial market: Bangladesh?                                                                                                                                                                                   | **Resolved (Phase 02 brief):** Bangladesh is the first market; data structures are international (D-031).             | —                            |
+| Q4  | Merchant dashboard placement                                                                                                                                                                                  | **Resolved:** `/manage` on the storefront domain in commerce-web (D-044).                                             | —                            |
+| Q5  | Branching and first commit.                                                                                                                                                                                   | **Resolved:** Phase 01 committed on `main` (`8f3e34b`).                                                               | —                            |
+| Q6  | Customer login methods                                                                                                                                                                                        | **Resolved:** email/password, phone OTP and Google OIDC; real provider gates apply (D-043).                           | —                            |
+| Q7  | Customer versus merchant identity                                                                                                                                                                             | **Resolved:** separate accounts, credentials, sessions and permissions, even for matching emails (D-040).             | —                            |
+| Q8  | One shared NetaMate Meta app for every store, or a Meta app per store? Messenger and Instagram webhooks are per app, so a shared app needs a central webhook router, which conflicts with store independence. | Open. Phase 14 works per deployment (each store's own app and webhook URL); a router would be a Phase 16/17 decision. | Before live Meta use         |
+| Q9  | Should NetaMate apply for Meta's Human Agent feature (7-day replies) and app review for the messaging permissions?                                                                                            | Open. Disabled until approved (`META_HUMAN_AGENT_APPROVED`).                                                          | Before live Meta use         |
+| Q10 | Are the default retention periods (closed conversations 365 days, guest chats 180 days) right for your clients?                                                                                               | Open. Defaults set conservatively and configurable (D-096).                                                           | Phase 18                     |
+| Q11 | Should customers imported from WooCommerce or Shopify be invited to activate a MateCart account (e-mail invitation and password setup), or stay as read-only history?                                         | Open. Phase 15 keeps them as read-only history; no accounts or messages are created (D-108).                          | Before migrating live stores |
+| Q12 | When a source store sells in another currency, should MateCart support an owner-approved conversion policy (fixed rate, rounding), or require a store in the same currency?                                   | Open. Product migration is blocked on a currency mismatch; no rate is invented (D-106).                               | Before such a migration      |
+| Q13 | Which GroqCloud models (and whether preview vision models) should NetaMate recommend to clients, and should Zero Data Retention be required on client Groq accounts?                                          | Open. Merchants choose from the documented registry; preview models are labelled (D-102).                             | Before live AI use           |

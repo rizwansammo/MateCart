@@ -21,7 +21,12 @@ import { TrackView } from '@/components/store/tracking';
 import { pageMetadata } from '@/lib/page-metadata';
 import { absolute, breadcrumbJsonLd, clip, productJsonLd, seoText } from '@/lib/seo';
 import { getStoreContext, publicOrigin } from '@/lib/store-context';
-import { getProduct, getProducts, getReviewSummary } from '@/lib/storefront-api';
+import {
+  getProduct,
+  getProducts,
+  getRelatedProducts,
+  getReviewSummary,
+} from '@/lib/storefront-api';
 
 interface Props {
   params: Promise<{ slug: string }>;
@@ -64,15 +69,19 @@ export default async function ProductPage({ params, searchParams }: Props) {
   const name = localize(product.translations, 'name', product.name, lang);
   const primary = product.categories.find((c) => c.is_primary) ?? product.categories[0];
   const requested = typeof search.variant === 'string' ? search.variant : null;
-  const relatedPage = primary
-    ? await getProducts(
-        new URLSearchParams({
-          category: primary.slug,
-          page_size: String(RELATED[presentation.card] + 1),
-        }),
-      )
-    : null;
-  const related = (relatedPage?.results ?? [])
+  // The store's related products (pins, shared categories, collections, brand, tags; D-110).
+  // When that optional list is unavailable, fall back to the primary category's products.
+  const recommended = await getRelatedProducts(product.slug);
+  const relatedPage =
+    recommended === null && primary
+      ? await getProducts(
+          new URLSearchParams({
+            category: primary.slug,
+            page_size: String(RELATED[presentation.card] + 1),
+          }),
+        )
+      : null;
+  const related = (recommended ?? relatedPage?.results ?? [])
     .filter((p) => p.id !== product.id)
     .slice(0, RELATED[presentation.card]);
 

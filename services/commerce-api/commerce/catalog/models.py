@@ -809,3 +809,41 @@ class BookDetails(TenantOwnedModel):
                 name="catalog_bookdetails_language_format",
             ),
         ]
+
+
+# --- Merchandising (Phase 15, D-110) --------------------------------------------------------------
+
+
+class RecommendationKind(models.TextChoices):
+    PINNED = "pinned", "Always show"
+    HIDDEN = "hidden", "Never show"
+
+
+class ProductRecommendation(TenantOwnedModel, TimestampedModel):
+    """A merchant override of the automatic related-products list for one product."""
+
+    product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name="+")
+    recommended = models.ForeignKey(Product, on_delete=models.CASCADE, related_name="+")
+    kind = models.CharField(max_length=8, choices=RecommendationKind.choices)
+    position = models.PositiveIntegerField(default=0)
+
+    class Meta(TenantOwnedModel.Meta):
+        constraints = [
+            *TenantOwnedModel.Meta.constraints,
+            TenantForeignKeyConstraint(field="product", name="catalog_rec_product_same_tenant"),
+            TenantForeignKeyConstraint(
+                field="recommended", name="catalog_rec_recommended_same_tenant"
+            ),
+            models.UniqueConstraint(
+                fields=["tenant", "product", "recommended"], name="catalog_rec_unique"
+            ),
+            models.CheckConstraint(
+                condition=~Q(product=F("recommended")), name="catalog_rec_not_self"
+            ),
+            _choice("kind", RecommendationKind, "catalog_rec_kind_valid"),
+        ]
+        indexes = [
+            models.Index(
+                fields=["tenant", "product", "kind", "position"], name="catalog_rec_order"
+            ),
+        ]

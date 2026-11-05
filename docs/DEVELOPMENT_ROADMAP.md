@@ -19,8 +19,8 @@
 | 11  | Merchant Management Dashboard               | B — Commerce Application      | **Accepted and closed**, including 11.1 (`13043bb`, CI 41656247516: 4/4, 1,144 tests).        |
 | 12  | Marketing, SEO & Analytics                  | C — Growth & Integrations     | **Accepted and closed**, including corrections (`bdcac40`, CI 41777281655: 4/4, 1,258 tests). |
 | 13  | Mail & Notification Engine                  | C — Growth & Integrations     | **Accepted and closed**, including 13.1 (`7b4db22`)                                           |
-| 14  | Social Commerce & Unified Inbox             | C — Growth & Integrations     | **Implemented locally**; owner review, commit and CI pending                                  |
-| 15  | AI & Advanced Extensions                    | C — Growth & Integrations     | Pending                                                                                       |
+| 14  | Social Commerce & Unified Inbox             | C — Growth & Integrations     | **Accepted and closed**, including 14.1 (`029b7bf`, CI 42000616679: 4/4, 1,474 tests).        |
+| 15  | AI & Advanced Extensions                    | C — Growth & Integrations     | **Implemented locally**; owner review, commit and CI pending                                  |
 | 16  | Central Platform Console                    | D — Platform & Infrastructure | Pending                                                                                       |
 | 17  | Deployment Automation                       | D — Platform & Infrastructure | Pending                                                                                       |
 | 18  | Final Quality, Performance & Security       | D — Platform & Infrastructure | Pending                                                                                       |
@@ -227,11 +227,21 @@ identities, messaging windows, approved templates and honest delivery states; pr
 and COD orders from conversations through the assisted order engine. Live Meta use needs a Meta
 app per store and app review. Messaging integrity corrections (14.1, D-099, D-100: template
 values survive delivery recovery, policy re-checked at delivery time, website chat conversation
-identity) are implemented locally; formal acceptance follows their commit and GitHub CI.
+identity) completed it. Accepted and closed at `029b7bf`, GitHub Actions 42000616679 (4/4 jobs,
+1,474 tests).
 
 ### Phase 15 — AI & Advanced Extensions
 
 Provider-independent AI layer (GroqCloud first), product content, image analysis, support replies, marketing, business intelligence, advanced import and export, WooCommerce and Shopify migrations.
+
+Implemented locally (D-101 to D-110, [AI_AND_DATA.md](AI_AND_DATA.md)): a provider-independent
+AI layer with a documented GroqCloud capability registry, durable reviewable requests, usage
+limits and strict output validation; AI drafts for product content (English and Bangla), image
+alt text and attributes, inbox replies and summaries, marketing copy and explained business
+metrics, always applied by staff through the existing services; deterministic related products;
+CSV/JSON Lines import with preview, conflicts, approval, resumable jobs and reversal; permissioned
+exports; and read-only WooCommerce and Shopify migrations through one pipeline, with customers and
+orders kept as read-only history. No live GroqCloud, WooCommerce or Shopify account was used.
 
 ## Stage D — Platform & Infrastructure
 

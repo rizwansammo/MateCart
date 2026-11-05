@@ -1,6 +1,6 @@
 from django.urls import path
 
-from . import views
+from . import recommendation_views, views
 
 urlpatterns = [
     path("brands/", views.BrandListView.as_view(), name="catalog-brands"),
@@ -47,6 +47,11 @@ urlpatterns = [
     ),
     path("products/", views.ProductListView.as_view(), name="catalog-products"),
     path("products/<uuid:product_id>/", views.ProductDetailView.as_view(), name="catalog-product"),
+    path(
+        "products/<uuid:product_id>/recommendations/",
+        recommendation_views.ProductRecommendationsView.as_view(),
+        name="catalog-product-recommendations",
+    ),
     path(
         "products/<uuid:product_id>/status/",
         views.ProductStatusView.as_view(),

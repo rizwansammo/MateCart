@@ -42,6 +42,10 @@ META_APP_SECRET = ""
 META_WEBHOOK_VERIFY_TOKEN = ""
 META_HUMAN_AGENT_APPROVED = False
 MATECART_CHANNEL_SIMULATOR = False
+# Phase 15: the AI test provider may be chosen by tests; the migration simulator stays off
+# (tests use scripted HTTP fakes).
+MATECART_AI_TEST_PROVIDER = True
+MATECART_MIGRATION_SIMULATOR = False
 MATECART_WEBSOCKET_ORIGINS = ["http://testserver"]
 
 CELERY_TASK_ALWAYS_EAGER = True

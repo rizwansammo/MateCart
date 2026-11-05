@@ -123,6 +123,22 @@ export const getCollection = cache(async (slug: string): Promise<PublicCollectio
   isSlug(slug) ? request(`/api/catalog/collections/${slug}/`, publicCollection) : null,
 );
 
+/**
+ * Related products chosen by the store (Phase 15, D-110): published, sellable products ranked by
+ * shared categories, collections, brand and tags, with the merchant's pins. Optional: a failure
+ * returns null and the page falls back to its category listing, never breaking the product page.
+ */
+export async function getRelatedProducts(slug: string): Promise<PublicProductSummary[] | null> {
+  if (!isSlug(slug)) return null;
+  try {
+    return await request(`/api/catalog/products/${slug}/related/`, (value) =>
+      array(value, publicProductSummary),
+    );
+  } catch {
+    return null;
+  }
+}
+
 /** Published review summary for structured data, or null when unavailable. */
 export const getReviewSummary = cache(
   async (productId: string): Promise<{ average: number; count: number } | null> => {

@@ -100,10 +100,16 @@ def _read_limited(stream: IO[bytes], limit: int) -> bytes:
     return data
 
 
-def upload(*, stream: IO[bytes], alt_text: str = "", actor: User | None) -> MediaAsset:
-    ratelimit.consume(
-        "media-upload", str(get_active_tenant_id()), limit=UPLOADS_PER_HOUR, window=3600
-    )
+def upload(
+    *, stream: IO[bytes], alt_text: str = "", actor: User | None, rate_limited: bool = True
+) -> MediaAsset:
+    """Validate and store one file. ``rate_limited=False`` is for approved background imports
+    (commerce.transfers), which apply their own per-job bounds; interactive uploads keep the
+    per-store hourly limit."""
+    if rate_limited:
+        ratelimit.consume(
+            "media-upload", str(get_active_tenant_id()), limit=UPLOADS_PER_HOUR, window=3600
+        )
     data = _read_limited(stream, settings.MATECART_MEDIA_MAX_BYTES)
     found = inspect(data)
     kind, extension = CONTENT_TYPES[found.content_type]

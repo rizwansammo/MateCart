@@ -54,6 +54,9 @@ urlpatterns: list[URLPattern | URLResolver] = [
     path("api/manage/inbox/", include("commerce.communications.manage_urls")),
     path("api/manage/communications/", include("commerce.communications.social_urls")),
     path("api/", include("commerce.communications.urls")),
+    # Phase 15: AI assistant and data transfer (staff realm).
+    path("api/manage/ai/", include("commerce.ai.urls")),
+    path("api/manage/data/", include("commerce.transfers.urls")),
 ]
 
 if settings.API_SCHEMA_ENABLED:

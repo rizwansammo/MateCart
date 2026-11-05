@@ -1109,6 +1109,29 @@ paths:
               schema:
                 $ref: '#/components/schemas/PublicProductDetail'
           description: ''
+  /api/catalog/products/{slug}/related/:
+    get:
+      operationId: catalog_product_related
+      description: Base for every cookie-authenticated or sign-in endpoint.
+      parameters:
+      - in: path
+        name: slug
+        schema:
+          type: string
+        required: true
+      tags:
+      - catalog
+      security:
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/PublicProductSummary'
+          description: ''
   /api/chat/attachments/:
     post:
       operationId: chat_upload
@@ -1844,6 +1867,341 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/MerchantReview'
+          description: ''
+  /api/manage/ai/:
+    get:
+      operationId: manage_ai_overview
+      description: Base for every cookie-authenticated or sign-in endpoint.
+      tags:
+      - manage-ai
+      security:
+      - staffSession: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AIOverview'
+          description: ''
+  /api/manage/ai/requests/:
+    get:
+      operationId: manage_ai_requests
+      description: Base for every cookie-authenticated or sign-in endpoint.
+      parameters:
+      - in: query
+        name: feature
+        schema:
+          enum:
+          - product_content
+          - image_analysis
+          - support_reply
+          - support_summary
+          - marketing_copy
+          - business_insights
+          type: string
+          minLength: 1
+        description: |-
+          * `product_content` - Product content
+          * `image_analysis` - Product image analysis
+          * `support_reply` - Support reply suggestions
+          * `support_summary` - Conversation summaries
+          * `marketing_copy` - Marketing copy
+          * `business_insights` - Business insights
+      - in: query
+        name: scope
+        schema:
+          enum:
+          - mine
+          - all
+          type: string
+          default: mine
+          minLength: 1
+        description: |-
+          * `mine` - Mine
+          * `all` - All
+      - in: query
+        name: subject_id
+        schema:
+          type: string
+          format: uuid
+      tags:
+      - manage-ai
+      security:
+      - staffSession: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AIRequestPage'
+          description: ''
+    post:
+      operationId: manage_ai_request_create
+      description: Base for every cookie-authenticated or sign-in endpoint.
+      tags:
+      - manage-ai
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AIRequestInputRequest'
+        required: true
+      security:
+      - staffSession: []
+      responses:
+        '202':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AIRequest'
+          description: ''
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AIRequest'
+          description: ''
+  /api/manage/ai/requests/{request_id}/:
+    get:
+      operationId: manage_ai_request
+      description: Base for every cookie-authenticated or sign-in endpoint.
+      parameters:
+      - in: path
+        name: request_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - manage-ai
+      security:
+      - staffSession: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AIRequest'
+          description: ''
+  /api/manage/ai/requests/{request_id}/apply/:
+    post:
+      operationId: manage_ai_request_apply
+      description: Base for every cookie-authenticated or sign-in endpoint.
+      parameters:
+      - in: path
+        name: request_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - manage-ai
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ApplyInputRequest'
+        required: true
+      security:
+      - staffSession: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AIRequest'
+          description: ''
+  /api/manage/ai/requests/{request_id}/cancel/:
+    post:
+      operationId: manage_ai_request_cancel
+      description: Base for every cookie-authenticated or sign-in endpoint.
+      parameters:
+      - in: path
+        name: request_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - manage-ai
+      security:
+      - staffSession: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AIRequest'
+          description: ''
+  /api/manage/ai/requests/{request_id}/retry/:
+    post:
+      operationId: manage_ai_request_retry
+      description: Base for every cookie-authenticated or sign-in endpoint.
+      parameters:
+      - in: path
+        name: request_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - manage-ai
+      security:
+      - staffSession: []
+      responses:
+        '202':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AIRequest'
+          description: ''
+  /api/manage/ai/requests/{request_id}/review/:
+    post:
+      operationId: manage_ai_request_review
+      description: Base for every cookie-authenticated or sign-in endpoint.
+      parameters:
+      - in: path
+        name: request_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - manage-ai
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AIReviewInputRequest'
+        required: true
+      security:
+      - staffSession: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AIRequest'
+          description: ''
+  /api/manage/ai/settings/:
+    get:
+      operationId: manage_ai_settings
+      description: Base for every cookie-authenticated or sign-in endpoint.
+      tags:
+      - manage-ai
+      security:
+      - staffSession: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AISettings'
+          description: ''
+    patch:
+      operationId: manage_ai_settings_update
+      description: Base for every cookie-authenticated or sign-in endpoint.
+      tags:
+      - manage-ai
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedAISettingsInputRequest'
+      security:
+      - staffSession: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AISettings'
+          description: ''
+  /api/manage/ai/settings/customer-data/:
+    post:
+      operationId: manage_ai_customer_data
+      description: Base for every cookie-authenticated or sign-in endpoint.
+      tags:
+      - manage-ai
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ConfirmInputRequest'
+        required: true
+      security:
+      - staffSession: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AISettings'
+          description: ''
+  /api/manage/ai/settings/key/:
+    put:
+      operationId: manage_ai_key_set
+      description: Base for every cookie-authenticated or sign-in endpoint.
+      tags:
+      - manage-ai
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AIKeyInputRequest'
+        required: true
+      security:
+      - staffSession: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AISettings'
+          description: ''
+    delete:
+      operationId: manage_ai_key_remove
+      description: Base for every cookie-authenticated or sign-in endpoint.
+      tags:
+      - manage-ai
+      security:
+      - staffSession: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AISettings'
+          description: ''
+  /api/manage/ai/settings/verify/:
+    post:
+      operationId: manage_ai_verify
+      description: Base for every cookie-authenticated or sign-in endpoint.
+      tags:
+      - manage-ai
+      security:
+      - staffSession: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AISettings'
+          description: ''
+  /api/manage/ai/usage/:
+    get:
+      operationId: manage_ai_usage
+      description: Base for every cookie-authenticated or sign-in endpoint.
+      tags:
+      - manage-ai
+      security:
+      - staffSession: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AIUsage'
           description: ''
   /api/manage/auth/login/:
     post:
@@ -2853,6 +3211,59 @@ paths:
               schema:
                 $ref: '#/components/schemas/ProductDetail'
           description: ''
+  /api/manage/catalog/products/{product_id}/recommendations/:
+    get:
+      operationId: catalog_product_recommendations
+      description: |-
+        Catalogue, pricing, inventory and media management: ``catalog.manage`` (Owner, Manager,
+        Content editor). Cost prices additionally need ``catalog.costs``.
+      parameters:
+      - in: path
+        name: product_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - manage-catalog
+      security:
+      - staffSession: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Recommendations'
+          description: ''
+    put:
+      operationId: catalog_product_recommendations_set
+      description: |-
+        Catalogue, pricing, inventory and media management: ``catalog.manage`` (Owner, Manager,
+        Content editor). Cost prices additionally need ``catalog.costs``.
+      parameters:
+      - in: path
+        name: product_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - manage-catalog
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RecommendationsInputRequest'
+        required: true
+      security:
+      - staffSession: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Recommendations'
+          description: ''
   /api/manage/catalog/products/{product_id}/status/:
     post:
       operationId: manage_catalog_product_status
@@ -3642,6 +4053,413 @@ paths:
               schema:
                 $ref: '#/components/schemas/Dashboard'
           description: ''
+  /api/manage/data/:
+    get:
+      operationId: manage_data_overview
+      description: Base for every cookie-authenticated or sign-in endpoint.
+      tags:
+      - manage-data
+      security:
+      - staffSession: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DataOverview'
+          description: ''
+  /api/manage/data/exports/:
+    post:
+      operationId: manage_data_export_create
+      description: Base for every cookie-authenticated or sign-in endpoint.
+      tags:
+      - manage-data
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ExportInputRequest'
+        required: true
+      security:
+      - staffSession: []
+      responses:
+        '202':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TransferJob'
+          description: ''
+  /api/manage/data/files/{file_id}/download/:
+    get:
+      operationId: manage_data_file_download
+      description: Base for every cookie-authenticated or sign-in endpoint.
+      parameters:
+      - in: path
+        name: file_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - manage-data
+      security:
+      - staffSession: []
+      responses:
+        '200':
+          description: The file
+  /api/manage/data/history/customers/:
+    get:
+      operationId: manage_data_history_customers
+      description: Base for every cookie-authenticated or sign-in endpoint.
+      tags:
+      - manage-data
+      security:
+      - staffSession: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HistoricalCustomerPage'
+          description: ''
+  /api/manage/data/history/orders/:
+    get:
+      operationId: manage_data_history_orders
+      description: Base for every cookie-authenticated or sign-in endpoint.
+      tags:
+      - manage-data
+      security:
+      - staffSession: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HistoricalOrderPage'
+          description: ''
+  /api/manage/data/imports/:
+    post:
+      operationId: manage_data_import_create
+      description: Base for every cookie-authenticated or sign-in endpoint.
+      tags:
+      - manage-data
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/ImportInputRequest'
+        required: true
+      security:
+      - staffSession: []
+      responses:
+        '202':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TransferJob'
+          description: ''
+  /api/manage/data/jobs/:
+    get:
+      operationId: manage_data_jobs
+      description: Base for every cookie-authenticated or sign-in endpoint.
+      tags:
+      - manage-data
+      security:
+      - staffSession: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TransferJobPage'
+          description: ''
+  /api/manage/data/jobs/{job_id}/:
+    get:
+      operationId: manage_data_job
+      description: Base for every cookie-authenticated or sign-in endpoint.
+      parameters:
+      - in: path
+        name: job_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - manage-data
+      security:
+      - staffSession: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TransferJob'
+          description: ''
+  /api/manage/data/jobs/{job_id}/approve/:
+    post:
+      operationId: manage_data_job_approve
+      description: Base for every cookie-authenticated or sign-in endpoint.
+      parameters:
+      - in: path
+        name: job_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - manage-data
+      security:
+      - staffSession: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TransferJob'
+          description: ''
+  /api/manage/data/jobs/{job_id}/cancel/:
+    post:
+      operationId: manage_data_job_cancel
+      description: Base for every cookie-authenticated or sign-in endpoint.
+      parameters:
+      - in: path
+        name: job_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - manage-data
+      security:
+      - staffSession: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TransferJob'
+          description: ''
+  /api/manage/data/jobs/{job_id}/compensate/:
+    post:
+      operationId: manage_data_job_compensate
+      description: Base for every cookie-authenticated or sign-in endpoint.
+      parameters:
+      - in: path
+        name: job_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - manage-data
+      security:
+      - staffSession: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Compensation'
+          description: ''
+  /api/manage/data/jobs/{job_id}/decisions/:
+    post:
+      operationId: manage_data_job_decisions
+      description: Base for every cookie-authenticated or sign-in endpoint.
+      parameters:
+      - in: path
+        name: job_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - manage-data
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DecisionsInputRequest'
+        required: true
+      security:
+      - staffSession: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TransferJob'
+          description: ''
+  /api/manage/data/jobs/{job_id}/items/:
+    get:
+      operationId: manage_data_job_items
+      description: Base for every cookie-authenticated or sign-in endpoint.
+      parameters:
+      - in: query
+        name: action
+        schema:
+          type: string
+          minLength: 1
+          maxLength: 12
+      - in: path
+        name: job_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: query
+        name: object_type
+        schema:
+          type: string
+          minLength: 1
+          maxLength: 16
+      - in: query
+        name: status
+        schema:
+          type: string
+          minLength: 1
+          maxLength: 12
+      tags:
+      - manage-data
+      security:
+      - staffSession: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ImportItemPage'
+          description: ''
+  /api/manage/data/jobs/{job_id}/resume/:
+    post:
+      operationId: manage_data_job_resume
+      description: Base for every cookie-authenticated or sign-in endpoint.
+      parameters:
+      - in: path
+        name: job_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - manage-data
+      security:
+      - staffSession: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TransferJob'
+          description: ''
+  /api/manage/data/migrations/:
+    post:
+      operationId: manage_data_migration_create
+      description: Base for every cookie-authenticated or sign-in endpoint.
+      tags:
+      - manage-data
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MigrationInputRequest'
+        required: true
+      security:
+      - staffSession: []
+      responses:
+        '202':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TransferJob'
+          description: ''
+  /api/manage/data/sources/:
+    get:
+      operationId: manage_data_sources
+      description: Base for every cookie-authenticated or sign-in endpoint.
+      tags:
+      - manage-data
+      security:
+      - staffSession: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/SourceConnection'
+          description: ''
+    post:
+      operationId: manage_data_source_create
+      description: Base for every cookie-authenticated or sign-in endpoint.
+      tags:
+      - manage-data
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SourceInputRequest'
+        required: true
+      security:
+      - staffSession: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SourceConnection'
+          description: ''
+  /api/manage/data/sources/{source_id}/:
+    delete:
+      operationId: manage_data_source_delete
+      description: Base for every cookie-authenticated or sign-in endpoint.
+      parameters:
+      - in: path
+        name: source_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - manage-data
+      security:
+      - staffSession: []
+      responses:
+        '204':
+          description: No response body
+  /api/manage/data/sources/{source_id}/verify/:
+    post:
+      operationId: manage_data_source_verify
+      description: Base for every cookie-authenticated or sign-in endpoint.
+      parameters:
+      - in: path
+        name: source_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - manage-data
+      security:
+      - staffSession: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SourceConnection'
+          description: ''
+  /api/manage/data/template/:
+    get:
+      operationId: manage_data_template
+      description: Base for every cookie-authenticated or sign-in endpoint.
+      tags:
+      - manage-data
+      security:
+      - staffSession: []
+      responses:
+        '200':
+          description: Catalogue import template
   /api/manage/digital/assets/:
     post:
       operationId: manage_digital_asset_assign
@@ -7601,6 +8419,421 @@ paths:
           description: No response body
 components:
   schemas:
+    AIFeatureEnum:
+      enum:
+      - product_content
+      - image_analysis
+      - support_reply
+      - support_summary
+      - marketing_copy
+      - business_insights
+      type: string
+      description: |-
+        * `product_content` - Product content
+        * `image_analysis` - Product image analysis
+        * `support_reply` - Support reply suggestions
+        * `support_summary` - Conversation summaries
+        * `marketing_copy` - Marketing copy
+        * `business_insights` - Business insights
+    AIKeyInputProviderEnum:
+      enum:
+      - groq
+      type: string
+      description: '* `groq` - groq'
+    AIKeyInputRequest:
+      type: object
+      properties:
+        provider:
+          allOf:
+          - $ref: '#/components/schemas/AIKeyInputProviderEnum'
+          default: groq
+        api_key:
+          type: string
+          minLength: 1
+          maxLength: 200
+      required:
+      - api_key
+    AIModel:
+      type: object
+      properties:
+        id:
+          type: string
+        capabilities:
+          type: array
+          items:
+            type: string
+        context_window:
+          type: integer
+          nullable: true
+        max_output_tokens:
+          type: integer
+          nullable: true
+        preview:
+          type: boolean
+      required:
+      - capabilities
+      - context_window
+      - id
+      - max_output_tokens
+      - preview
+    AIOverview:
+      type: object
+      properties:
+        module_enabled:
+          type: boolean
+        provider:
+          type: string
+        status:
+          type: string
+        text_model:
+          type: string
+        vision_model:
+          type: string
+        is_test:
+          type: boolean
+        features:
+          type: array
+          items:
+            $ref: '#/components/schemas/FeatureState'
+        can_manage_settings:
+          type: boolean
+        usage:
+          allOf:
+          - $ref: '#/components/schemas/AIUsage'
+          nullable: true
+        recent:
+          type: array
+          items:
+            $ref: '#/components/schemas/AIRequest'
+        provider_data_notice:
+          type: string
+      required:
+      - can_manage_settings
+      - features
+      - is_test
+      - module_enabled
+      - provider
+      - provider_data_notice
+      - recent
+      - status
+      - text_model
+      - usage
+      - vision_model
+    AIProviderEnum:
+      enum:
+      - groq
+      - test
+      type: string
+      description: |-
+        * `groq` - GroqCloud
+        * `test` - Test provider (no AI)
+    AIRequest:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        feature:
+          $ref: '#/components/schemas/AIFeatureEnum'
+        status:
+          $ref: '#/components/schemas/AIStatusEnum'
+        review_status:
+          $ref: '#/components/schemas/ReviewStatusEnum'
+        provider:
+          $ref: '#/components/schemas/AIProviderEnum'
+        model:
+          type: string
+          maxLength: 120
+        is_test:
+          type: boolean
+        subject_type:
+          type: string
+          maxLength: 24
+        subject_id:
+          type: string
+          format: uuid
+          nullable: true
+        options: {}
+        context_sources:
+          type: array
+          items:
+            type: string
+            maxLength: 40
+        result:
+          type: object
+          additionalProperties: {}
+          nullable: true
+          readOnly: true
+        result_available:
+          type: boolean
+          readOnly: true
+        error_code:
+          type: string
+          maxLength: 48
+        error_text:
+          type: string
+          readOnly: true
+        input_tokens:
+          type: integer
+          maximum: 2147483647
+          minimum: 0
+          nullable: true
+        output_tokens:
+          type: integer
+          maximum: 2147483647
+          minimum: 0
+          nullable: true
+        total_tokens:
+          type: integer
+          maximum: 2147483647
+          minimum: 0
+          nullable: true
+        latency_ms:
+          type: integer
+          maximum: 2147483647
+          minimum: 0
+          nullable: true
+        applied_fields:
+          type: array
+          items:
+            type: string
+            maxLength: 40
+        requested_by_name:
+          type: string
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        started_at:
+          type: string
+          format: date-time
+          nullable: true
+        completed_at:
+          type: string
+          format: date-time
+          nullable: true
+        reviewed_at:
+          type: string
+          format: date-time
+          nullable: true
+      required:
+      - created_at
+      - error_text
+      - feature
+      - id
+      - provider
+      - requested_by_name
+      - result
+      - result_available
+    AIRequestInputRequest:
+      type: object
+      properties:
+        feature:
+          $ref: '#/components/schemas/AIFeatureEnum'
+        subject_id:
+          type: string
+          format: uuid
+          nullable: true
+        options:
+          type: object
+          additionalProperties: {}
+        client_key:
+          oneOf:
+          - type: string
+            default: ''
+            pattern: ^[A-Za-z0-9_-]{8,64}$
+          - type: string
+            maxLength: 0
+      required:
+      - feature
+    AIRequestPage:
+      type: object
+      properties:
+        count:
+          type: integer
+        page:
+          type: integer
+        page_size:
+          type: integer
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/AIRequest'
+      required:
+      - count
+      - page
+      - page_size
+      - results
+    AIReviewInputDecisionEnum:
+      enum:
+      - rejected
+      - used
+      type: string
+      description: |-
+        * `rejected` - Rejected
+        * `used` - Used
+    AIReviewInputRequest:
+      type: object
+      properties:
+        decision:
+          $ref: '#/components/schemas/AIReviewInputDecisionEnum'
+      required:
+      - decision
+    AISettings:
+      type: object
+      properties:
+        module_enabled:
+          type: boolean
+        provider:
+          type: string
+        status:
+          type: string
+        key_set:
+          type: boolean
+        key_hint:
+          type: string
+        text_model:
+          type: string
+        vision_model:
+          type: string
+        available_models:
+          type: array
+          items:
+            $ref: '#/components/schemas/AIModel'
+        models_checked_at:
+          type: string
+          format: date-time
+          nullable: true
+        last_verified_at:
+          type: string
+          format: date-time
+          nullable: true
+        last_error:
+          type: string
+        last_error_text:
+          type: string
+          readOnly: true
+        enabled_features:
+          type: array
+          items:
+            type: string
+        monthly_request_limit:
+          type: integer
+        monthly_token_limit:
+          type: integer
+        max_output_tokens:
+          type: integer
+        user_hourly_limit:
+          type: integer
+        customer_data_confirmed:
+          type: boolean
+        customer_data_confirmed_at:
+          type: string
+          format: date-time
+          nullable: true
+        test_provider_allowed:
+          type: boolean
+        is_test:
+          type: boolean
+        features:
+          type: array
+          items:
+            $ref: '#/components/schemas/FeatureState'
+      required:
+      - available_models
+      - customer_data_confirmed
+      - customer_data_confirmed_at
+      - enabled_features
+      - features
+      - is_test
+      - key_hint
+      - key_set
+      - last_error
+      - last_error_text
+      - last_verified_at
+      - max_output_tokens
+      - models_checked_at
+      - module_enabled
+      - monthly_request_limit
+      - monthly_token_limit
+      - provider
+      - status
+      - test_provider_allowed
+      - text_model
+      - user_hourly_limit
+      - vision_model
+    AIStatusEnum:
+      enum:
+      - pending
+      - processing
+      - completed
+      - failed
+      - cancelled
+      - expired
+      type: string
+      description: |-
+        * `pending` - Pending
+        * `processing` - Processing
+        * `completed` - Completed
+        * `failed` - Failed
+        * `cancelled` - Cancelled
+        * `expired` - Expired
+    AIUsage:
+      type: object
+      properties:
+        month_start:
+          type: string
+          format: date-time
+        month_end:
+          type: string
+          format: date-time
+        requests:
+          type: integer
+        request_limit:
+          type: integer
+        tokens_input:
+          type: integer
+        tokens_output:
+          type: integer
+        tokens_total:
+          type: integer
+        token_limit:
+          type: integer
+        requests_without_usage:
+          type: integer
+        failed:
+          type: integer
+        test_requests:
+          type: integer
+        by_status:
+          type: object
+          additionalProperties:
+            type: integer
+        by_feature:
+          type: array
+          items:
+            $ref: '#/components/schemas/UsageFeature'
+        by_day:
+          type: array
+          items:
+            $ref: '#/components/schemas/UsageDay'
+      required:
+      - by_day
+      - by_feature
+      - by_status
+      - failed
+      - month_end
+      - month_start
+      - request_limit
+      - requests
+      - requests_without_usage
+      - test_requests
+      - token_limit
+      - tokens_input
+      - tokens_output
+      - tokens_total
     ActiveThemeEnum:
       enum:
       - fashion-editorial
@@ -8157,6 +9390,18 @@ components:
       - tagline
       - translations
       - updated_at
+    ApplyInputRequest:
+      type: object
+      properties:
+        values:
+          type: object
+          additionalProperties: {}
+          description: Field name → staff-reviewed value.
+        overwrite:
+          type: boolean
+          default: false
+      required:
+      - values
     AssetRef:
       type: object
       properties:
@@ -10411,6 +11656,36 @@ components:
             "..."}}.'
       required:
       - name
+    Compensation:
+      type: object
+      properties:
+        deleted:
+          type: integer
+        archived:
+          type: integer
+        kept:
+          type: integer
+      required:
+      - archived
+      - deleted
+      - kept
+    ConfirmInputRequest:
+      type: object
+      properties:
+        confirmed:
+          type: boolean
+      required:
+      - confirmed
+    ConflictStrategyEnum:
+      enum:
+      - skip
+      - update
+      - manual
+      type: string
+      description: |-
+        * `skip` - Create new records, skip existing ones
+        * `update` - Create new records, update existing ones
+        * `manual` - Create new records, decide each existing one
     Connection:
       type: object
       properties:
@@ -11231,6 +12506,56 @@ components:
       - orders
       - recent_orders
       - start
+    DataOverview:
+      type: object
+      properties:
+        can_import:
+          type: boolean
+        can_migrate:
+          type: boolean
+        can_view_customers:
+          type: boolean
+        can_view_orders:
+          type: boolean
+        simulator_allowed:
+          type: boolean
+        template_fields:
+          type: array
+          items:
+            $ref: '#/components/schemas/TemplateField'
+        exports:
+          type: array
+          items:
+            $ref: '#/components/schemas/ExportKind'
+        store_currency:
+          type: string
+        max_upload_bytes:
+          type: integer
+      required:
+      - can_import
+      - can_migrate
+      - can_view_customers
+      - can_view_orders
+      - exports
+      - max_upload_bytes
+      - simulator_allowed
+      - store_currency
+      - template_fields
+    DecisionsInputRequest:
+      type: object
+      properties:
+        decisions:
+          type: object
+          additionalProperties:
+            enum:
+            - skip
+            - update
+            type: string
+            description: |-
+              * `skip` - skip
+              * `update` - update
+      required:
+      - decisions
     Delivery:
       type: object
       properties:
@@ -11508,6 +12833,20 @@ components:
       - name
       - product
       - views
+    EntityEnum:
+      enum:
+      - products
+      - categories
+      - inventory
+      - customers
+      - orders
+      type: string
+      description: |-
+        * `products` - products
+        * `categories` - categories
+        * `inventory` - inventory
+        * `customers` - customers
+        * `orders` - orders
     Event:
       type: object
       properties:
@@ -11561,6 +12900,69 @@ components:
           default: false
       required:
       - name
+    ExportInputRequest:
+      type: object
+      properties:
+        entity:
+          $ref: '#/components/schemas/EntityEnum'
+        format:
+          allOf:
+          - $ref: '#/components/schemas/FormatEnum'
+          default: csv
+      required:
+      - entity
+    ExportKind:
+      type: object
+      properties:
+        key:
+          type: string
+        name:
+          type: string
+        sensitive:
+          type: boolean
+        formats:
+          type: array
+          items:
+            type: string
+        allowed:
+          type: boolean
+      required:
+      - allowed
+      - formats
+      - key
+      - name
+      - sensitive
+    FeatureState:
+      type: object
+      properties:
+        key:
+          type: string
+        name:
+          type: string
+        permission:
+          type: string
+        enabled:
+          type: boolean
+        available:
+          type: boolean
+        problem:
+          type: string
+        problem_text:
+          type: string
+        needs_vision:
+          type: boolean
+        uses_customer_data:
+          type: boolean
+      required:
+      - available
+      - enabled
+      - key
+      - name
+      - needs_vision
+      - permission
+      - problem
+      - problem_text
+      - uses_customer_data
     Finance:
       type: object
       properties:
@@ -11834,6 +13236,14 @@ components:
       - slug
       - title
       - translations
+    FormatEnum:
+      enum:
+      - csv
+      - jsonl
+      type: string
+      description: |-
+        * `csv` - csv
+        * `jsonl` - jsonl
     FraudAssessment:
       type: object
       properties:
@@ -12038,6 +13448,163 @@ components:
       - key
       - orders
       - value
+    HistoricalCustomer:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        platform:
+          type: string
+          maxLength: 16
+        external_id:
+          type: string
+          maxLength: 128
+        first_name:
+          type: string
+          maxLength: 100
+        last_name:
+          type: string
+          maxLength: 100
+        email:
+          type: string
+          maxLength: 254
+        phone:
+          type: string
+          maxLength: 20
+        city:
+          type: string
+          maxLength: 100
+        country:
+          type: string
+          maxLength: 2
+        source_orders_count:
+          type: integer
+          maximum: 2147483647
+          minimum: 0
+          nullable: true
+        source_created_at:
+          type: string
+          format: date-time
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - created_at
+      - external_id
+      - id
+      - platform
+    HistoricalCustomerPage:
+      type: object
+      properties:
+        count:
+          type: integer
+        page:
+          type: integer
+        page_size:
+          type: integer
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/HistoricalCustomer'
+      required:
+      - count
+      - page
+      - page_size
+      - results
+    HistoricalOrder:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        platform:
+          type: string
+          maxLength: 16
+        external_id:
+          type: string
+          maxLength: 128
+        number:
+          type: string
+          maxLength: 64
+        placed_at:
+          type: string
+          format: date-time
+          nullable: true
+        source_status:
+          type: string
+          maxLength: 64
+        source_financial_status:
+          type: string
+          maxLength: 64
+        source_fulfillment_status:
+          type: string
+          maxLength: 64
+        currency:
+          type: string
+          maxLength: 3
+        subtotal:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,15}(?:\.\d{0,4})?$
+          nullable: true
+        shipping_total:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,15}(?:\.\d{0,4})?$
+          nullable: true
+        tax_total:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,15}(?:\.\d{0,4})?$
+          nullable: true
+        discount_total:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,15}(?:\.\d{0,4})?$
+          nullable: true
+        grand_total:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,15}(?:\.\d{0,4})?$
+        lines: {}
+        customer_name:
+          type: string
+          maxLength: 200
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - created_at
+      - currency
+      - external_id
+      - grand_total
+      - id
+      - number
+      - platform
+    HistoricalOrderPage:
+      type: object
+      properties:
+        count:
+          type: integer
+        page:
+          type: integer
+        page_size:
+          type: integer
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/HistoricalOrder'
+      required:
+      - count
+      - page
+      - page_size
+      - results
     ImapInputRequest:
       type: object
       properties:
@@ -12063,6 +13630,117 @@ components:
       - imap_port
       - imap_security
       - imap_username
+    ImportInputRequest:
+      type: object
+      properties:
+        file:
+          type: string
+          format: binary
+        strategy:
+          allOf:
+          - $ref: '#/components/schemas/ConflictStrategyEnum'
+          default: skip
+        options:
+          description: OptionsSerializer as JSON text.
+      required:
+      - file
+    ImportItem:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        position:
+          type: integer
+          maximum: 2147483647
+          minimum: 0
+        object_type:
+          type: string
+          maxLength: 16
+        external_id:
+          type: string
+          maxLength: 128
+        key:
+          type: string
+          maxLength: 128
+        title:
+          type: string
+          maxLength: 200
+        action:
+          $ref: '#/components/schemas/ImportItemActionEnum'
+        status:
+          $ref: '#/components/schemas/ImportItemStatusEnum'
+        decision:
+          type: string
+          maxLength: 8
+        messages: {}
+        existing_id:
+          type: string
+          format: uuid
+          nullable: true
+        local_id:
+          type: string
+          format: uuid
+          nullable: true
+        created_local:
+          type: boolean
+        preview:
+          type: object
+          additionalProperties: {}
+          description: A short, non-personal view of the record (products and coupons
+            only).
+          readOnly: true
+      required:
+      - action
+      - id
+      - object_type
+      - position
+      - preview
+    ImportItemActionEnum:
+      enum:
+      - create
+      - update
+      - skip
+      - conflict
+      - invalid
+      type: string
+      description: |-
+        * `create` - Create
+        * `update` - Update
+        * `skip` - Skip
+        * `conflict` - Needs a decision
+        * `invalid` - Invalid
+    ImportItemPage:
+      type: object
+      properties:
+        count:
+          type: integer
+        page:
+          type: integer
+        page_size:
+          type: integer
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/ImportItem'
+      required:
+      - count
+      - page
+      - page_size
+      - results
+    ImportItemStatusEnum:
+      enum:
+      - pending
+      - done
+      - skipped
+      - failed
+      type: string
+      description: |-
+        * `pending` - Pending
+        * `done` - Imported
+        * `skipped` - Skipped
+        * `failed` - Failed
     InboxAnalytics:
       type: object
       properties:
@@ -14023,6 +15701,26 @@ components:
       required:
       - code
       - method
+    MigrationInputRequest:
+      type: object
+      properties:
+        connection:
+          type: string
+          format: uuid
+        scopes:
+          type: array
+          items:
+            $ref: '#/components/schemas/ScopesEnum'
+          maxItems: 5
+        strategy:
+          allOf:
+          - $ref: '#/components/schemas/ConflictStrategyEnum'
+          default: skip
+        options:
+          $ref: '#/components/schemas/OptionsRequest'
+      required:
+      - connection
+      - scopes
     Module:
       type: object
       properties:
@@ -14386,6 +16084,27 @@ components:
           minimum: 0
       required:
       - value
+    OptionsRequest:
+      type: object
+      properties:
+        include_stock:
+          type: boolean
+          default: true
+        download_images:
+          type: boolean
+          default: false
+        publish:
+          type: boolean
+          default: false
+        update_prices:
+          type: boolean
+          default: false
+        mapping:
+          type: object
+          additionalProperties:
+            type: string
+            minLength: 1
+            maxLength: 80
     Order:
       type: object
       properties:
@@ -15046,6 +16765,38 @@ components:
       required:
       - password
       - token
+    PatchedAISettingsInputRequest:
+      type: object
+      properties:
+        provider:
+          $ref: '#/components/schemas/AIProviderEnum'
+        text_model:
+          type: string
+          maxLength: 120
+        vision_model:
+          type: string
+          maxLength: 120
+        enabled_features:
+          type: array
+          items:
+            $ref: '#/components/schemas/AIFeatureEnum'
+          maxItems: 10
+        monthly_request_limit:
+          type: integer
+          maximum: 100000
+          minimum: 0
+        monthly_token_limit:
+          type: integer
+          maximum: 500000000
+          minimum: 0
+        max_output_tokens:
+          type: integer
+          maximum: 8192
+          minimum: 64
+        user_hourly_limit:
+          type: integer
+          maximum: 1000
+          minimum: 1
     PatchedAddressInputRequest:
       type: object
       properties:
@@ -17467,6 +19218,16 @@ components:
       description: |-
         * `payment_verified` - When payment is verified or cash is collected
         * `order_placed` - When the order is placed
+    PurposeEnum:
+      enum:
+      - upload
+      - export
+      - error_report
+      type: string
+      description: |-
+        * `upload` - Uploaded import file
+        * `export` - Generated export
+        * `error_report` - Error report
     ReadRequest:
       type: object
       properties:
@@ -17577,6 +19338,70 @@ components:
       required:
       - quantity
       - variant
+    RecommendationEntry:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        slug:
+          type: string
+        status:
+          type: string
+        reasons:
+          type: array
+          items:
+            type: string
+      required:
+      - id
+      - name
+      - reasons
+      - slug
+      - status
+    Recommendations:
+      type: object
+      properties:
+        pinned:
+          type: array
+          items:
+            $ref: '#/components/schemas/RecommendationEntry'
+        hidden:
+          type: array
+          items:
+            $ref: '#/components/schemas/RecommendationEntry'
+        automatic:
+          type: array
+          items:
+            $ref: '#/components/schemas/RecommendationEntry'
+        storefront:
+          type: array
+          items:
+            $ref: '#/components/schemas/RecommendationEntry'
+      required:
+      - automatic
+      - hidden
+      - pinned
+      - storefront
+    RecommendationsInputRequest:
+      type: object
+      properties:
+        pinned:
+          type: array
+          items:
+            type: string
+            format: uuid
+          maxItems: 12
+        hidden:
+          type: array
+          items:
+            type: string
+            format: uuid
+          maxItems: 100
+      required:
+      - hidden
+      - pinned
     Reconciliation:
       type: object
       properties:
@@ -17809,6 +19634,20 @@ components:
       - body
       - order_item
       - rating
+    ReviewStatusEnum:
+      enum:
+      - none
+      - pending
+      - applied
+      - used
+      - rejected
+      type: string
+      description: |-
+        * `none` - Nothing to review
+        * `pending` - Waiting for review
+        * `applied` - Applied
+        * `used` - Used by staff
+        * `rejected` - Rejected
     Role:
       type: object
       properties:
@@ -17892,6 +19731,20 @@ components:
       - summary
       - top_products
       - totals
+    ScopesEnum:
+      enum:
+      - categories
+      - products
+      - customers
+      - orders
+      - coupons
+      type: string
+      description: |-
+        * `categories` - categories
+        * `products` - products
+        * `customers` - customers
+        * `orders` - orders
+        * `coupons` - coupons
     Section:
       type: object
       properties:
@@ -18621,6 +20474,110 @@ components:
       - timezone
       - webhook_url
       - within_hours
+    SourceConnection:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        platform:
+          type: string
+        name:
+          type: string
+        store_url:
+          type: string
+        credential_kind:
+          type: string
+        credential_hint:
+          type: string
+        credential_set:
+          type: boolean
+        status:
+          type: string
+        last_verified_at:
+          type: string
+          format: date-time
+          nullable: true
+        last_error:
+          type: string
+        last_error_text:
+          type: string
+          readOnly: true
+        source_name:
+          type: string
+        source_currency:
+          type: string
+        capabilities:
+          type: object
+          additionalProperties:
+            type: boolean
+        counts:
+          type: object
+          additionalProperties:
+            type: integer
+            nullable: true
+        is_simulated:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+      required:
+      - capabilities
+      - counts
+      - created_at
+      - credential_hint
+      - credential_kind
+      - credential_set
+      - id
+      - is_simulated
+      - last_error
+      - last_error_text
+      - last_verified_at
+      - name
+      - platform
+      - source_currency
+      - source_name
+      - status
+      - store_url
+    SourceInputRequest:
+      type: object
+      properties:
+        platform:
+          $ref: '#/components/schemas/SourcePlatformEnum'
+        name:
+          type: string
+          maxLength: 120
+        store_url:
+          type: string
+          maxLength: 255
+        consumer_key:
+          type: string
+          maxLength: 120
+        consumer_secret:
+          type: string
+          maxLength: 120
+        access_token:
+          type: string
+          maxLength: 200
+        client_id:
+          type: string
+          maxLength: 200
+        client_secret:
+          type: string
+          maxLength: 200
+        simulated:
+          type: boolean
+          default: false
+      required:
+      - platform
+    SourcePlatformEnum:
+      enum:
+      - woocommerce
+      - shopify
+      type: string
+      description: |-
+        * `woocommerce` - WooCommerce
+        * `shopify` - Shopify
     SourceRow:
       type: object
       properties:
@@ -19194,6 +21151,21 @@ components:
       - supports_sms
       - title
       - variables
+    TemplateField:
+      type: object
+      properties:
+        key:
+          type: string
+        name:
+          type: string
+        aliases:
+          type: array
+          items:
+            type: string
+      required:
+      - aliases
+      - key
+      - name
     TemplateInputRequest:
       type: object
       properties:
@@ -19516,6 +21488,223 @@ components:
       - page_views
       - product_views
       - unique_visitors
+    TransferFile:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        purpose:
+          $ref: '#/components/schemas/PurposeEnum'
+        display_name:
+          type: string
+          maxLength: 120
+        content_type:
+          type: string
+          maxLength: 64
+        size_bytes:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: 0
+          format: int64
+        expires_at:
+          type: string
+          format: date-time
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - content_type
+      - created_at
+      - display_name
+      - expires_at
+      - id
+      - purpose
+    TransferJob:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        kind:
+          $ref: '#/components/schemas/TransferJobKindEnum'
+        source:
+          $ref: '#/components/schemas/TransferJobSourceEnum'
+        status:
+          $ref: '#/components/schemas/TransferJobStatusEnum'
+        entity:
+          type: string
+          maxLength: 24
+        file_format:
+          type: string
+          maxLength: 8
+        scopes:
+          type: array
+          items:
+            type: string
+            maxLength: 24
+        conflict_strategy:
+          $ref: '#/components/schemas/ConflictStrategyEnum'
+        options: {}
+        summary: {}
+        total_items:
+          type: integer
+          maximum: 2147483647
+          minimum: 0
+        processed_items:
+          type: integer
+          maximum: 2147483647
+          minimum: 0
+        created_count:
+          type: integer
+          maximum: 2147483647
+          minimum: 0
+        updated_count:
+          type: integer
+          maximum: 2147483647
+          minimum: 0
+        skipped_count:
+          type: integer
+          maximum: 2147483647
+          minimum: 0
+        failed_count:
+          type: integer
+          maximum: 2147483647
+          minimum: 0
+        error_code:
+          type: string
+          maxLength: 48
+        error_text:
+          type: string
+          readOnly: true
+        sensitive:
+          type: boolean
+        cancel_requested:
+          type: boolean
+        input_file:
+          allOf:
+          - $ref: '#/components/schemas/TransferFile'
+          nullable: true
+        output_file:
+          allOf:
+          - $ref: '#/components/schemas/TransferFile'
+          nullable: true
+        report_file:
+          allOf:
+          - $ref: '#/components/schemas/TransferFile'
+          nullable: true
+        created_by_name:
+          type: string
+          readOnly: true
+        approved_by_name:
+          type: string
+          readOnly: true
+        approved_at:
+          type: string
+          format: date-time
+          nullable: true
+        started_at:
+          type: string
+          format: date-time
+          nullable: true
+        finished_at:
+          type: string
+          format: date-time
+          nullable: true
+        compensated_at:
+          type: string
+          format: date-time
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        connection_name:
+          type: string
+          readOnly: true
+        connection_simulated:
+          type: boolean
+          readOnly: true
+      required:
+      - approved_by_name
+      - connection_name
+      - connection_simulated
+      - created_at
+      - created_by_name
+      - entity
+      - error_text
+      - id
+      - input_file
+      - kind
+      - output_file
+      - report_file
+      - source
+      - status
+    TransferJobKindEnum:
+      enum:
+      - import
+      - export
+      - migration
+      type: string
+      description: |-
+        * `import` - File import
+        * `export` - Export
+        * `migration` - Store migration
+    TransferJobPage:
+      type: object
+      properties:
+        count:
+          type: integer
+        page:
+          type: integer
+        page_size:
+          type: integer
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/TransferJob'
+      required:
+      - count
+      - page
+      - page_size
+      - results
+    TransferJobSourceEnum:
+      enum:
+      - csv
+      - jsonl
+      - woocommerce
+      - shopify
+      - store
+      type: string
+      description: |-
+        * `csv` - CSV file
+        * `jsonl` - JSON Lines file
+        * `woocommerce` - WooCommerce
+        * `shopify` - Shopify
+        * `store` - This store
+    TransferJobStatusEnum:
+      enum:
+      - analysing
+      - review
+      - queued
+      - running
+      - completed
+      - completed_with_errors
+      - failed
+      - cancelled
+      type: string
+      description: |-
+        * `analysing` - Reading and validating
+        * `review` - Ready for review
+        * `queued` - Queued
+        * `running` - Importing
+        * `completed` - Completed
+        * `completed_with_errors` - Completed with errors
+        * `failed` - Failed
+        * `cancelled` - Cancelled
     TransferRequest:
       type: object
       properties:
@@ -19601,6 +21790,39 @@ components:
           type: boolean
       required:
       - unsubscribed
+    UsageDay:
+      type: object
+      properties:
+        date:
+          type: string
+          format: date
+        requests:
+          type: integer
+        tokens:
+          type: integer
+      required:
+      - date
+      - requests
+      - tokens
+    UsageFeature:
+      type: object
+      properties:
+        feature:
+          type: string
+        requests:
+          type: integer
+        completed:
+          type: integer
+        failed:
+          type: integer
+        tokens:
+          type: integer
+      required:
+      - completed
+      - failed
+      - feature
+      - requests
+      - tokens
     Variant:
       type: object
       properties:

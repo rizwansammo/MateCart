@@ -54,6 +54,10 @@ INSTALLED_APPS = [
     "commerce.notifications",
     # Phase 14: website live chat (WebSocket), Messenger, WhatsApp, Instagram, unified inbox.
     "commerce.communications",
+    # Phase 15: provider-independent AI assistant (GroqCloud first) and data transfer
+    # (CSV import and export, WooCommerce and Shopify migrations).
+    "commerce.ai",
+    "commerce.transfers",
     # Phase 05: store content (pages, homepage sections). Theme and modules live in stores.
     "commerce.content",
 ]
@@ -252,6 +256,23 @@ META_HUMAN_AGENT_APPROVED = env.bool("META_HUMAN_AGENT_APPROVED", default=False)
 # Development simulator (D-097): a labelled fake connection for local acceptance. Never in
 # production (production settings force it off).
 MATECART_CHANNEL_SIMULATOR = env.bool("MATECART_CHANNEL_SIMULATOR", default=False)
+
+# --- Phase 15: AI assistant (D-101 to D-104) and data transfer (D-105 to D-109) ---
+# Deterministic AI test provider (no model, outputs labelled "[Test]"). Development and tests
+# only; production refuses it.
+MATECART_AI_TEST_PROVIDER = env.bool("MATECART_AI_TEST_PROVIDER", default=False)
+MATECART_AI_TIMEOUT_SECONDS = env.int("MATECART_AI_TIMEOUT_SECONDS", default=45)
+# Validated AI results are cleared after this many days; request metadata (usage) is kept longer.
+MATECART_AI_RESULT_RETENTION_DAYS = env.int("MATECART_AI_RESULT_RETENTION_DAYS", default=30)
+MATECART_AI_RECORD_RETENTION_DAYS = env.int("MATECART_AI_RECORD_RETENTION_DAYS", default=400)
+# Import uploads and generated export files are private and expire after this many days.
+MATECART_TRANSFER_FILE_DAYS = env.int("MATECART_TRANSFER_FILE_DAYS", default=7)
+MATECART_TRANSFER_MAX_UPLOAD_BYTES = env.int(
+    "MATECART_TRANSFER_MAX_UPLOAD_BYTES", default=20 * 1024 * 1024
+)
+# Migration source simulator (development only): a built-in sample WooCommerce/Shopify store that
+# never opens a network connection. Production refuses it.
+MATECART_MIGRATION_SIMULATOR = env.bool("MATECART_MIGRATION_SIMULATOR", default=False)
 # Browser origins allowed to open WebSockets (besides MATECART_PUBLIC_BASE_URL). Defaults to the
 # CSRF trusted origins, which already list the storefront origins.
 MATECART_WEBSOCKET_ORIGINS: list[str] = env.list("MATECART_WEBSOCKET_ORIGINS", default=[])
@@ -369,6 +390,11 @@ SPECTACULAR_SETTINGS = {
         "OrderLinkKindEnum": "commerce.communications.models.OrderLinkKind",
         "ChatLanguagesEnum": "commerce.communications.models.ChatLanguages",
         "LauncherPositionEnum": "commerce.communications.models.LauncherPosition",
+        # Phase 15
+        "AIProviderEnum": "commerce.ai.models.AIProviderKind",
+        "AIFeatureEnum": "commerce.ai.models.AIFeature",
+        "ConflictStrategyEnum": "commerce.transfers.models.ConflictStrategy",
+        "SourcePlatformEnum": "commerce.transfers.models.SourcePlatform",
     },
 }
 API_SCHEMA_ENABLED = env.bool("DJANGO_API_SCHEMA_ENABLED", default=False)
@@ -419,6 +445,9 @@ CELERY_BEAT_SCHEDULE = {
     # Phase 14: re-queue stuck outbound messages and media downloads; daily housekeeping.
     "communications-sweep": {"task": "communications.sweep", "schedule": 60.0},
     "communications-housekeeping": {"task": "communications.housekeeping", "schedule": 3600.0},
+    # Phase 15: expire stuck AI requests, resume stalled transfer jobs, apply retention.
+    "ai-sweep": {"task": "ai.sweep", "schedule": 300.0},
+    "transfers-sweep": {"task": "transfers.sweep", "schedule": 300.0},
 }
 
 # --- Logging (stdout; JSON in deployed environments, readable text locally) ---

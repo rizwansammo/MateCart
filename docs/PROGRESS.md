@@ -2,14 +2,221 @@
 
 Updated: 2026-11-05 (Asia/Dhaka).
 
-## Phase 14.1: Messaging integrity corrections (implemented locally; CI pending)
+## Phase 15: AI & Advanced Extensions (implemented locally; owner review, commit and CI pending)
 
-**Active phase: 14 (integrity correction 14.1).** Not a feature expansion. Phase 15 has not been
-started.
+**Active phase: 15.** Baseline `029b7bff6f7f69c9915fa5901b5074c8f5c82756` (Phase 14 with 14.1,
+GitHub Actions 42000616679: 4/4 jobs, 1,474 tests). Phases 01 to 14 are accepted and closed.
+All Phase 15 work is in the local working tree only: not committed or pushed. Phase 16 has not
+been started. Reference: [AI_AND_DATA.md](AI_AND_DATA.md); decisions D-101 to D-110; owner
+questions Q11 to Q13.
+
+### Delivered
+
+- **AI layer** (`commerce.ai`, D-101 to D-104):
+  - Provider interface with a documented capability registry.
+  - GroqCloud adapter: fixed endpoint, `max_completion_tokens`, strict `json_schema` on
+    gpt-oss and JSON mode otherwise, vision only on the documented preview models, honest
+    connection states.
+  - Labelled test provider for development and tests (refused in production).
+  - Encrypted key, shown only as its last four characters; verification lists the models.
+  - Durable `AIRequest` rows run by Celery outside locks; only rate-limit refusals are retried,
+    and a bounded number of times.
+  - Limits: monthly request and token allowances, per-user hourly and in-flight limits.
+  - Strict output validation; usage from provider-reported tokens (no cost estimates);
+    30-day result retention; a sweep for stuck requests.
+  - The `ai_assistant` module is now available (off by default).
+- **Features** (each uses its existing permission; results are visible only to the requester):
+  - **Product content** (English, or Bangla into the translation fields), applied field by field
+    through `catalog.update_product` with overwrite confirmation.
+  - **Image analysis**: alt text applied through `media.update`, with explicit "cannot determine"
+    limits.
+  - **Inbox**: reply suggestions only fill the composer. Summaries separate server-verified
+    facts, customer claims and AI interpretation.
+  - **Marketing copy** for campaigns and products, with warnings on invented numbers. Campaign
+    name and description are applied through `promotions.save_campaign`; other kinds are copied.
+  - **Business insights** explain server-calculated metrics filtered by permission (no cost
+    data).
+- **Related products** (D-110): deterministic ranking, sellable published products only,
+  merchant pins and hides in the product editor, a storefront section with a fallback.
+- **Data transfer** (`commerce.transfers`, D-105 to D-109):
+  - **CSV and JSON Lines catalogue import**: column mapping, validation, preview, conflict
+    strategies, per-item decisions, approval, batched resumable execution through the domain
+    services (opening stock via `inventory.receive`), cancellation, resume, error reports and
+    reversal (compensation).
+  - **Exports**: products (round trip), categories, inventory, customers and order history, with
+    permissions, formula-safe cells, expiring private files and audited sensitive downloads.
+  - **Migration sources** (read-only, one pipeline, source mappings):
+    - WooCommerce: REST v3 with a Read key.
+    - Shopify: Admin GraphQL 2026-10 with a custom-app token or Dev Dashboard client
+      credentials; bulk operations above 1,000 products.
+  - **Customers and orders** are imported as read-only history: no accounts, live orders,
+    payments or emails.
+  - **Coupons** are imported switched off.
+  - A development simulator (refused in production).
+- **Outbound HTTPS** (`commerce.core.outbound`, D-103): one client that blocks requests to
+  private addresses and DNS rebinding.
+- **Merchant UI**:
+  - `/manage/ai`: Overview, Product content, Image analysis, Marketing, Business insights,
+    Usage, Settings.
+  - Product editor: "AI draft" and "Related products".
+  - Inbox composer: "AI assist".
+  - `/manage/data`: Import (with column mapping), Store migration, Exports, Imported history,
+    All jobs, and a job detail page with live progress.
+  - Settings hub and navigation entries.
+
+### Files and services
+
+- Backend (new):
+  - `commerce/ai/`: models, migration 0001, providers, groq, testing, schemas, context, features,
+    services, tasks, serializers, views, urls.
+  - `commerce/transfers/`: models, migration 0001 (tenant keys ordered after their targets),
+    csvio, normalize, importer, pipeline, connections, exports,
+    sources/{base,woocommerce,shopify,simulator}, tasks, serializers, views, urls.
+  - `commerce/core/outbound.py`, `commerce/catalog/{recommendations,recommendation_views}.py`,
+    `catalog/migrations/0003_productrecommendation.py`.
+- Backend (changed):
+  - `catalog/models.py` (`ProductRecommendation`), `catalog/urls.py`, `catalog/public_urls.py`.
+  - `media/services.py` (`rate_limited` for approved imports).
+  - `stores/modules.py` (`ai_assistant` available).
+  - Settings: apps, Phase 15 settings, beat entries, enum names; production refuses the test
+    provider and the simulator; test settings.
+  - `config/urls.py`, `openapi.yaml`.
+- Tests:
+  - New: `test_ai.py`, `test_transfers.py`, `test_outbound.py`, `test_recommendations.py`,
+    `ai_helpers.py`.
+  - Changed: `test_project.py` (production baseline and guards), `catalog_helpers.py` (a fixture
+    row for the catalogue isolation test).
+- Frontend:
+  - `packages/shared-contracts/src/{ai,transfers}.ts` and `ai.test.ts`.
+  - New: `components/manage/{ai,ai-assist,related-products,data}.tsx`, `ai.test.tsx`,
+    `data.test.tsx`.
+  - Changed: `products.tsx`, `inbox.tsx`, `settings.tsx`, `manage-app.tsx`,
+    `lib/manage-routes.ts`, `lib/storefront-api.ts`, the storefront product page.
+- `compose.yaml`: `MATECART_AI_TEST_PROVIDER` and `MATECART_MIGRATION_SIMULATOR` are on for
+  local development. No new service, port, volume or dependency (Python or npm).
+- Docs: `AI_AND_DATA.md` (new), DECISIONS D-101 to D-110 and Q11 to Q13, `ARCHITECTURE.md`,
+  `DATA_MODEL.md`, `SECURITY.md`, `DEVELOPMENT_ROADMAP.md` (Phase 14 accepted, Phase 15
+  implemented locally), `FEATURE_CHECKLIST.md`, this file. The outdated Phase 14.1 status below
+  is corrected to accepted.
+- Migrations `ai.0001`, `catalog.0003` and `transfers.0001` are applied to the local dev database.
+  The stack was recreated (`pnpm stack:up`) to load the new settings.
+
+### Verification (observed locally, 2026-11-05)
+
+- `pnpm api:lint`: ruff, ruff format and strict mypy passed (commerce 353 files including tests,
+  control 52). `makemigrations --check`: no changes. `manage.py check`: no issues.
+  `pnpm api:schema` (commerce): regenerated and validated with `--fail-on-warn`; the
+  schema-freshness test passes.
+- `pnpm api:test`: commerce **1,195 passed**, control **57 passed**, 0 failed.
+  - New backend tests (97):
+    - `test_ai.py` (41): configuration, gating, permissions, lifecycle, apply through the
+      catalogue and media, the inbox never sending, insights filtering, the scripted GroqCloud
+      request shape and errors, retry bounds, prompt separation, masking, limits, sweep and
+      retention, tenant isolation.
+    - `test_transfers.py` (30): preview before write, the catalogue and inventory ledger, publish
+      option, repeat runs, update and manual strategies, SKU safety, preset rules, cancel and
+      resume, duplicate task runs, permissions, bad files, the template, formula safety,
+      exports and audited sensitive downloads, expiry, the WooCommerce and Shopify adapters
+      (scripted HTTP, token minting, throttling, bulk JSONL), the simulator end to end with
+      historical records and no live orders, repeat migration, compensation, recent sign-in,
+      source URL safety, currency mismatch, isolation, and a transactional test of audited
+      downloads and reversal.
+    - `test_outbound.py` (18): SSRF refusals, private and metadata addresses, pinning,
+      redirects and credential stripping, host allowlist.
+    - `test_recommendations.py` (4).
+  - Also new: two production guards (`test_project.py`) and two catalogue isolation cases
+    (`ProductRecommendation` keys), with a matching row in the catalogue isolation fixture.
+- `pnpm check`: Prettier, ESLint and typecheck clean. Tests: contracts **93** (+11), shared UI
+  **78**, commerce web **168** (+14: `ai.test.tsx` 5, `data.test.tsx` 9), Node scripts **5**;
+  0 failed.
+- `pnpm build`: both apps built. `pnpm health`: all checks passed. The first attempt timed out
+  once while the dev server recompiled after the production build, then passed.
+- **Total: 1,596 automated tests passed, 0 failed** (1,474 baseline + 122 new).
+- **Browser acceptance** (headless Chrome over DevTools, no new packages, real UI against the
+  running stack, three staff roles): **21 of 21** in the final run, with no uncaught page errors.
+  - **AI settings**: test provider verified with its models listed; models, features and
+    customer-data confirmation saved; no key shown.
+  - **AI overview**: says honestly that the module is off, then shows features ready once it is
+    switched on.
+  - **Product editor**: an AI draft is generated and labelled as test output. Only the summary
+    was applied, through the catalogue; status and SKUs unchanged. The related products card
+    is shown.
+  - **Inbox**: the reply suggestion filled the composer and the thread was unchanged (nothing
+    sent). The summary shows verified facts, claims and interpretation separately.
+  - **Other AI tabs**: business insights with source figures and period; marketing drafts
+    (copy only); usage without cost estimates.
+  - **CSV import**: upload, column mapping, a preview that says nothing was imported yet, one
+    invalid row reported, approval created one draft through the catalogue and ledger, the
+    result page offers the error report.
+  - **Shopify simulator migration**: connected and labelled; preview and approval; read-only
+    history; live order count unchanged. A second run created nothing new (all skipped).
+  - **Export**: products CSV downloaded (200, `text/csv`).
+  - **Storefront**: product page with 8 related products from the new endpoint.
+  - **Roles**: the content editor is limited to product AI (settings, migrations and customer
+    export refused). The order handler is refused product AI and insights.
+  - **Phone width** (390 px): no horizontal overflow on the AI workspace, the import page or a
+    job page.
+- **Defects found and fixed during verification:**
+  1. **File downloads and job reversal returned HTTP 500 on the real server.** Their audit
+     events were recorded outside a transaction, and unit tests (each wrapped in a transaction)
+     could not see it. Both now open their own transaction, with a new transactional test.
+  2. The `transfers` migration added composite tenant keys before their targets' unique
+     constraints; the operations are now ordered.
+  3. The catalogue isolation test needed a `ProductRecommendation` fixture row.
+  4. Duplicate component and enum names in the OpenAPI schema; one view inherited an unintended
+     `DELETE`.
+  5. AI tags were not de-duplicated after normalisation.
+- **Not verified:** no live GroqCloud request, WooCommerce store or Shopify shop (no
+  credentials). These were exercised with scripted HTTP fakes, the labelled test provider and
+  the simulator. No load test of large migrations (Phase 18).
+
+### Local review data (controlled, additive)
+
+- **AI**: the **test provider** is selected and connected (models `matecart-test-text` and
+  `matecart-test-vision`), all features are on, customer-data use is confirmed and the module is
+  on. Outputs are labelled "[Test]". To use GroqCloud: AI settings → provider GroqCloud → paste a
+  key → Test connection → choose models.
+- **Products**: the summary of the first product in the list was replaced by a "[Test]" draft
+  during acceptance. Several AI requests exist in history.
+- **Imports and migration**:
+  - "Phase 15 Import Tee" drafts, and imports with errors.
+  - A simulated Shopify source with migrated "Simulated …" products (drafts) and categories.
+  - Two historical customers, one historical order and an inactive coupon `SIMSWELCOME`.
+  - Product exports.
+- **Accounts** (no passwords stored; sessions revoked after acceptance). Use Forgot password and
+  Mailpit to sign in as one of them:
+  - `phase15-manager-ef512e@example.test` (Manager)
+  - `phase15-content_editor-ef512e@example.test` (Content editor)
+  - `phase15-order_handler-ef512e@example.test` (Order handler)
+
+### Known limits and owner decisions
+
+- **No live GroqCloud, WooCommerce or Shopify account was used.** The adapters are written
+  against the providers' documentation (checked 2026-11-05) and tested with scripted HTTP. Local
+  acceptance used the labelled test provider and the simulator.
+- No production Groq model reads images today; image analysis needs a preview vision model.
+- Owner decisions needed: account activation for imported customers (Q11), currency conversion
+  (Q12), and the recommended Groq models and Zero Data Retention policy (Q13).
+- Not built (documented):
+  - AI ranking of related products and AI image generation.
+  - Website content AI drafts (policies are never invented).
+  - XLSX files (CSV UTF-8 and JSON Lines instead).
+  - Multi-location inventory migration, Shopify automatic discounts and Woo per-product
+    discounts.
+- Woo Yoast SEO fields are used only when the API returns them (undocumented by WooCommerce).
+
+### Next step
+
+Owner reviews on localhost, commits and pushes Phase 15; GitHub CI must pass. Then independent
+review and formal Phase 15 acceptance. Do not start Phase 16 before that.
+
+## Phase 14.1: Messaging integrity corrections (accepted and closed)
+
+**Accepted and closed** with Phase 14 at `029b7bff6f7f69c9915fa5901b5074c8f5c82756`, GitHub
+Actions 42000616679 (4/4 jobs, 1,474 tests, 0 failed). The record below is historical.
 
 - Baseline: `ee7d11cbe12284b98bea82c16797c6c9fb42f316` (Phase 14 committed and pushed), GitHub
-  CI 4/4 jobs, 1,438 tests. Phase 14.1 is in the local working tree only: not committed or
-  pushed. Phase 14 closes formally only after the owner commits 14.1 and GitHub CI is green.
+  CI 4/4 jobs, 1,438 tests.
 - Decisions: D-099 (delivery integrity), D-100 (website chat conversation identity).
 
 ### Findings (each reproduced on the baseline before correcting)
@@ -115,12 +322,11 @@ started.
   `conversation_closed`); staff can reopen and send again.
 - Frames from clients older than 14.1 (no conversation named) keep the Phase 14 behaviour.
 
-### Next step
+### Next step (historical)
 
-Owner reviews, commits and pushes Phase 14.1; GitHub CI must pass. Then formal Phase 14
-acceptance and closure. Do not start Phase 15 before that.
+Done: pushed as `029b7bf`, GitHub Actions 42000616679 green (1,474 tests); Phase 14 accepted.
 
-## Phase 14: Social Commerce & Unified Inbox (pushed as `ee7d11c`; closes with 14.1)
+## Phase 14: Social Commerce & Unified Inbox (accepted and closed with 14.1 at `029b7bf`)
 
 - Baseline: `7b4db22dcb3cd2d6476eafa5646eb5daee62c885` (Phase 13 with 13.1), GitHub Actions
   41825876327: 4/4 jobs, 1,345 tests. Phases 01 to 13 are accepted and closed.

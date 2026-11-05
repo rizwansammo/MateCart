@@ -43,6 +43,11 @@ if bool(GOOGLE_OIDC_CLIENT_ID) != bool(GOOGLE_OIDC_CLIENT_SECRET):
 # worker receives the store's real-time events.
 if MATECART_CHANNEL_SIMULATOR:
     raise ImproperlyConfigured("MATECART_CHANNEL_SIMULATOR cannot be enabled in production.")
+# Phase 15 (D-101, D-107): no AI test provider and no migration source simulator.
+if MATECART_AI_TEST_PROVIDER:
+    raise ImproperlyConfigured("MATECART_AI_TEST_PROVIDER cannot be enabled in production.")
+if MATECART_MIGRATION_SIMULATOR:
+    raise ImproperlyConfigured("MATECART_MIGRATION_SIMULATOR cannot be enabled in production.")
 if not CHANNEL_LAYER_URL:
     raise ImproperlyConfigured("MATECART_CHANNEL_LAYER_URL must point to the store's Redis.")
 if bool(META_APP_ID) != bool(META_APP_SECRET):

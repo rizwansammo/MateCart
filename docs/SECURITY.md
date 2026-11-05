@@ -200,6 +200,29 @@ Details: [COMMUNICATIONS.md](COMMUNICATIONS.md), D-092 to D-098.
   paths or the store's https origin; files are served with `nosniff`, a sandbox CSP and
   `private, no-store`.
 
+## AI assistant and data transfer (Phase 15)
+
+- **Secrets.** The GroqCloud key and migration credentials are encrypted at rest, returned only
+  as their last characters, never logged or audited (field names only), changed only with a
+  recent sign-in and erased on removal or disconnect.
+- **Outbound requests** go through `commerce.core.outbound` (D-103): HTTPS host names, public
+  addresses only, pinned connections (DNS rebinding safe), validated redirects, timeouts, size
+  limits, coded errors. GroqCloud's endpoint is fixed; source URLs are validated before saving.
+- **Prompt injection.** Store, customer, imported and provider content is delimited untrusted
+  data; outputs are schema-validated plain text; the model has no tools, database access or
+  authority; nothing it returns performs an action (D-104).
+- **Authorisation** is checked when a request is created and again by the worker before any
+  context is read; results are visible only to the requester; insights only include sections
+  the role may see and never cost prices.
+- **Privacy.** Masked conversation excerpts, no internal notes, customer-data confirmation for
+  support features, image metadata dropped, 30-day result retention. Imported customers and
+  orders are read-only history; their staged payloads are cleared after the job.
+- **Files.** Imports are validated (UTF-8, size, rows, columns); exports are formula-safe,
+  private, expiring and permission-checked; sensitive exports need a recent sign-in and every
+  download is audited.
+- **Development aids** (AI test provider, migration simulator) are labelled and refused by
+  production settings.
+
 ## Limits and scheduled follow-up
 
 - Phase 04 public catalogue and media routes have no dedicated rate limits or CDN

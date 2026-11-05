@@ -43,6 +43,9 @@ def _manage_with_production_settings(*args: str, **env: str) -> subprocess.Compl
         "MATECART_CHANNEL_SIMULATOR": "false",
         "META_APP_ID": "",
         "META_APP_SECRET": "",
+        # Phase 15: no AI test provider and no migration source simulator in production.
+        "MATECART_AI_TEST_PROVIDER": "false",
+        "MATECART_MIGRATION_SIMULATOR": "false",
     }
     return subprocess.run(
         [sys.executable, "manage.py", *args],
@@ -184,6 +187,8 @@ def test_deployments_hash_passwords_with_argon2() -> None:
         ({"MATECART_CHANNEL_SIMULATOR": "true"}, "MATECART_CHANNEL_SIMULATOR"),
         ({"MATECART_CHANNEL_LAYER_URL": ""}, "MATECART_CHANNEL_LAYER_URL"),
         ({"META_APP_ID": "123", "META_APP_SECRET": ""}, "META_APP_SECRET"),
+        ({"MATECART_AI_TEST_PROVIDER": "true"}, "MATECART_AI_TEST_PROVIDER"),
+        ({"MATECART_MIGRATION_SIMULATOR": "true"}, "MATECART_MIGRATION_SIMULATOR"),
     ],
 )
 def test_production_refuses_unsafe_communications_settings(

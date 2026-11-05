@@ -28,6 +28,7 @@ from commerce.catalog.models import (
     ProductCategory,
     ProductMedia,
     ProductOption,
+    ProductRecommendation,
     ProductVariant,
     VariantOptionValue,
     WarrantyPolicy,
@@ -224,6 +225,12 @@ def full_catalogue(tenant: Tenant) -> dict[str, Any]:
                 price_list=price_list, variant=variant, currency="BDT", amount=Decimal("10")
             ),
             "batch_level": BatchLevel.objects.create(batch=batch, location=location, on_hand=1),
+            # Phase 15: a merchant related-products override (both ends are products).
+            "recommendation": ProductRecommendation.objects.create(
+                product=product,
+                recommended=Product.objects.create(name="Other", slug="other-thing"),
+                kind="pinned",
+            ),
         }
         return rows
 

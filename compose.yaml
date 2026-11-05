@@ -55,6 +55,11 @@ x-commerce-api-environment: &commerce-api-environment
   META_APP_SECRET: ${MATECART_META_APP_SECRET:-}
   META_WEBHOOK_VERIFY_TOKEN: ${MATECART_META_WEBHOOK_VERIFY_TOKEN:-}
   MATECART_CHANNEL_SIMULATOR: 'true'
+  # Phase 15 (D-101, D-107): the labelled AI test provider and migration source simulator allow
+  # local acceptance without a paid AI key or a real WooCommerce/Shopify store. Production
+  # settings refuse both.
+  MATECART_AI_TEST_PROVIDER: 'true'
+  MATECART_MIGRATION_SIMULATOR: 'true'
 
 x-commerce-api-build: &commerce-api-build
   context: ./services/commerce-api
