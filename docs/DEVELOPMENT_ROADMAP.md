@@ -218,13 +218,16 @@ Accepted and closed with its SMS integrity corrections (13.1, D-091) at `7b4db22
 
 Facebook, Messenger, WhatsApp, website chat, social commerce, unified customer communications.
 
-Implemented locally (D-092 to D-098, [COMMUNICATIONS.md](COMMUNICATIONS.md)): MateCart-native
+Pushed as `ee7d11c` (GitHub CI 4/4 jobs, 1,438 tests) (D-092 to D-098,
+[COMMUNICATIONS.md](COMMUNICATIONS.md)): MateCart-native
 website live chat over WebSocket (Channels, Redis channel layer, uvicorn); a unified inbox with
 assignment, notes, statuses, per-staff unread state, live updates, search and analytics;
 Messenger, WhatsApp Cloud API and Instagram Direct through one signed webhook, provider-scoped
 identities, messaging windows, approved templates and honest delivery states; product sharing
 and COD orders from conversations through the assisted order engine. Live Meta use needs a Meta
-app per store and app review. Pending owner review, commit/push, GitHub CI and acceptance.
+app per store and app review. Messaging integrity corrections (14.1, D-099, D-100: template
+values survive delivery recovery, policy re-checked at delivery time, website chat conversation
+identity) are implemented locally; formal acceptance follows their commit and GitHub CI.
 
 ### Phase 15 — AI & Advanced Extensions
 

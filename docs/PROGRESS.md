@@ -2,14 +2,131 @@
 
 Updated: 2026-11-05 (Asia/Dhaka).
 
-## Phase 14: Social Commerce & Unified Inbox (implemented locally; acceptance pending)
+## Phase 14.1: Messaging integrity corrections (implemented locally; CI pending)
 
-**Active phase: 14.**
+**Active phase: 14 (integrity correction 14.1).** Not a feature expansion. Phase 15 has not been
+started.
+
+- Baseline: `ee7d11cbe12284b98bea82c16797c6c9fb42f316` (Phase 14 committed and pushed), GitHub
+  CI 4/4 jobs, 1,438 tests. Phase 14.1 is in the local working tree only: not committed or
+  pushed. Phase 14 closes formally only after the owner commits 14.1 and GitHub CI is green.
+- Decisions: D-099 (delivery integrity), D-100 (website chat conversation identity).
+
+### Findings (each reproduced on the baseline before correcting)
+
+1. **Template values lost on recovery (confirmed).** Values travelled only as Celery task
+   arguments; `sweep_tenant` re-queued with none. A probe on the baseline sent a 3-value
+   template recovered by the sweeper with no `components` at all.
+2. **No policy check at delivery time (confirmed).** `deliver_message` checked only
+   `connection.can_send`. A probe on the baseline delivered a queued WhatsApp text ("accepted")
+   after the 24-hour window had ended and the customer had opted out. Disabled/revoked
+   connections failed only as a generic `connection_unavailable`.
+3. **Website chat mixed conversations (confirmed).** Sequences restart per conversation but
+   `sync`, `read`, `delivered` and HTTP history carried only `after_seq`/`seq`. On the baseline,
+   a read receipt for the closed conversation's seq 4 marked the new conversation read up to 2;
+   sync with the old `lastSeq` returned nothing from the new conversation; the widget merged
+   both threads by `seq`. Also found: history used the latest conversation by creation even
+   when staff had reopened an older one (where the visitor's next message goes).
+
+### Corrections
+
+- **1 (D-099).** `Message.template_parameters` (`communications.0003`, additive). `staff_send`
+  stores the ordered values; tasks carry only the message id; first run, retry and sweeper
+  recovery read the row. Cleared when the message settles (accepted, failed, unknown, including
+  the sweeper's `worker_lost`) and by retention; never serialised or logged. Tasks queued before
+  the upgrade still pass their values once (stored on first use). Missing or mismatched values
+  fail as `template_parameters_invalid` instead of sending without them. Duplicate task runs
+  still send once (queued → sending claim).
+- **2 (D-099).** `policy.delivery_check` runs under the claim lock immediately before the
+  provider call: `reply_policy` for free-form messages (window, Human Agent approval and its
+  7-day limit, closed conversation, connection state) and, for templates, open conversation,
+  usable connection, no opt-out, recorded opt-in, template still `APPROVED` + `UTILITY`, exact
+  value count. Refusal: `failed` with the reason code, `DeliveryAttempt` outcome `blocked`, no
+  provider call, no retry. Temporary provider failures keep bounded retries; `unknown` is still
+  never resent. The Messenger tag actually used is recorded. The inbox labels the new reason
+  codes ("Not sent: the reply window ended first.").
+- **3 (D-100).** Visitor messages carry `conversation`; `sync`/`read`/`delivered` frames and the
+  `sync` reply and status event name it; `GET /api/chat/config/` returns `conversation_id` and
+  accepts `conversation` + `after_seq`. Server: the visitor's conversation is the active one,
+  otherwise the latest; `after_seq` applies only to the conversation it names (any other name
+  returns the current conversation from the start); receipts apply only to the visitor's own
+  named conversation; frames without a conversation behave as before. Widget: one conversation
+  per thread with its own `lastSeq`; frames from another conversation are never merged and
+  trigger an authoritative resync (socket, or HTTP when the socket is down, newest answer only);
+  frames from a replaced socket are ignored; each store reply counts once as unread.
+- **Intermittent W9 check (Phase 14 acceptance).** Reviewed: the scenario (staff closes, guest
+  sees the closed notice) involves no conversation change, so it is not explained by finding 3;
+  the status event now names its conversation and the widget resyncs on any mismatch. No other
+  change was made for it.
+
+### Files
+
+- Backend: `communications/models.py` (`template_parameters`),
+  `migrations/0003_message_template_parameters.py`, `policy.py` (`delivery_check`, reason
+  texts), `tasks.py` (enqueue by id, stored values, delivery-time check, `blocked`, clearing),
+  `services.py` (store values; `visitor_conversation`, `visitor_history`, named receipts; status
+  event names the conversation), `consumers.py` (sync/read/delivered with conversation),
+  `serializers.py` (`conversation` on visitor messages, `conversation_id` on chat state,
+  `conversation` query), `views.py` (config through `visitor_history`), `retention.py` (clears
+  values), `openapi.yaml` (regenerated).
+- Tests (new): `tests/test_communications_delivery_integrity.py` (24),
+  `tests/test_communications_chat_integrity.py` (7).
+- Frontend: `packages/shared-contracts/src/communications.ts` (+1 test),
+  `apps/commerce-web/src/components/store/live-chat.tsx`, `live-chat.test.tsx` (4, new),
+  `components/manage/inbox.tsx` (reason labels only).
+- Docs: `DECISIONS.md` (D-099, D-100), `COMMUNICATIONS.md`, `DATA_MODEL.md`,
+  `FEATURE_CHECKLIST.md`, `ARCHITECTURE.md` (status), `DEVELOPMENT_ROADMAP.md`, this file.
+- Migration `communications.0003` is applied to the local dev database; the worker and beat were
+  restarted to load the new task code.
+
+### Verification (observed locally, 2026-11-05)
+
+- Reproduction first: the new backend tests failed on the baseline (delivery file: missing
+  field, provider calls made when they must be blocked, generic `connection_unavailable`; chat
+  file: 6 of 7 failed, including the cross-conversation read receipt). The 4 new widget tests
+  all failed against the baseline widget. Two temporary probes (deleted) showed the defects
+  directly (finding 1 and 2 above).
+- Focused backend: communications (all four Phase 14 files), the two new files and
+  `test_project.py`: **133 passed**, 0 failed.
+- Full `pnpm api:test`: commerce **1,098 passed** (1,067 + 31 new), control **57 passed**,
+  0 failed.
+- `pnpm api:lint:commerce` (ruff check, ruff format --check, mypy strict, 313 files): passed.
+  `makemigrations --check`: no changes. `manage.py check`: no issues. `pnpm api:schema`
+  regenerated `openapi.yaml` (validated, no warnings).
+- `pnpm check` (Prettier, ESLint, typecheck, tests): passed. Contracts **82** (+1), shared-ui
+  **78**, commerce-web **154** (+4), node scripts **5**; 0 failed.
+- `pnpm build`: both apps compiled. `pnpm health`: all checks passed; 3400 and 3410 answer 200.
+- Targeted browser check of finding 3 (headless Chrome against the running stack; staff actions
+  through the service layer): start, live reply, close (notice live), new conversation shown on
+  its own, reply read only in the new conversation (old one untouched), API stopped and
+  restarted with a reply sent meanwhile (recovered, no old messages, no duplicate), refresh
+  shows only the current conversation, no page errors: **6/6 passed**. No full browser
+  acceptance campaign was run (out of scope).
+- Total automated: 1,098 + 57 + 82 + 78 + 154 + 5 = **1,474 passed**, 0 failed (1,438 + 36 new).
+- Not verified: live Meta accounts (simulator and scripted fakes only).
+
+### Remaining and limits
+
+- No live Meta verification (unchanged from Phase 14; needs a Meta app, app review and WhatsApp
+  Embedded Signup; owner decisions Q8 to Q10).
+- The delivery-time check and the provider call are not atomic: an opt-out committed during the
+  call itself cannot stop that call (locks are never held across provider calls).
+- Closing a conversation now also stops replies still waiting in the queue (they fail with
+  `conversation_closed`); staff can reopen and send again.
+- Frames from clients older than 14.1 (no conversation named) keep the Phase 14 behaviour.
+
+### Next step
+
+Owner reviews, commits and pushes Phase 14.1; GitHub CI must pass. Then formal Phase 14
+acceptance and closure. Do not start Phase 15 before that.
+
+## Phase 14: Social Commerce & Unified Inbox (pushed as `ee7d11c`; closes with 14.1)
 
 - Baseline: `7b4db22dcb3cd2d6476eafa5646eb5daee62c885` (Phase 13 with 13.1), GitHub Actions
   41825876327: 4/4 jobs, 1,345 tests. Phases 01 to 13 are accepted and closed.
-- Phase 14 is in the local working tree only: not committed or pushed. It is accepted only after
-  owner review, push and green GitHub CI. Phase 15 has not been started.
+- Committed and pushed by the owner as `ee7d11c` (GitHub CI 4/4 jobs, 1,438 tests). Formal
+  acceptance follows the 14.1 integrity corrections above. The record below is the Phase 14
+  delivery report.
 - Reference: [COMMUNICATIONS.md](COMMUNICATIONS.md); decisions D-092 to D-098; owner questions
   Q8 to Q10.
 
@@ -186,10 +303,9 @@ Updated: 2026-11-05 (Asia/Dhaka).
   not confirmed; the per-address connection limit was raised (30 to 120 per minute, shared NAT
   addresses) and server-initiated socket closes are now logged with a reason.
 
-### Next step
+### Next step (historical)
 
-Owner reviews, commits and pushes; GitHub CI must pass. Then formal Phase 14 acceptance. Do not
-start Phase 15 before that.
+Done: pushed as `ee7d11c`, GitHub CI green (1,438 tests). Superseded by Phase 14.1 above.
 
 ## Phase 13.1: SMS delivery integrity corrections (accepted and closed)
 

@@ -4,6 +4,12 @@ Every task is idempotent (tasks are acknowledged late and may run twice):
 
 - Delivery claims a message by moving it from ``queued`` to ``sending`` under its row lock;
   a second run finds it already claimed and does nothing.
+- Everything a delivery needs is read from the message row, never from task arguments: a task
+  re-queued by the sweep after a broker outage, or retried later, sends exactly the stored
+  template values (D-099). They are cleared once the message is settled.
+- Under the same lock the messaging policy is checked again (``policy.delivery_check``): a
+  message that is no longer allowed (window ended, opt-out, closed, channel off, template no
+  longer approved) is failed with that reason and never sent or retried.
 - A definite refusal fails the message with its reason; ``not_sent`` and rate limits retry a
   bounded number of times; anything that may have reached the provider becomes ``unknown`` and
   is never resent automatically (Meta's send APIs have no idempotency key).
@@ -55,17 +61,12 @@ CONNECTION_STATES = {
 }
 
 
-def enqueue_delivery(
-    message_id: Any, template_parameters: Sequence[str] = (), *, tenant_id: str = ""
-) -> None:
-    """Queue delivery. Callers registering an on-commit callback pass ``tenant_id`` captured at
-    registration, so the callback never depends on the context it happens to run in."""
+def enqueue_delivery(message_id: Any, *, tenant_id: str = "") -> None:
+    """Queue delivery of a stored, queued message. Callers registering an on-commit callback
+    pass ``tenant_id`` captured at registration, so the callback never depends on the context
+    it happens to run in."""
     try:
-        deliver_message.delay(
-            str(message_id),
-            list(template_parameters),
-            tenant_id=tenant_id or str(get_active_tenant_id()),
-        )
+        deliver_message.delay(str(message_id), tenant_id=tenant_id or str(get_active_tenant_id()))
     except Exception:  # broker down: the sweep re-queues queued messages
         logger.warning("Delivery not queued (message=%s); the sweep will retry", message_id)
 
@@ -87,6 +88,9 @@ def _finish(message: Message, status: str, *, code: str = "", external_id: str =
     message.error_code = code[:60]
     message.status_changed_at = timezone.now()
     fields = ["delivery_status", "error_code", "status_changed_at"]
+    if status != DeliveryStatus.QUEUED and message.template_parameters:
+        message.template_parameters = []  # settled: the values are no longer needed
+        fields.append("template_parameters")
     if external_id:
         message.external_id = external_id
         fields.append("external_id")
@@ -103,7 +107,13 @@ def _mark_connection(connection: ChannelConnection, kind: str, code: str) -> Non
 
 
 @shared_task(base=TenantTask, name="communications.deliver_message")
-def deliver_message(message_id: str, template_parameters: list[str], *, tenant_id: str) -> str:
+def deliver_message(
+    message_id: str, template_parameters: Sequence[str] | None = None, *, tenant_id: str
+) -> str:
+    """Deliver one queued message. ``template_parameters`` is read only from tasks queued
+    before Phase 14.1 (they carried the values as an argument); the stored values win."""
+    from . import policy
+
     with transaction.atomic():
         message = (
             Message.objects.select_for_update()
@@ -112,49 +122,65 @@ def deliver_message(message_id: str, template_parameters: list[str], *, tenant_i
         )
         if message is None:
             return "skipped"
-        message.delivery_status = DeliveryStatus.SENDING
+        conversation = Conversation.objects.select_related("participant").get(
+            pk=message.conversation_id
+        )
+        connection = (
+            ChannelConnection.objects.filter(pk=message.connection_id).first()
+            if message.connection_id
+            else None
+        )
+        fields = ["delivery_status", "attempts", "status_changed_at"]
+        parameters = [str(p) for p in message.template_parameters]
+        if message.kind == MessageKind.TEMPLATE and not parameters and template_parameters:
+            parameters = [str(p) for p in template_parameters]
+            message.template_parameters = parameters  # retries and the sweep keep them
+            fields.append("template_parameters")
+        decision = policy.delivery_check(message, conversation, connection, parameters)
         message.attempts += 1
-        message.status_changed_at = timezone.now()
-        message.save(update_fields=["delivery_status", "attempts", "status_changed_at"])
         attempt = message.attempts
-    conversation = Conversation.objects.select_related("participant").get(
-        pk=message.conversation_id
-    )
-    connection = (
-        ChannelConnection.objects.filter(pk=message.connection_id).first()
-        if message.connection_id
-        else None
-    )
+        if not decision.allowed:
+            # Permanently refused by policy: recorded, failed, never sent or retried.
+            message.save(update_fields=["attempts"])
+            DeliveryAttempt.objects.create(
+                message=message, attempt=attempt, outcome="blocked", error_code=decision.reason
+            )
+            _finish(message, DeliveryStatus.FAILED, code=decision.reason)
+        else:
+            message.delivery_status = DeliveryStatus.SENDING
+            message.status_changed_at = timezone.now()
+            if message.kind != MessageKind.TEMPLATE and message.reply_tag != decision.tag:
+                message.reply_tag = decision.tag  # the tag actually used for this send
+                fields.append("reply_tag")
+            message.save(update_fields=fields)
+    if not decision.allowed or connection is None:  # delivery_check refuses a missing one
+        _publish_delivery(message)
+        return "blocked"
     outcome, code, external_id = "accepted", "", ""
-    if connection is None or not connection.can_send:
-        outcome, code = "failed", "connection_unavailable"
-    else:
-        recipient = conversation.participant.external_id
-        try:
-            if message.kind == MessageKind.TEMPLATE:
-                external_id = meta.send_template(
-                    connection,
-                    recipient,
-                    name=message.template_name,
-                    language=message.template_language,
-                    parameters=template_parameters,
-                )
-            else:
-                external_id = meta.send_text(
-                    connection, recipient, message.body, tag=message.reply_tag
-                )
-        except meta.GraphError as exc:
-            code = exc.code
-            if exc.kind == "unknown":
-                outcome = "unknown"
-            elif exc.retryable and attempt < MAX_ATTEMPTS:
-                outcome = "retry"
-            else:
-                outcome = "failed"
-                _mark_connection(connection, exc.kind, exc.code)
-        except Exception:
-            logger.exception("Unexpected delivery error (message=%s)", message_id)
-            outcome, code = "unknown", "unexpected_error"
+    recipient = conversation.participant.external_id
+    try:
+        if message.kind == MessageKind.TEMPLATE:
+            external_id = meta.send_template(
+                connection,
+                recipient,
+                name=message.template_name,
+                language=message.template_language,
+                parameters=parameters,
+            )
+        else:
+            external_id = meta.send_text(connection, recipient, message.body, tag=decision.tag)
+    except meta.GraphError as exc:
+        code = exc.code
+        if exc.kind == "unknown":
+            outcome = "unknown"
+        elif exc.retryable and attempt < MAX_ATTEMPTS:
+            outcome = "retry"
+        else:
+            outcome = "failed"
+            _mark_connection(connection, exc.kind, exc.code)
+    except Exception:
+        logger.exception("Unexpected delivery error (message=%s)", message_id)
+        outcome, code = "unknown", "unexpected_error"
     with transaction.atomic():
         message = Message.objects.select_for_update().get(pk=message_id)
         DeliveryAttempt.objects.create(
@@ -167,10 +193,10 @@ def deliver_message(message_id: str, template_parameters: list[str], *, tenant_i
         elif outcome == "retry":
             _finish(message, DeliveryStatus.QUEUED, code=code)
             delay = RETRY_DELAYS[min(attempt - 1, len(RETRY_DELAYS) - 1)]
-            params = list(template_parameters)
+            # Only the id travels: the retry reads the stored values and re-checks the policy.
             transaction.on_commit(
                 lambda: deliver_message.apply_async(
-                    (message_id, params), {"tenant_id": tenant_id}, countdown=delay
+                    (message_id,), {"tenant_id": tenant_id}, countdown=delay
                 )
             )
         else:
@@ -323,7 +349,10 @@ def sweep_tenant(*, tenant_id: str) -> dict[str, int]:
     stuck = Message.objects.filter(
         delivery_status=DeliveryStatus.SENDING, status_changed_at__lt=now - STUCK_SENDING
     ).update(
-        delivery_status=DeliveryStatus.UNKNOWN, error_code="worker_lost", status_changed_at=now
+        delivery_status=DeliveryStatus.UNKNOWN,
+        error_code="worker_lost",
+        status_changed_at=now,
+        template_parameters=[],  # unknown is never resent automatically
     )
     queued = list(
         Message.objects.filter(

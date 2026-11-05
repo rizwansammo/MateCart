@@ -1,6 +1,7 @@
 # Architecture
 
-Status: Phase 14 (social commerce and unified inbox) implemented locally, pending acceptance.
+Status: Phase 14 (social commerce and unified inbox) pushed as `ee7d11c` with green CI; its
+messaging integrity corrections (14.1, D-099, D-100) are local, and acceptance follows their CI.
 Phases 01–13 and their corrective subphases are accepted and closed. Sections marked **(planned)** describe later
 work. Schema: [DATA_MODEL.md](DATA_MODEL.md). Authentication: [AUTHENTICATION.md](AUTHENTICATION.md),
 security controls: [SECURITY.md](SECURITY.md).

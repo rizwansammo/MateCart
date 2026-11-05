@@ -40,8 +40,12 @@ fail in PostgreSQL.
 - Staff changes carry the `version` they saw; a stale version answers `409
 conversation_changed` instead of overwriting a newer change. Assignment and status changes
   write `ConversationEvent` and audit events.
-- Ordering: `seq` is allocated under the conversation's row lock. Provider timestamps are kept
-  as facts (`provider_timestamp`) but never reorder the thread.
+- Ordering: `seq` is allocated under the conversation's row lock and restarts at 1 in every
+  conversation, so a sequence is only meaningful with its conversation id (D-100). Provider
+  timestamps are kept as facts (`provider_timestamp`) but never reorder the thread.
+- A website visitor sees one conversation: the active one (where their next message goes, which
+  may be an older conversation staff reopened), otherwise the latest. Earlier conversations stay
+  in the inbox; the widget never mixes them.
 
 ## 3. Website live chat
 
@@ -53,7 +57,9 @@ conversation_changed` instead of overwriting a newer change. Assignment and stat
   page view. Not a session: it reaches no other route. Signed-in customers chat as themselves
   (`mc_customer`); a guest chat joins their account only when they click "Add that chat to my
   account" while holding both credentials.
-- **HTTP**: `GET /api/chat/config/?locale=` (settings, availability, own history),
+- **HTTP**: `GET /api/chat/config/?locale=` (settings, availability, and the current
+  conversation's `conversation_id`, status and history; optional `conversation` + `after_seq`
+  for only the newer messages of that conversation),
   `POST /api/chat/messages/` (`client_key`, `body`), `POST /api/chat/attachments/` (multipart),
   `GET /api/chat/attachments/<id>/` (own conversation only), `POST /api/chat/link-account/`.
 - **Availability** is genuine: "Online" needs the opening hours (store time zone) **and** a staff
@@ -69,10 +75,10 @@ ASGI (`config.asgi`) routes `websocket` to Channels; HTTP stays Django. Developm
 with uvicorn; Next.js proxies `/api/*` including upgrades, so the browser only talks to its own
 origin. Redis database 3 (`MATECART_CHANNEL_LAYER_URL`) carries events between workers.
 
-| Endpoint                | Who                                     | Frames from the client                                                                                   | Frames from the server                                                                                                     |
-| ----------------------- | --------------------------------------- | -------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
-| `/api/chat/ws/`         | Visitor with `mc_chat` or `mc_customer` | `ping`, `message {client_key, body}`, `sync {after_seq}`, `read {seq}`, `delivered {seq}`, `typing {on}` | `ready {online}`, `ack`, `nack`, `message`, `sync`, `conversation {status}`, `typing`, `pong`                              |
-| `/api/manage/ws/inbox/` | Staff session with `messages.manage`    | `ping`, `watch {conversation}`, `unwatch`, `typing {on}`                                                 | `ready`, `watching`, `conversation`, `message`, `note`, `delivery`, `typing`, `visitor_read`, `read`, `attachment`, `pong` |
+| Endpoint                | Who                                     | Frames from the client                                                                                                                             | Frames from the server                                                                                                                       |
+| ----------------------- | --------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| `/api/chat/ws/`         | Visitor with `mc_chat` or `mc_customer` | `ping`, `message {client_key, body}`, `sync {conversation, after_seq}`, `read {conversation, seq}`, `delivered {conversation, seq}`, `typing {on}` | `ready {online}`, `ack`, `nack`, `message`, `sync {conversation, status, messages}`, `conversation {conversation, status}`, `typing`, `pong` |
+| `/api/manage/ws/inbox/` | Staff session with `messages.manage`    | `ping`, `watch {conversation}`, `unwatch`, `typing {on}`                                                                                           | `ready`, `watching`, `conversation`, `message`, `note`, `delivery`, `typing`, `visitor_read`, `read`, `attachment`, `pong`                   |
 
 - **Handshake**: exact Origin allowlist (`MATECART_PUBLIC_BASE_URL`, CSRF trusted origins,
   `MATECART_WEBSOCKET_ORIGINS`; no Origin = refused), cookie authentication, tenant from
@@ -86,6 +92,10 @@ origin. Redis database 3 (`MATECART_CHANNEL_LAYER_URL`) carries events between w
   Audiences are separate groups: visitor groups never receive notes, assignments or staff ids.
 - **Durability**: messages are committed before `ack`; events are published after commit. A
   broker failure never fails the operation; clients reconcile on reconnect (`sync`, list reload).
+- **Conversation identity (D-100)**: visitor messages carry `conversation`. `sync` returns the
+  messages after `after_seq` only for the conversation it names; naming another conversation
+  returns the current one from the start. Receipts apply only to the visitor's own conversation
+  they name. Frames without a conversation (older clients) behave as before.
   The inbox polls every 30 s only while its socket is down.
 
 ## 5. Meta channels
@@ -118,6 +128,13 @@ One endpoint receives every Meta webhook: `GET/POST /api/webhooks/meta/`.
 
 - The inbox shows the reason and disables free text when a reply is not allowed. Templates are
   synchronised from Meta; marketing templates are never offered. No bulk or unsolicited sends.
+- Delivery integrity (D-099): template values are stored with the queued message
+  (`template_parameters`), so a retry or a sweeper recovery after a broker outage sends exactly
+  the original values; they are cleared once the message settles. Immediately before the
+  provider call, under the claim lock, `policy.delivery_check` checks the rules again (window,
+  Human Agent approval, opt-out and opt-in, closed conversation, connection state, template
+  still approved and utility, value count). A message that is no longer allowed is `failed`
+  with that reason and a `blocked` attempt: never sent, never retried.
 - Delivery (`tasks.deliver_message`): claims `queued → sending`, then `accepted` (provider id
   stored), `failed` (definite refusal, with reason; revoked/permission/suspension also update the
   connection), bounded retries for `not_sent` and rate limits (4 attempts), or `unknown`
@@ -190,8 +207,8 @@ channels get a link only when `MATECART_PUBLIC_BASE_URL` is a public `https://` 
 
 ## 9. Operations
 
-- Beat: `communications.sweep` (every minute: re-queue lost deliveries and media, settle sends a
-  dead worker left as `unknown`) and `communications.housekeeping` (hourly: auto-close, retention).
+- Beat: `communications.sweep` (every minute: re-queue lost deliveries, which keep their stored
+  template values, and media; settle sends a dead worker left as `unknown`) and `communications.housekeeping` (hourly: auto-close, retention).
 - Settings: `MATECART_CHANNEL_LAYER_URL` (required in production), `META_APP_ID`,
   `META_APP_SECRET` (set both or neither), `META_WEBHOOK_VERIFY_TOKEN`, `META_LOGIN_CONFIG_ID`,
   `META_WHATSAPP_CONFIG_ID`, `META_HUMAN_AGENT_APPROVED`, `META_GRAPH_API_VERSION`,

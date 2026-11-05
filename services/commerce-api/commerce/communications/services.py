@@ -135,6 +135,68 @@ def latest_conversation(participant: Participant) -> Conversation | None:
     return Conversation.objects.filter(participant=participant).order_by("-created_at").first()
 
 
+def visitor_conversation(participant: Participant) -> Conversation | None:
+    """The conversation a website visitor's widget shows: the active one, where their next
+    message goes (it may be an older conversation staff reopened), otherwise the most recent."""
+    return active_conversation(participant) or latest_conversation(participant)
+
+
+VISITOR_HISTORY = 100
+VISITOR_SYNC_LIMIT = 200
+_NOT_NAMED = object()
+
+
+def _named_conversation(value: Any) -> uuid.UUID | object | None:
+    """``_NOT_NAMED`` when a client named no conversation (older clients), ``None`` when the
+    name is not a conversation id, otherwise the id."""
+    if value is None or value == "":
+        return _NOT_NAMED
+    try:
+        return uuid.UUID(str(value))
+    except ValueError:
+        return None
+
+
+def visitor_history(
+    participant: Participant, *, conversation_ref: Any = None, after_seq: int | None = None
+) -> tuple[Conversation | None, list[Message]]:
+    """The visitor's current conversation and its messages (D-100).
+
+    A message sequence only has meaning inside its own conversation, so ``after_seq`` is
+    honoured only when ``conversation_ref`` names the current conversation (or, for older
+    clients, names nothing). When it names any other conversation (a closed thread, or one that
+    is not the visitor's), the current conversation's recent history is returned from the start:
+    nothing is skipped, and nothing from another conversation is returned.
+    """
+    conversation = visitor_conversation(participant)
+    if conversation is None:
+        return None, []
+    rows = Message.objects.filter(conversation=conversation).select_related(
+        "sender_user", "attachment"
+    )
+    named = _named_conversation(conversation_ref)
+    if after_seq is not None and named in (_NOT_NAMED, conversation.pk):
+        return conversation, list(
+            rows.filter(seq__gt=max(after_seq, 0)).order_by("seq")[:VISITOR_SYNC_LIMIT]
+        )
+    return conversation, list(reversed(list(rows.order_by("-seq")[:VISITOR_HISTORY])))
+
+
+def _visitor_receipt_target(
+    participant: Participant, conversation_ref: Any, *, lock: bool
+) -> Conversation | None:
+    """The participant's own conversation a receipt names. Receipts that name no conversation
+    (older clients) apply to the visitor's current conversation, as before."""
+    named = _named_conversation(conversation_ref)
+    if named is _NOT_NAMED:
+        current = visitor_conversation(participant)
+        named = current.pk if current is not None else None
+    if not isinstance(named, uuid.UUID):
+        return None
+    rows = Conversation.objects.filter(participant=participant, pk=named)
+    return (rows.select_for_update() if lock else rows).first()
+
+
 @dataclass(frozen=True)
 class Opened:
     conversation: Conversation
@@ -463,6 +525,8 @@ def staff_send(
             product_snapshot=dict(outbound.product_snapshot or {}),
             template_name=outbound.template_name,
             template_language=outbound.template_language,
+            # Stored with the message (D-099), so any later delivery run sends these values.
+            template_parameters=list(outbound.template_parameters),
             reply_tag=tag,
         )
         _mark_read_locked(locked, actor)
@@ -470,11 +534,8 @@ def staff_send(
         if status == DeliveryStatus.QUEUED:
             from . import tasks
 
-            message_id, params = message.pk, list(outbound.template_parameters)
-            tenant = str(get_active_tenant_id())
-            transaction.on_commit(
-                lambda: tasks.enqueue_delivery(message_id, params, tenant_id=tenant)
-            )
+            message_id, tenant = message.pk, str(get_active_tenant_id())
+            transaction.on_commit(lambda: tasks.enqueue_delivery(message_id, tenant_id=tenant))
     return message, True
 
 
@@ -598,7 +659,7 @@ def change_status(
         if locked.channel == ChannelType.WEBSITE:
             realtime.publish(
                 realtime.visitor_group(locked.participant_id),
-                {"type": "conversation", "status": locked.status},
+                {"type": "conversation", "conversation": str(locked.pk), "status": locked.status},
             )
     return locked
 
@@ -642,20 +703,17 @@ def mark_read(*, conversation: Conversation, user: User) -> None:
         )
 
 
-def visitor_mark_read(*, participant: Participant, seq: Any) -> None:
-    """The visitor's widget displayed messages up to ``seq`` (website chat only): genuine read
-    receipts for the store's replies."""
+def visitor_mark_read(*, participant: Participant, seq: Any, conversation_ref: Any = None) -> None:
+    """The visitor's widget displayed messages up to ``seq`` of the conversation it names (website
+    chat only): genuine read receipts for the store's replies. A receipt applies only to the
+    visitor's own conversation it names, so a late receipt from an earlier thread never marks
+    a newer one."""
     try:
         upto = int(seq)
     except (TypeError, ValueError):
         return
     with transaction.atomic():
-        conversation = (
-            Conversation.objects.select_for_update()
-            .filter(participant=participant)
-            .order_by("-created_at")
-            .first()
-        )
+        conversation = _visitor_receipt_target(participant, conversation_ref, lock=True)
         if conversation is None:
             return
         upto = min(max(upto, 0), conversation.last_seq)
@@ -676,13 +734,13 @@ def visitor_mark_read(*, participant: Participant, seq: Any) -> None:
         )
 
 
-def visitor_delivered(*, participant: Participant, seq: Any) -> None:
-    """The visitor's socket received store messages up to ``seq``."""
+def visitor_delivered(*, participant: Participant, seq: Any, conversation_ref: Any = None) -> None:
+    """The visitor's socket received store messages up to ``seq`` of the conversation it names."""
     try:
         upto = int(seq)
     except (TypeError, ValueError):
         return
-    conversation = latest_conversation(participant)
+    conversation = _visitor_receipt_target(participant, conversation_ref, lock=False)
     if conversation is None:
         return
     count = Message.objects.filter(

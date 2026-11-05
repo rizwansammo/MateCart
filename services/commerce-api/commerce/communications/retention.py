@@ -2,9 +2,10 @@
 
 - Closed conversations inactive for ``MATECART_CONVERSATION_RETENTION_DAYS`` (default 365) and
   guest website conversations inactive for ``MATECART_GUEST_CHAT_RETENTION_DAYS`` (default 180)
-  are redacted: message text, product snapshots, provider message ids, attachment files and
-  internal notes are deleted. The rows stay, so counts, response times and order links remain
-  as business evidence. Linked orders keep their own records under their own rules.
+  are redacted: message text, product snapshots, template values, provider message ids,
+  attachment files and internal notes are deleted. The rows stay, so counts, response times
+  and order links remain as business evidence. Linked orders keep their own records under
+  their own rules.
 - A participant whose conversations are all redacted loses their display name and phone.
 - Expired guest chat credentials are cleared.
 - Delivery attempts older than 90 days are deleted; the message keeps its final state.
@@ -77,7 +78,7 @@ def redact(conversation_id: uuid.UUID | str, now: datetime | None = None) -> boo
             attachment.size_bytes = 0
             attachment.save()
         Message.objects.filter(conversation=conversation).update(
-            body="", product_snapshot={}, external_id="", client_key=""
+            body="", product_snapshot={}, external_id="", client_key="", template_parameters=[]
         )
         ConversationNote.objects.filter(conversation=conversation).delete()
         if conversation.status != ConversationStatus.CLOSED:

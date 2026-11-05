@@ -317,13 +317,11 @@ class ChatConsumer(_Base):
         if kind == "message":
             await self._message(participant_id, data)
         elif kind == "sync":
-            await self.send_json(
-                await self.db(lambda: _visitor_sync(participant_id, data.get("after_seq")))
-            )
+            await self.send_json(await self.db(lambda: _visitor_sync(participant_id, data)))
         elif kind == "read":
-            await self.db(lambda: _visitor_read(participant_id, data.get("seq")))
+            await self.db(lambda: _visitor_read(participant_id, data))
         elif kind == "delivered":
-            await self.db(lambda: _visitor_delivered(participant_id, data.get("seq")))
+            await self.db(lambda: _visitor_delivered(participant_id, data))
         elif kind == "typing":
             now = time.monotonic()
             if now - self.last_typing >= TYPING_INTERVAL or not data.get("on"):
@@ -363,25 +361,24 @@ class ChatConsumer(_Base):
         return payload.get("type") in ("message", "conversation", "typing", "presence")
 
 
-def _visitor_sync(participant_id: uuid.UUID, after: Any) -> dict[str, Any]:
-    from .models import Message, Participant
+def _visitor_sync(participant_id: uuid.UUID, data: dict[str, Any]) -> dict[str, Any]:
+    """Everything after ``after_seq`` of the conversation the client names; when that is not
+    the visitor's current conversation, the current one from the start (D-100). The reply names
+    the conversation, so the widget knows which thread the messages belong to."""
+    from .models import Participant
     from .serializers import VisitorMessageSerializer, _plain
 
     participant = Participant.objects.get(pk=participant_id)
-    conversation = services.latest_conversation(participant)
     try:
-        after_seq = max(int(after), 0)
+        after_seq: int | None = max(int(data.get("after_seq") or 0), 0)
     except (TypeError, ValueError):
         after_seq = 0
-    rows: list[Message] = []
-    if conversation is not None:
-        rows = list(
-            Message.objects.filter(conversation=conversation, seq__gt=after_seq)
-            .select_related("sender_user", "attachment")
-            .order_by("seq")[:200]
-        )
+    conversation, rows = services.visitor_history(
+        participant, conversation_ref=data.get("conversation"), after_seq=after_seq
+    )
     return {
         "type": "sync",
+        "conversation": str(conversation.pk) if conversation else None,
         "status": conversation.status if conversation else None,
         "messages": _plain(
             VisitorMessageSerializer(rows, many=True, context={"staff": False}).data
@@ -390,16 +387,24 @@ def _visitor_sync(participant_id: uuid.UUID, after: Any) -> dict[str, Any]:
     }
 
 
-def _visitor_read(participant_id: uuid.UUID, seq: Any) -> None:
+def _visitor_read(participant_id: uuid.UUID, data: dict[str, Any]) -> None:
     from .models import Participant
 
-    services.visitor_mark_read(participant=Participant.objects.get(pk=participant_id), seq=seq)
+    services.visitor_mark_read(
+        participant=Participant.objects.get(pk=participant_id),
+        seq=data.get("seq"),
+        conversation_ref=data.get("conversation"),
+    )
 
 
-def _visitor_delivered(participant_id: uuid.UUID, seq: Any) -> None:
+def _visitor_delivered(participant_id: uuid.UUID, data: dict[str, Any]) -> None:
     from .models import Participant
 
-    services.visitor_delivered(participant=Participant.objects.get(pk=participant_id), seq=seq)
+    services.visitor_delivered(
+        participant=Participant.objects.get(pk=participant_id),
+        seq=data.get("seq"),
+        conversation_ref=data.get("conversation"),
+    )
 
 
 def _visitor_typing(participant_id: uuid.UUID, on: bool) -> None:

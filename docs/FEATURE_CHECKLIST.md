@@ -320,6 +320,7 @@ Delivery requirements:
 - [ ] Live Meta acceptance (needs a Meta app per store, app review, Human Agent approval for 7-day replies, WhatsApp Embedded Signup; DECISIONS Q8, Q9)
 - [x] Social commerce: product sharing from the catalogue, COD orders from conversations through the assisted engine, order links (14, D-097)
 - [x] Conversation alerts, inbox analytics and team activity (14, D-098); retention and privacy controls (D-096)
+- [x] Messaging integrity corrections (14.1): template values survive retries and sweeper recovery, messaging policy re-checked at delivery time (D-099), website chat conversation identity across closure and reconnection (D-100)
 - [ ] Facebook Shop or catalogue synchronisation (separate permissions; not built)
 - [ ] Provider-independent AI layer, GroqCloud first; product content, image analysis, support replies, marketing, BI (15)
 

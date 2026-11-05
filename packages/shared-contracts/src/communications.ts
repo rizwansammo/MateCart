@@ -139,9 +139,14 @@ function productCard(value: unknown): ProductCard {
   };
 }
 
-/** What a website visitor sees of a message. */
+/**
+ * What a website visitor sees of a message. `seq` counts from 1 in every conversation, so it is
+ * only meaningful together with `conversation` (the owning conversation's id; "" from servers
+ * older than Phase 14.1).
+ */
 export interface VisitorMessage {
   id: string;
+  conversation: string;
   seq: number;
   direction: 'inbound' | 'outbound';
   kind: MessageKind;
@@ -156,6 +161,7 @@ export function visitorMessage(value: unknown): VisitorMessage {
   const o = object(value);
   return {
     id: string(o.id),
+    conversation: optional(string, '')(o.conversation),
     seq: integer(o.seq),
     direction: direction(o.direction),
     kind: oneOf(MESSAGE_KINDS)(o.kind),
@@ -699,6 +705,8 @@ export interface ChatConfig {
 }
 export interface ChatState {
   config: ChatConfig;
+  /** The visitor's current conversation (the one `messages` belong to), or null. */
+  conversation_id: string | null;
   conversation_status: ConversationStatus | null;
   messages: VisitorMessage[];
   signed_in: boolean;
@@ -718,6 +726,7 @@ export function chatState(value: unknown): ChatState {
       online: boolean(c.online),
       within_hours: boolean(c.within_hours),
     },
+    conversation_id: optional(nullable(string), null)(o.conversation_id),
     conversation_status: nullable(oneOf(CONVERSATION_STATUSES))(o.conversation_status),
     messages: array(o.messages, visitorMessage),
     signed_in: boolean(o.signed_in),
@@ -725,14 +734,24 @@ export function chatState(value: unknown): ChatState {
   };
 }
 
-/** WebSocket frames from the server to the visitor widget. Unknown frames are ignored. */
+/**
+ * WebSocket frames from the server to the visitor widget. Unknown frames are ignored.
+ * `sync` answers with the visitor's current conversation (its `messages` belong to it), and
+ * `conversation` names the conversation whose status changed.
+ */
 export type VisitorEvent =
   | { type: 'ready'; online: boolean }
   | { type: 'ack'; client_key: string; message: VisitorMessage }
   | { type: 'nack'; client_key: string; code: string }
   | { type: 'message'; message: VisitorMessage }
-  | { type: 'sync'; status: ConversationStatus | null; messages: VisitorMessage[]; online: boolean }
-  | { type: 'conversation'; status: ConversationStatus }
+  | {
+      type: 'sync';
+      conversation: string | null;
+      status: ConversationStatus | null;
+      messages: VisitorMessage[];
+      online: boolean;
+    }
+  | { type: 'conversation'; conversation: string; status: ConversationStatus }
   | { type: 'typing'; who: string; on: boolean }
   | { type: 'pong' };
 export function visitorEvent(value: unknown): VisitorEvent | null {
@@ -754,12 +773,17 @@ export function visitorEvent(value: unknown): VisitorEvent | null {
       case 'sync':
         return {
           type: 'sync',
+          conversation: optional(nullable(string), null)(o.conversation),
           status: nullable(oneOf(CONVERSATION_STATUSES))(o.status),
           messages: array(o.messages, visitorMessage),
           online: boolean(o.online),
         };
       case 'conversation':
-        return { type: 'conversation', status: oneOf(CONVERSATION_STATUSES)(o.status) };
+        return {
+          type: 'conversation',
+          conversation: optional(string, '')(o.conversation),
+          status: oneOf(CONVERSATION_STATUSES)(o.status),
+        };
       case 'typing':
         return { type: 'typing', who: string(o.who), on: boolean(o.on) };
       case 'pong':

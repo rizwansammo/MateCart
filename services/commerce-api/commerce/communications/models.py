@@ -337,6 +337,10 @@ class Message(TenantOwnedModel):
     product_snapshot = models.JSONField(default=dict, blank=True)
     template_name = models.CharField(max_length=512, blank=True)
     template_language = models.CharField(max_length=15, blank=True)
+    # The approved template's ordered body values while delivery is pending (D-099). Every
+    # delivery path (first run, retry, sweeper recovery) reads them from here, never from the
+    # task arguments. Cleared once the message is settled and by retention; never serialised.
+    template_parameters = models.JSONField(default=list, blank=True)
     # Messenger/Instagram message tag used outside the standard window (HUMAN_AGENT).
     reply_tag = models.CharField(max_length=30, blank=True)
     # As reported by WhatsApp status webhooks; display only, never billing (D-094).

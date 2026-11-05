@@ -1166,6 +1166,11 @@ paths:
           type: integer
           minimum: 0
       - in: query
+        name: conversation
+        schema:
+          type: string
+          format: uuid
+      - in: query
         name: locale
         schema:
           enum:
@@ -9884,6 +9889,10 @@ components:
       properties:
         config:
           $ref: '#/components/schemas/ChatConfig'
+        conversation_id:
+          type: string
+          format: uuid
+          nullable: true
         conversation_status:
           type: string
           nullable: true
@@ -9897,6 +9906,7 @@ components:
           type: boolean
       required:
       - config
+      - conversation_id
       - conversation_status
       - guest_chat_linkable
       - messages
@@ -18675,6 +18685,9 @@ components:
         id:
           type: string
           format: uuid
+        conversation:
+          type: string
+          format: uuid
         seq:
           type: integer
         direction:
@@ -18734,6 +18747,7 @@ components:
       - attempts
       - body
       - client_key
+      - conversation
       - created_at
       - delivery_status
       - direction
@@ -19795,6 +19809,9 @@ components:
         id:
           type: string
           format: uuid
+        conversation:
+          type: string
+          format: uuid
         seq:
           type: integer
         direction:
@@ -19826,6 +19843,7 @@ components:
       - attachment
       - body
       - client_key
+      - conversation
       - created_at
       - direction
       - id

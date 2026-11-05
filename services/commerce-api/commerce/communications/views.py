@@ -887,22 +887,19 @@ class ChatConfigView(ChatView):
     def get(self, request: Request) -> Response:
         params = _data(ChatLocaleQuerySerializer(data=request.query_params))
         visitor = self.visitor(request)
-        conversation = (
-            services.latest_conversation(visitor.participant) if visitor.participant else None
-        )
+        conversation: Conversation | None = None
         messages: list[Message] = []
-        if conversation is not None:
-            rows = Message.objects.filter(conversation=conversation).select_related(
-                "sender_user", "attachment"
+        if visitor.participant is not None:
+            conversation, messages = services.visitor_history(
+                visitor.participant,
+                conversation_ref=params.get("conversation"),
+                after_seq=params.get("after_seq"),
             )
-            if "after_seq" in params:
-                messages = list(rows.filter(seq__gt=params["after_seq"]).order_by("seq")[:200])
-            else:
-                messages = list(reversed(list(rows.order_by("-seq")[:100])))
         guest = livechat._guest(request.COOKIES.get(livechat.COOKIE_NAME))
         return Response(
             {
                 "config": livechat.public_settings(_locale(request)),
+                "conversation_id": conversation.pk if conversation else None,
                 "conversation_status": conversation.status if conversation else None,
                 "messages": VisitorMessageSerializer(
                     messages, many=True, context={"staff": False}

@@ -91,6 +91,18 @@ const ERRORS: Record<string, string> = {
   worker_lost: 'Sending was interrupted.',
   timeout: 'The provider did not answer in time.',
   network: 'The provider could not be reached.',
+  // Refused when it was due to be sent: no longer allowed then, so it was never sent (D-099).
+  conversation_closed: 'Not sent: the conversation was closed first.',
+  channel_disabled: 'Not sent: the channel was switched off first.',
+  connection_revoked: 'Not sent: the store’s access was revoked.',
+  connection_suspended: 'Not sent: the provider suspended this account.',
+  permission_missing: 'Not sent: a messaging permission is missing.',
+  window_closed: 'Not sent: the reply window ended first.',
+  template_required: 'Not sent: the 24-hour window ended first. Use a template.',
+  opted_out: 'Not sent: the customer opted out first.',
+  opt_in_missing: 'Not sent: the customer’s agreement is no longer recorded.',
+  template_unavailable: 'Not sent: the template is no longer approved.',
+  template_parameters_invalid: 'Not sent: the template’s values no longer match it.',
 };
 const POLL_MS = 30_000;
 const HEARTBEAT_MS = 25_000;

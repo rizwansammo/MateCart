@@ -25,6 +25,11 @@ import { formatMoney } from '@/lib/money';
  *   localStorage.
  * - After every (re)connection the widget asks for everything after the last message it has,
  *   so nothing is missed while the connection was down.
+ * - The thread shows one conversation at a time. Message sequences restart in every
+ *   conversation, so the widget keeps the id of the conversation its messages and `lastSeq`
+ *   belong to and names it in every sync and receipt. A message or status from another
+ *   conversation (a new one after closing, or one staff reopened) is never merged: the widget
+ *   asks the server which conversation is current and shows that one instead (D-100).
  * - "Online" is shown only when the store says a team member has the inbox open now.
  */
 
@@ -79,9 +84,14 @@ function ChatWidget({ lang }: { lang: string }) {
   const lastTyping = useRef(0);
   const openRef = useRef(open);
   const lastSeq = useRef(0);
+  // The conversation the shown messages and `lastSeq` belong to ('' before the first one).
+  const thread = useRef('');
+  const seen = useRef(new Set<string>());
+  const refreshes = useRef(0);
   const wanted = useRef(false);
   // The reconnect timer calls the latest `connect` through this ref (it refers to itself).
   const reconnect = useRef<() => void>(() => undefined);
+  const resync = useRef<() => void>(() => undefined);
   const [now, setNow] = useState(0);
   const panelId = useId();
   const listRef = useRef<HTMLDivElement>(null);
@@ -93,16 +103,44 @@ function ChatWidget({ lang }: { lang: string }) {
     openRef.current = open;
   }, [open]);
 
-  const accept = useCallback((incoming: VisitorMessage[]) => {
-    if (!incoming.length) return;
-    lastSeq.current = Math.max(lastSeq.current, ...incoming.map((m) => m.seq));
-    setList((current) => merge(current, incoming));
-    setPending((current) =>
-      current.filter((p) => !incoming.some((m) => m.client_key && m.client_key === p.client_key)),
-    );
-    const fromStore = incoming.filter((m) => m.direction === 'outbound').length;
-    if (fromStore && !openRef.current) setUnread((n) => n + fromStore);
+  /**
+   * Adds messages of the shown conversation. Returns false when some belong to another
+   * conversation: those are not shown here, and the server is asked for the current one.
+   */
+  const accept = useCallback((incoming: VisitorMessage[]): boolean => {
+    if (!thread.current) thread.current = incoming.find((m) => m.conversation)?.conversation ?? '';
+    const own = incoming.filter((m) => !m.conversation || m.conversation === thread.current);
+    const foreign = own.length < incoming.length;
+    if (own.length) {
+      lastSeq.current = Math.max(lastSeq.current, ...own.map((m) => m.seq));
+      setList((current) => merge(current, own));
+      setPending((current) =>
+        current.filter((p) => !own.some((m) => m.client_key && m.client_key === p.client_key)),
+      );
+      const fresh = own.filter((m) => !seen.current.has(m.id));
+      for (const m of fresh) seen.current.add(m.id);
+      const fromStore = fresh.filter((m) => m.direction === 'outbound').length;
+      if (fromStore && !openRef.current) setUnread((n) => n + fromStore);
+    }
+    if (foreign) resync.current();
+    return !foreign;
   }, []);
+
+  /** The server's answer to "which conversation is current": shows that one, and only it. */
+  const adopt = useCallback(
+    (conversation: string | null, incoming: VisitorMessage[]) => {
+      const id = conversation ?? '';
+      if (id !== thread.current) {
+        thread.current = id;
+        lastSeq.current = 0;
+        seen.current = new Set();
+        setList([]);
+        setAgentTyping(false);
+      }
+      accept(incoming.filter((m) => !m.conversation || m.conversation === id));
+    },
+    [accept],
+  );
 
   const send = useCallback((frame: Record<string, unknown>) => {
     const ws = socket.current;
@@ -122,13 +160,21 @@ function ChatWidget({ lang }: { lang: string }) {
     ws.onopen = () => {
       backoff.current = 1000;
       setLink('open');
-      ws.send(JSON.stringify({ type: 'sync', after_seq: lastSeq.current }));
+      ws.send(
+        JSON.stringify({
+          type: 'sync',
+          conversation: thread.current || null,
+          after_seq: lastSeq.current,
+        }),
+      );
       if (heartbeat.current) window.clearInterval(heartbeat.current);
       heartbeat.current = window.setInterval(() => {
         if (ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'ping' }));
       }, HEARTBEAT_MS);
     };
     ws.onmessage = (event: MessageEvent<string>) => {
+      // A socket replaced earlier must not change what the live one shows.
+      if (socket.current !== ws) return;
       let data: unknown;
       try {
         data = JSON.parse(event.data);
@@ -144,7 +190,7 @@ function ChatWidget({ lang }: { lang: string }) {
         case 'sync':
           setOnline(frame.online);
           setStatus(frame.status);
-          accept(frame.messages);
+          adopt(frame.conversation, frame.messages);
           break;
         case 'ack':
           accept([frame.message]);
@@ -159,11 +205,21 @@ function ChatWidget({ lang }: { lang: string }) {
           accept([frame.message]);
           if (frame.message.direction === 'outbound') {
             setAgentTyping(false);
-            ws.send(JSON.stringify({ type: 'delivered', seq: frame.message.seq }));
+            ws.send(
+              JSON.stringify({
+                type: 'delivered',
+                conversation: frame.message.conversation || null,
+                seq: frame.message.seq,
+              }),
+            );
           }
           break;
         case 'conversation':
-          setStatus(frame.status);
+          if (frame.conversation && thread.current && frame.conversation !== thread.current) {
+            resync.current();
+          } else {
+            setStatus(frame.status);
+          }
           break;
         case 'typing':
           if (frame.who === 'agent') setAgentTyping(frame.on);
@@ -191,24 +247,48 @@ function ChatWidget({ lang }: { lang: string }) {
         delay + Math.random() * 500,
       );
     };
-  }, [accept, t.rateLimited]);
+  }, [accept, adopt, t.rateLimited]);
 
   useEffect(() => {
     reconnect.current = connect;
   }, [connect]);
 
+  const configUrl = `/api/chat/config/?locale=${lang === 'bn' ? 'bn' : 'en'}`;
+
+  // Asks which conversation is current: over the socket when it is open, otherwise over HTTP.
+  // Only the newest HTTP answer is used, so a slow earlier one cannot bring back an old thread.
+  useEffect(() => {
+    resync.current = () => {
+      if (send({ type: 'sync', conversation: thread.current || null, after_seq: lastSeq.current }))
+        return;
+      const request = ++refreshes.current;
+      api
+        .get<unknown>(configUrl)
+        .then((value) => {
+          if (request !== refreshes.current) return;
+          const data = chatState(value);
+          setStatus(data.conversation_status);
+          adopt(data.conversation_id, data.messages);
+        })
+        .catch(() => {
+          // The next (re)connection synchronises again.
+        });
+    };
+  }, [adopt, configUrl, send]);
+
   // Initial state: configuration and this visitor's own history (if any).
   useEffect(() => {
     let live = true;
+    const request = ++refreshes.current;
     api
-      .get<unknown>(`/api/chat/config/?locale=${lang === 'bn' ? 'bn' : 'en'}`)
+      .get<unknown>(configUrl)
       .then((value) => {
-        if (!live) return;
+        if (!live || request !== refreshes.current) return;
         const data = chatState(value);
         setState(data);
         setOnline(data.config.online);
         setStatus(data.conversation_status);
-        accept(data.messages);
+        adopt(data.conversation_id, data.messages);
         if (data.messages.length) connect();
       })
       .catch(() => {
@@ -217,7 +297,7 @@ function ChatWidget({ lang }: { lang: string }) {
     return () => {
       live = false;
     };
-  }, [lang, accept, connect]);
+  }, [configUrl, adopt, connect]);
 
   useEffect(
     () => () => {
@@ -244,7 +324,7 @@ function ChatWidget({ lang }: { lang: string }) {
     if (!open) return;
     const box = listRef.current;
     if (box) box.scrollTop = box.scrollHeight;
-    if (newest) send({ type: 'read', seq: newest });
+    if (newest) send({ type: 'read', conversation: thread.current || null, seq: newest });
   }, [open, newest, pending.length, send]);
 
   useEffect(() => {
@@ -267,8 +347,7 @@ function ChatWidget({ lang }: { lang: string }) {
         const message = visitorMessage(
           await api.post<unknown>('/api/chat/messages/', { client_key, body }),
         );
-        accept([message]);
-        setStatus('open');
+        if (accept([message])) setStatus('open');
         connect();
       } catch (error) {
         setPending((current) =>
@@ -319,8 +398,8 @@ function ChatWidget({ lang }: { lang: string }) {
     form.append('client_key', key());
     setNotice('');
     try {
-      accept([visitorMessage(await api.upload<unknown>('/api/chat/attachments/', form))]);
-      setStatus('open');
+      if (accept([visitorMessage(await api.upload<unknown>('/api/chat/attachments/', form))]))
+        setStatus('open');
       connect();
     } catch {
       setNotice(t.fileTooLarge);

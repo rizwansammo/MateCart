@@ -158,5 +158,46 @@ describe('communications contracts', () => {
       guest_chat_linkable: false,
     });
     expect(state.config.online).toBe(false);
+    expect(state.conversation_id).toBeNull();
+  });
+
+  it('keeps the conversation that owns each message sequence', () => {
+    const owned = { ...message, conversation: '01a1a838-0000-7000-8000-0000000000c2' };
+    expect(visitorMessage(owned).conversation).toBe(owned.conversation);
+    expect(visitorMessage(message).conversation).toBe(''); // servers before Phase 14.1
+    expect(() => visitorMessage({ ...owned, conversation: 7 })).toThrow();
+    const sync = visitorEvent({
+      type: 'sync',
+      conversation: owned.conversation,
+      status: 'open',
+      messages: [owned],
+      online: true,
+    });
+    expect(sync).toMatchObject({ type: 'sync', conversation: owned.conversation });
+    expect(
+      visitorEvent({ type: 'sync', conversation: null, status: null, messages: [], online: false }),
+    ).toMatchObject({ conversation: null });
+    expect(
+      visitorEvent({ type: 'conversation', conversation: owned.conversation, status: 'closed' }),
+    ).toEqual({ type: 'conversation', conversation: owned.conversation, status: 'closed' });
+    expect(
+      chatState({
+        config: {
+          enabled: true,
+          welcome: '',
+          button_label: '',
+          away_message: '',
+          languages: ['en'],
+          position: 'left',
+          online: true,
+          within_hours: true,
+        },
+        conversation_id: owned.conversation,
+        conversation_status: 'open',
+        messages: [owned],
+        signed_in: false,
+        guest_chat_linkable: false,
+      }).conversation_id,
+    ).toBe(owned.conversation);
   });
 });

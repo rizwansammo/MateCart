@@ -1305,6 +1305,61 @@ idempotency_conflict`. The free-text reason, actor and a batch's supplier
 - Metrics come from stored rows over store-local days; first response counts human replies
   only; a linked order is a reference, not attribution; paid linked value needs `reports.view`.
 
+### D-099 · Delivery integrity: stored template values and a policy check at send time (2026-11-05, Phase 14.1)
+
+- **Context.** WhatsApp template values travelled only as Celery task arguments. When the
+  broker was down at queue time, the sweeper re-queued the message without them and the
+  template was sent with no values. Separately, the messaging policy was checked only when
+  staff sent; a message waiting in the queue (broker outage, retries) could be delivered after
+  the window closed, after an opt-out, after the conversation was closed or after the channel
+  was switched off.
+- **Stored values.** `Message.template_parameters` (`communications.0003`, additive, JSON list)
+  holds the ordered values while the message is `queued` or `sending`. Every delivery path
+  (first run, provider retry, sweeper recovery) reads them from the row; tasks carry only the
+  message id. They are cleared when the message settles (`accepted`, `failed`, `unknown`) and
+  by retention, and are never serialised, logged or audited. Tasks queued before the upgrade
+  still carry the values; they are used and stored on first use. A template whose stored values
+  no longer match its parameter count fails (`template_parameters_invalid`); it is never sent
+  without them.
+- **Policy at send time.** Under the delivery claim lock, `policy.delivery_check` runs the
+  rules again: `reply_policy` for free-form messages (window, Human Agent approval and its
+  7-day limit, closed conversation, connection state), and for templates an open conversation,
+  a usable connection, no opt-out, a recorded opt-in, a template that is still `APPROVED` and
+  `UTILITY`, and exactly the values it needs. The Messenger tag actually used is recorded.
+- **Outcome.** A refusal is permanent for that message: `failed` with the reason as
+  `error_code` (for example `window_closed`, `opted_out`, `template_unavailable`), a
+  `DeliveryAttempt` with outcome `blocked`, no provider call and no retry. Temporary provider
+  failures keep their bounded retries; `unknown` is still never resent automatically. Closing a
+  conversation therefore also stops replies still waiting in the queue; staff can reopen it and
+  send again.
+- **Limit.** The check and the provider call are not atomic: an opt-out that commits during
+  the call itself cannot stop that call. Locks are never held across provider calls.
+
+### D-100 · Website chat: every message sequence names its conversation (2026-11-05, Phase 14.1)
+
+- **Context.** Sequences restart at 1 in every conversation, but the widget kept one message
+  list and one `lastSeq` across conversations and `sync` sent only `after_seq`. After a closed
+  conversation and a new one, threads could mix, a reconnection could skip the new
+  conversation's first messages, and read or delivery receipts meant for the old thread were
+  applied to the new one.
+- **Contract (additive).** Visitor messages carry `conversation`. `sync`, `read` and
+  `delivered` frames name the conversation; the `sync` reply and the status event name it too.
+  `GET /api/chat/config/` returns `conversation_id` and accepts `conversation` with
+  `after_seq`.
+- **Server.** The visitor's current conversation is the active one (where the next message
+  goes, which may be an older conversation staff reopened), otherwise the latest. `after_seq`
+  is honoured only for the conversation it names; any other name returns the current
+  conversation's recent history from the start. Receipts apply only to the visitor's own
+  conversation they name. Frames that name no conversation (older clients) keep the previous
+  behaviour.
+- **Widget.** One conversation per thread: it keeps that conversation's id with `lastSeq`. A
+  message or status from another conversation is never merged; the widget asks which
+  conversation is current (socket `sync`, or the HTTP history when the socket is down, where
+  only the newest answer counts) and then shows only that conversation. Frames from a replaced
+  socket are ignored. Each store reply counts once as unread.
+- **Unchanged.** Conversation lifecycle, guest and customer credentials, membership, Origin
+  checks, and the closed conversation's history in the inbox and under retention.
+
 ## Open questions for the owner
 
 | #   | Question                                                                                                                                                                                                      | Status                                                                                                                | Needed by            |

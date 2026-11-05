@@ -89,6 +89,8 @@ class VisitorMessageSerializer(serializers.Serializer[Any]):
     """What the website visitor sees of a message."""
 
     id = serializers.UUIDField()
+    # The conversation that owns ``seq``: sequences restart at 1 in every conversation (D-100).
+    conversation = serializers.UUIDField(source="conversation_id")
     seq = serializers.IntegerField()
     direction = serializers.CharField()
     kind = serializers.ChoiceField(choices=MessageKind.choices)
@@ -555,6 +557,7 @@ class ChatStateSerializer(serializers.Serializer[Any]):
     """The visitor's own conversation (or none yet)."""
 
     config = ChatConfigSerializer()
+    conversation_id = serializers.UUIDField(allow_null=True)
     conversation_status = serializers.CharField(allow_null=True)
     messages = VisitorMessageSerializer(many=True)
     signed_in = serializers.BooleanField()
@@ -569,6 +572,8 @@ class ChatSendInputSerializer(serializers.Serializer[Any]):
 class ChatLocaleQuerySerializer(serializers.Serializer[Any]):
     locale = serializers.ChoiceField(choices=[("en", "en"), ("bn", "bn")], default="en")
     after_seq = serializers.IntegerField(min_value=0, required=False)
+    # The conversation ``after_seq`` belongs to; another conversation returns the current one.
+    conversation = serializers.UUIDField(required=False)
 
 
 # --- Analytics ------------------------------------------------------------------------------------
