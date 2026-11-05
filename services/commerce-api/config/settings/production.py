@@ -39,6 +39,15 @@ if bool(GOOGLE_OIDC_CLIENT_ID) != bool(GOOGLE_OIDC_CLIENT_SECRET):
         "Set both GOOGLE_OIDC_CLIENT_ID and GOOGLE_OIDC_CLIENT_SECRET, or neither."
     )
 
+# Phase 14 (D-092, D-097): no simulated social channels, and a shared channel layer so every ASGI
+# worker receives the store's real-time events.
+if MATECART_CHANNEL_SIMULATOR:
+    raise ImproperlyConfigured("MATECART_CHANNEL_SIMULATOR cannot be enabled in production.")
+if not CHANNEL_LAYER_URL:
+    raise ImproperlyConfigured("MATECART_CHANNEL_LAYER_URL must point to the store's Redis.")
+if bool(META_APP_ID) != bool(META_APP_SECRET):
+    raise ImproperlyConfigured("Set both META_APP_ID and META_APP_SECRET, or neither.")
+
 # The reverse proxy terminates TLS and must overwrite (never pass through) X-Forwarded-Proto.
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 SECURE_SSL_REDIRECT = env.bool("DJANGO_SECURE_SSL_REDIRECT", default=True)

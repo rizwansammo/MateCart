@@ -44,6 +44,12 @@ const SECTIONS: readonly { pattern: RegExp; permission: string | null }[] = [
     pattern: /^settings\/notifications(\/(email|sms|templates|deliveries))?$/,
     permission: 'store.settings',
   },
+  // Phase 14: the unified inbox (orders from a conversation also need orders.manage, enforced
+  // by the API and the page) and the social channel settings.
+  { pattern: /^inbox(\/analytics)?$/, permission: 'messages.manage' },
+  { pattern: new RegExp(`^inbox/${UUID}$`), permission: 'messages.manage' },
+  { pattern: new RegExp(`^inbox/${UUID}/order$`), permission: 'orders.manage' },
+  { pattern: /^settings\/social$/, permission: 'store.settings' },
 ];
 
 /** Permissions that open at least one marketing tab. */
@@ -100,6 +106,7 @@ export function navigation(permissions: readonly string[]): NavGroup[] {
       links: [
         { href: '/manage', label: 'Overview' },
         { href: '/manage/notifications', label: 'Notifications' },
+        ...(can('messages.manage') ? [{ href: '/manage/inbox', label: 'Inbox' }] : []),
       ],
     },
     {

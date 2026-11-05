@@ -1,16 +1,200 @@
 # Progress and handoff
 
-Updated: 2026-11-04 (Asia/Dhaka).
+Updated: 2026-11-05 (Asia/Dhaka).
 
-## Phase 13.1: SMS delivery integrity corrections (local; acceptance pending)
+## Phase 14: Social Commerce & Unified Inbox (implemented locally; acceptance pending)
 
-**Active phase: 13 (corrective subphase 13.1).**
+**Active phase: 14.**
 
-- Baseline: `116e8d42ef0ab9a46afa9b751af58447ac195065` (Phase 13), GitHub Actions 41793151988:
-  4/4 jobs, 1,319 tests.
-- 13.1 is in the local working tree only: not committed or pushed.
-- Phase 13 is accepted only after the owner pushes these corrections and GitHub CI passes.
-- Phase 14 has not been started.
+- Baseline: `7b4db22dcb3cd2d6476eafa5646eb5daee62c885` (Phase 13 with 13.1), GitHub Actions
+  41825876327: 4/4 jobs, 1,345 tests. Phases 01 to 13 are accepted and closed.
+- Phase 14 is in the local working tree only: not committed or pushed. It is accepted only after
+  owner review, push and green GitHub CI. Phase 15 has not been started.
+- Reference: [COMMUNICATIONS.md](COMMUNICATIONS.md); decisions D-092 to D-098; owner questions
+  Q8 to Q10.
+
+### Delivered
+
+- **Communications domain** (`commerce.communications`, migrations `0001`, `0002` triggers):
+  - Channel connections, participants, conversations, messages, attachments, delivery attempts
+    (append-only), staff-only notes, append-only timeline, per-staff read state, order links,
+    WhatsApp templates and website chat settings. All tenant-owned with composite tenant keys.
+  - One active conversation per participant (partial unique). Stable per-conversation sequence
+    under a row lock. Provider ids unique per connection. Client keys make sends idempotent.
+  - Lifecycle: resolved reopens on a customer message; closed starts a new conversation (history
+    kept); resolved closes after 7 idle days. Optimistic versions refuse stale staff changes.
+- **Real time (D-092).** Channels 4.3.2, channels-redis 4.3.0 (Redis db 3), uvicorn 0.54 (one
+  ASGI app; the dev API now runs on uvicorn). `/api/chat/ws/` and `/api/manage/ws/inbox/`:
+  exact Origin allowlist, cookie authentication, tenant from configuration, frame, rate,
+  connection and idle limits, 30-second session re-check, server-controlled membership, separate
+  visitor and staff audiences, acknowledgement only after commit, recovery by `sync`.
+- **Website live chat (D-093).** MateCart's own widget (no third-party script): preset theme
+  tokens, English and Bangla, phone sheet, keyboard and screen reader support, hidden on
+  checkout, below the consent banner. Guest credential `mc_chat` (HttpOnly, `/api/chat`, hashed),
+  history, reconnection, typing, genuine read receipts, files (images and PDF), honest
+  online/away state (hours plus a live staff heartbeat). Signed-in customers chat as themselves;
+  a guest chat joins an account only on the visitor's confirmation. `live_chat` module is now
+  available (off by default); off removes the widget and refuses chats and sockets.
+- **Meta channels (D-094).** One webhook `/api/webhooks/meta/` (verify token, HMAC-SHA256 over
+  the raw body, 1 MiB, routing only to this store's live connections, idempotent). Messenger,
+  Instagram (professional accounts linked to a Page) and the WhatsApp Cloud API: text, products,
+  approved utility templates, inbound media (SSRF-safe download, byte validation), receipts
+  (monotonic), revocation and suspension detection. Server-enforced windows (24 h; Human Agent
+  only if approved; WhatsApp templates only with recorded agreement, never marketing). Delivery:
+  queued, sending, accepted, delivered/read only when reported, failed, unknown (never resent
+  automatically). Connection flow: session-bound OAuth state, only accounts Meta lists, encrypted
+  token, webhook subscription before "connected"; verify, switch off, disconnect (token erased),
+  template sync. Development simulator (D-097), refused in production.
+- **Unified Inbox** (`/manage/inbox`, `messages.manage`): three areas (list, thread, details) and
+  a phone layout; views All, Unassigned, Mine, Unread; status and channel filters; search by
+  name, phone or order number; cursor pagination; assignment, take ownership, reassign;
+  statuses; internal notes (visually distinct); timeline; delivery states with deliberate
+  resend; product sharing; WhatsApp templates and opt-in/opt-out; linked orders and support
+  requests; live updates over WebSocket with 30-second polling only while disconnected.
+  Insights at `/manage/inbox/analytics` (D-098).
+- **Social commerce (D-097).** "Create order" from a conversation reuses the assisted order form
+  and engine unchanged (COD only, attestation, reviewed totals, stock, idempotency, no account);
+  needs `orders.manage` too. Source from the channel; `OrderSource` gains `instagram` and
+  `live_chat` (`orders.0006`). Order linked with a timeline event; existing orders can be linked.
+- **Settings** `/manage/settings/social` (`store.settings`; connect, select and disconnect need a
+  recent sign-in): live chat switch, texts, hours, languages, position; channel cards with
+  honest states and requirements.
+- **Notifications (D-098).** Three staff kinds (topic `conversations`); `emit` gained
+  `staff_users` and `exclude_staff`. No message text in alerts.
+- **Privacy and retention (D-096).** Plain-text rendering, private files, retention job
+  (365/180 days, attempts 90 days), tokens erased at disconnect.
+
+### Files and services
+
+- Backend (new): `commerce/communications/` (models, migrations 0001-0002, realtime, livechat,
+  policy, meta, connections, inbound, services, attachments, products, analytics, retention,
+  tasks, consumers, routing, serializers, views, urls, manage_urls, social_urls, command
+  `simulate_inbound`); `orders/migrations/0006_order_sources_instagram_live_chat.py`.
+- Backend (changed): `config/asgi.py` (Channels router), `config/urls.py`, settings (base: app,
+  ASGI, channel layer, Meta and communications settings, beat entries, enum names; production:
+  channel layer required, simulator refused, Meta id and secret together; test), `orders/models.py`
+  (sources), `stores/modules.py` (`live_chat` available), `notifications/registry.py` and
+  `services.py`, `openapi.yaml`, `pyproject.toml` and `uv.lock` (channels, channels-redis,
+  uvicorn[standard]; mypy overrides).
+- Tests (new): `test_communications.py`, `test_communications_meta.py`,
+  `test_communications_orders.py`, `test_communications_ws.py`, `comms_helpers.py`,
+  `ws_client.py`. Changed: `test_project.py` (production baseline gains the Phase 14 settings;
+  new guard tests).
+- Frontend: `packages/shared-contracts/src/communications.ts` (+ tests), `manage.ts` (sources)
+  and its test; `components/store/live-chat.tsx`, `store-shell.tsx`, `lib/i18n.ts`;
+  `components/manage/{inbox,inbox-analytics,social-settings}.tsx`, `inbox.test.tsx`,
+  `assisted-order.tsx` (optional conversation), `manage-app.tsx`, `settings.tsx`, `kit.tsx`,
+  `lib/manage-routes.ts`.
+- `compose.yaml`: commerce-api runs uvicorn (ASGI, polling reload, no access log),
+  `MATECART_CHANNEL_LAYER_URL` (Redis db 3), optional Meta values from `.env`, simulator on for
+  development. `.env.example`: optional Meta section. No new service, port or volume.
+- Docs: `COMMUNICATIONS.md` (new), DECISIONS D-092 to D-098 and Q8 to Q10, `ARCHITECTURE.md`,
+  `DATA_MODEL.md`, `SECURITY.md`, `DEVELOPMENT_SETUP.md`, `DEVELOPMENT_ROADMAP.md` (Phase 13
+  accepted, Phase 14 implemented locally), `FEATURE_CHECKLIST.md`, `MAIL_AND_NOTIFICATIONS.md`,
+  this file.
+- Migrations `communications.0001`/`0002` and `orders.0006` are applied to the local dev
+  database. The image was rebuilt; API, worker and beat were restarted.
+
+### Verification (observed locally, 2026-11-05)
+
+- `pnpm api:lint`: ruff, format and strict mypy passed (commerce 308 files with tests, control
+  52).
+- `makemigrations --check`: no changes. `manage.py check`: no issues. `pnpm api:schema`:
+  validated with no warnings (the committed `openapi.yaml` is regenerated; the schema-freshness
+  test passes).
+- `pnpm api:test`: commerce **1,067 passed**, control **57 passed**, 0 failed. New: 81 backend
+  tests (communications 25, Meta integrations 27, orders and website chat HTTP 16, WebSockets 13,
+  production guards 3) and one updated production baseline.
+  - WebSocket tests use real handshakes through `config.asgi` (Origin, cookies, durable `ack`,
+    reconnection `sync`, audience separation, frame size and rate limits, revocation closing
+    the socket, module switch-off) and one test fans out between two Redis channel-layer
+    instances (two workers).
+  - Concurrency on real PostgreSQL: 6 simultaneous first messages create one conversation with
+    sequences 1 to 6.
+- `pnpm check`: format, lint, typecheck and tests passed: contracts **81**, shared UI **78**,
+  commerce web **150**, Node scripts **5** (new: 7 contract, 5 web tests; one contract test
+  updated because `instagram` became a valid order source).
+- `pnpm build`: both apps built. `pnpm health`: all checks passed (one failure while the dev
+  servers reloaded right after the build, then passed).
+- **Total: 1,438 automated tests passed, 0 failed** (1,345 baseline + 93 new).
+- **Browser acceptance** (headless Chrome over DevTools, no new packages, real WebSockets through
+  the Next.js proxy, five isolated browser contexts): **25 of 25** in the final run.
+  - Website chat: switch on in Social channels; a guest starts a chat (HttpOnly `mc_chat` at
+    `/api/chat`, unreadable by page script, absent from web storage); the merchant sees it and
+    replies; the reply arrives live; follow-ups arrive live in the inbox; refresh keeps history;
+    with the API **stopped**, a reply stored meanwhile is recovered after the socket reconnects;
+    another visitor sees nothing (API, socket refused, inbox 401); closing updates the guest
+    live; a later message starts a new conversation (closed one kept); switching live chat off
+    removes the widget, refuses config and sockets, and keeps history; switched back on.
+  - Inbox: WhatsApp simulator connected and labelled; a simulated verified inbound message
+    appears live; a replayed provider id is stored once; channel filter; assignment to the order
+    handler (assigned and unread for them, read for the manager), take ownership; internal note
+    shown as staff-only and not a message; pending, resolved, reopened; product shared from the
+    catalogue (Handloom Cotton Kurti M, ৳1,850); phone layout (list, thread, back, no overflow);
+    content editor refused (page, navigation, API 403); widget on a phone without overflow and
+    hidden on checkout.
+  - Social order: from the WhatsApp conversation, "Create order" prefilled name and phone, 2 ×
+    Kurti M, Sylhet address, delivery method, attestation, total reviewed; placed as **WhatsApp,
+    COD, unpaid, no customer account, attested**; linked in the conversation with navigation; a
+    WhatsApp reply reached `accepted` (shown as "Sent", never "Delivered").
+  - No uncaught page errors.
+- **Defects found and fixed during verification:**
+  1. In development (React StrictMode) the closing first socket cleared the live one, so staff
+     `watch` and pings were silently dropped (visitors fell back to HTTP). Both clients now
+     ignore close events from replaced sockets.
+  2. On-commit callbacks read the tenant when they ran; delivery and media tasks now capture
+     the tenant id when they are registered.
+  3. Staff message and note events now carry their conversation id, so a late event never lands
+     in another thread after switching conversations.
+  4. The inbox effect depended on a per-render object and could reload repeatedly; it now
+     depends on the stable `watch` callback.
+  5. The initial migration created composite tenant keys before their targets; reordered.
+  6. OpenAPI component name collisions (`Connection`, `Template`, `ProductOption`) renamed.
+- **Not verified:** no live Meta (Messenger, Instagram, WhatsApp) connection, webhook delivery
+  from Meta or real provider media; these used scripted fakes and the simulator. No load test of
+  many concurrent sockets (Phase 18). Production ASGI serving behind a reverse proxy is Phase 17.
+
+### Local review data (controlled, additive)
+
+- Live chat is **on**. Several website conversations from acceptance (guest "Website visitor"
+  threads, some closed), and a **WhatsApp development simulator** connection with simulated
+  "Sadia …" conversations (labelled "Simulator" everywhere).
+- One COD order for 2 × Handloom Cotton Kurti (M), source WhatsApp, linked to a simulated
+  conversation, status placed and unpaid (stock reserved by the normal engine).
+- Accounts (passwords not stored; sessions revoked after acceptance):
+  `phase14-manager-f1722e@example.test` (Manager), `phase14-order_handler-f1722e@example.test`
+  (Order handler), `phase14-content_editor-f1722e@example.test` (Content editor). Use Forgot
+  password and Mailpit to sign in as one of them.
+
+### Known limits and owner decisions
+
+- **No live Meta connection.** Messenger, Instagram and WhatsApp are implemented against Meta's
+  documented APIs and verified with scripted fakes and the simulator only. Live use needs a Meta
+  app, app review and WhatsApp Embedded Signup (COMMUNICATIONS.md §10). Owner decisions: Q8
+  (one shared app or one per store), Q9 (Human Agent and app review), Q10 (retention periods).
+- Outbound files are supported in website chat only; external channels receive text, products
+  and templates (the inbox says so). Stickers, locations and other unsupported content are shown
+  as "unsupported".
+- Messenger echoes (messages sent from Meta Business Suite) are ignored, so replies written
+  outside MateCart do not appear in the thread.
+- Instagram: professional accounts linked to a Facebook Page only (Messenger Platform path).
+- Facebook Shop or catalogue synchronisation is not built (separate permissions).
+- Production serving (uvicorn/gunicorn workers, reverse proxy for WebSocket upgrades) is Phase 17;
+  development uses `uvicorn --reload`.
+- In one full acceptance run the "close updates the guest live" check failed once; it passed in
+  every other run (three) and in targeted reruns with and without an API restart. The cause was
+  not confirmed; the per-address connection limit was raised (30 to 120 per minute, shared NAT
+  addresses) and server-initiated socket closes are now logged with a reason.
+
+### Next step
+
+Owner reviews, commits and pushes; GitHub CI must pass. Then formal Phase 14 acceptance. Do not
+start Phase 15 before that.
+
+## Phase 13.1: SMS delivery integrity corrections (accepted and closed)
+
+**Accepted and closed** with Phase 13 at `7b4db22dcb3cd2d6476eafa5646eb5daee62c885`, GitHub
+Actions 41825876327 (4/4 jobs, 1,345 tests, 0 failed). The record below is historical.
 
 ### Root causes
 
@@ -101,10 +285,9 @@ Updated: 2026-11-04 (Asia/Dhaka).
 - **Not verified:** no real SMS gateway was used. Every outcome was exercised with test doubles.
   Live behaviour depends on each adapter raising `SmsRejected` correctly.
 
-### Next step
+### Next step (historical)
 
-Owner reviews, commits and pushes; GitHub CI must pass. Then formal Phase 13 acceptance
-(including 13.1). Do not start Phase 14 before that.
+Done: pushed as `7b4db22`, GitHub CI 41825876327 green, Phase 13 (with 13.1) accepted.
 
 ## Phase 13: Mail & Notification Engine (pushed as `116e8d4`; acceptance pending 13.1)
 

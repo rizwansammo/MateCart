@@ -107,6 +107,8 @@ export const ORDER_SOURCES = [
   'phone',
   'in_store',
   'other',
+  'instagram',
+  'live_chat',
 ] as const;
 export type OrderSource = (typeof ORDER_SOURCES)[number];
 export const ASSISTED_SOURCES = ORDER_SOURCES.filter(

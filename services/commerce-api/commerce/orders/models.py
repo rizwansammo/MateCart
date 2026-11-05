@@ -102,6 +102,10 @@ class OrderSource(models.TextChoices):
     PHONE = "phone", "Phone call"
     IN_STORE = "in_store", "In store"
     OTHER = "other", "Other"
+    # Phase 14 (D-097): orders staff create from an Instagram Direct or website chat conversation.
+    # Messenger conversations use FACEBOOK; WhatsApp conversations use WHATSAPP.
+    INSTAGRAM = "instagram", "Instagram"
+    LIVE_CHAT = "live_chat", "Website chat"
 
 
 ASSISTED_SOURCES = tuple(value for value in OrderSource.values if value != OrderSource.STOREFRONT)

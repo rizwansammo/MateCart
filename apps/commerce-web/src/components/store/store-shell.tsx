@@ -4,6 +4,7 @@ import type { ReactNode } from 'react';
 
 import type { StoreContext } from '@/lib/store-context';
 
+import { LiveChat } from './live-chat';
 import { StoreFooter } from './store-footer';
 import { StoreHeader } from './store-header';
 import { TrackingProvider } from './tracking';
@@ -37,6 +38,8 @@ export function StoreShell({
         </main>
         <StoreFooter ctx={ctx} categories={categories} />
         <TrackingProvider config={ctx.config.tracking} lang={ctx.lang} />
+        {/* Phase 14: MateCart's own chat, only while the live chat module is on (D-093). */}
+        {ctx.config.modules.includes('live_chat') && <LiveChat lang={ctx.lang} />}
       </div>
     </StoreThemeScope>
   );

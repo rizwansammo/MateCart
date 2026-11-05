@@ -198,7 +198,10 @@ describe('merchant order contracts', () => {
     expect(detail.source).toBe('facebook');
     expect(detail.assisted?.customer_request_attested).toBe(true);
     expect(detail.allowed_transitions).toEqual(['confirmed', 'cancelled']);
-    expect(() => merchantOrderDetail({ ...order, source: 'instagram' })).toThrow();
+    // Phase 14 added Instagram and website chat sources; anything else is still refused.
+    expect(merchantOrderDetail({ ...order, source: 'instagram' }).source).toBe('instagram');
+    expect(merchantOrderDetail({ ...order, source: 'live_chat' }).source).toBe('live_chat');
+    expect(() => merchantOrderDetail({ ...order, source: 'telegram' })).toThrow();
   });
 
   it('pages merchant order summaries', () => {

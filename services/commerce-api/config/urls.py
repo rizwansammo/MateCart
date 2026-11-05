@@ -48,6 +48,12 @@ urlpatterns: list[URLPattern | URLResolver] = [
     # customer inbox and preferences; signed unsubscribe links.
     path("api/manage/notifications/", include("commerce.notifications.manage_urls")),
     path("api/", include("commerce.notifications.urls")),
+    # Phase 14 social commerce and unified inbox: staff inbox and channel settings; the website
+    # chat widget's own endpoints; the signed Meta webhook. WebSockets: commerce.communications
+    # .routing (/api/chat/ws/, /api/manage/ws/inbox/).
+    path("api/manage/inbox/", include("commerce.communications.manage_urls")),
+    path("api/manage/communications/", include("commerce.communications.social_urls")),
+    path("api/", include("commerce.communications.urls")),
 ]
 
 if settings.API_SCHEMA_ENABLED:

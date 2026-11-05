@@ -18,8 +18,8 @@
 | 10  | Customer Accounts & After-sales             | B — Commerce Application      | **Accepted and closed**, including 10.1 (`6fe1a8c`, CI 41115310035: 4/4, 1,085 tests).        |
 | 11  | Merchant Management Dashboard               | B — Commerce Application      | **Accepted and closed**, including 11.1 (`13043bb`, CI 41656247516: 4/4, 1,144 tests).        |
 | 12  | Marketing, SEO & Analytics                  | C — Growth & Integrations     | **Accepted and closed**, including corrections (`bdcac40`, CI 41777281655: 4/4, 1,258 tests). |
-| 13  | Mail & Notification Engine                  | C — Growth & Integrations     | **Implemented locally**; owner review, commit and CI pending                                  |
-| 14  | Social Commerce & Unified Inbox             | C — Growth & Integrations     | Pending                                                                                       |
+| 13  | Mail & Notification Engine                  | C — Growth & Integrations     | **Accepted and closed**, including 13.1 (`7b4db22`)                                           |
+| 14  | Social Commerce & Unified Inbox             | C — Growth & Integrations     | **Implemented locally**; owner review, commit and CI pending                                  |
 | 15  | AI & Advanced Extensions                    | C — Growth & Integrations     | Pending                                                                                       |
 | 16  | Central Platform Console                    | D — Platform & Infrastructure | Pending                                                                                       |
 | 17  | Deployment Automation                       | D — Platform & Infrastructure | Pending                                                                                       |
@@ -211,11 +211,20 @@ explicit unknown-outcome rule and a MateCart beat sweeper; SMTP with sender proo
 connections; IMAP verification; the MateMail Connected App (audited, used as documented);
 branded English/Bangla templates; an SMS gateway with approved senders and segment accounting;
 merchant and customer in-app notifications, preferences, marketing consent and unsubscribe.
-Pending owner review, commit/push, GitHub CI and acceptance.
+Accepted and closed with its SMS integrity corrections (13.1, D-091) at `7b4db22`, GitHub Actions
+41825876327 (4/4 jobs, 1,345 tests).
 
 ### Phase 14 — Social Commerce & Unified Inbox
 
 Facebook, Messenger, WhatsApp, website chat, social commerce, unified customer communications.
+
+Implemented locally (D-092 to D-098, [COMMUNICATIONS.md](COMMUNICATIONS.md)): MateCart-native
+website live chat over WebSocket (Channels, Redis channel layer, uvicorn); a unified inbox with
+assignment, notes, statuses, per-staff unread state, live updates, search and analytics;
+Messenger, WhatsApp Cloud API and Instagram Direct through one signed webhook, provider-scoped
+identities, messaging windows, approved templates and honest delivery states; product sharing
+and COD orders from conversations through the assisted order engine. Live Meta use needs a Meta
+app per store and app review. Pending owner review, commit/push, GitHub CI and acceptance.
 
 ### Phase 15 — AI & Advanced Extensions
 

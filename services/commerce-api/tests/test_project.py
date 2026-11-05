@@ -38,6 +38,11 @@ def _manage_with_production_settings(*args: str, **env: str) -> subprocess.Compl
         "MATECART_SMS_PROVIDER": "",
         "GOOGLE_OIDC_CLIENT_ID": "",
         "GOOGLE_OIDC_CLIENT_SECRET": "",
+        # Phase 14: a shared channel layer for WebSockets, no simulator, Meta app optional.
+        "MATECART_CHANNEL_LAYER_URL": "redis://redis.example.com:6379/3",
+        "MATECART_CHANNEL_SIMULATOR": "false",
+        "META_APP_ID": "",
+        "META_APP_SECRET": "",
     }
     return subprocess.run(
         [sys.executable, "manage.py", *args],
@@ -171,3 +176,24 @@ def test_deployments_hash_passwords_with_argon2() -> None:
         rule["NAME"].endswith("MinimumLengthValidator") and rule["OPTIONS"]["min_length"] >= 10
         for rule in base.AUTH_PASSWORD_VALIDATORS
     )
+
+
+@pytest.mark.parametrize(
+    ("override", "message"),
+    [
+        ({"MATECART_CHANNEL_SIMULATOR": "true"}, "MATECART_CHANNEL_SIMULATOR"),
+        ({"MATECART_CHANNEL_LAYER_URL": ""}, "MATECART_CHANNEL_LAYER_URL"),
+        ({"META_APP_ID": "123", "META_APP_SECRET": ""}, "META_APP_SECRET"),
+    ],
+)
+def test_production_refuses_unsafe_communications_settings(
+    override: dict[str, str], message: str
+) -> None:
+    result = _manage_with_production_settings(
+        "check",
+        DJANGO_SECRET_KEY=secrets.token_urlsafe(64),
+        DJANGO_ALLOWED_HOSTS="store.example.com",
+        **override,
+    )
+    assert result.returncode != 0
+    assert message in result.stderr

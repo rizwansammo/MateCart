@@ -21,6 +21,12 @@ dependencies = [
     "phonenumbers>=9.0.41",  # E.164 phone normalisation (Apache-2.0)
     "tzdata>=2026.5",  # IANA time zone database, independent of the OS image
     "pillow>=12.3.0,<13",  # server-side image verification for catalogue media (MIT-CMU, D-050)
+    # Phase 14 (D-092): WebSocket live chat. Channels declares Django 5.2 and Python 3.13
+    # support; channels-redis fans events out across ASGI workers through the store's own Redis.
+    "channels>=4.3.2,<5",
+    "channels-redis>=4.3.0,<5",
+    # ASGI server for HTTP and WebSocket (development reload; Phase 17 adds production workers).
+    "uvicorn[standard]>=0.54.0",
 ]
 
 [dependency-groups]
@@ -66,6 +72,15 @@ exclude = ["/migrations/"]
 [[tool.mypy.overrides]]
 module = ["environ"]
 ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+# Channels and channels-redis ship no type information (types-channels needs django-stubs 6).
+module = ["channels", "channels.*", "channels_redis", "channels_redis.*"]
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = ["commerce.communications.consumers"]
+disallow_subclassing_any = false
 
 [[tool.mypy.overrides]]
 module = ["config.settings.*"]

@@ -13,3 +13,4 @@ export * from './after-sales';
 export * from './manage';
 export * from './marketing';
 export * from './notifications';
+export * from './communications';

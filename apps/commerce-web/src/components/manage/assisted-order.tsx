@@ -128,11 +128,28 @@ function ProductPicker({
   );
 }
 
-export function AssistedOrderForm({ session }: { session: StaffSession }) {
+/** The conversation an order comes from (Phase 14): its channel decides the order source. */
+export interface OrderConversation {
+  id: string;
+  channelLabel: string;
+  sourceLabel: string;
+  name: string;
+  phone: string;
+}
+
+export function AssistedOrderForm({
+  session,
+  conversation,
+}: {
+  session: StaffSession;
+  conversation?: OrderConversation;
+}) {
   const [lines, setLines] = useState<Line[]>([]);
+  // Contact details from a conversation are only a starting point: staff confirm them with the
+  // customer before placing the order (no guessed address is ever filled in).
   const [details, setDetails] = useState({
-    recipient_name: '',
-    contact_phone: '',
+    recipient_name: conversation?.name ?? '',
+    contact_phone: conversation?.phone ?? '',
     contact_email: '',
     address_line_1: '',
     address_line_2: '',
@@ -218,13 +235,16 @@ export function AssistedOrderForm({ session }: { session: StaffSession }) {
     setBusy(true);
     setError('');
     try {
+      const endpoint = conversation
+        ? `/api/manage/inbox/conversations/${conversation.id}/orders/`
+        : '/api/manage/orders/assisted/';
+      const origin = conversation ? {} : { source, source_reference: reference };
       const order = merchantOrderDetail(
-        await api.post<unknown>('/api/manage/orders/assisted/', {
+        await api.post<unknown>(endpoint, {
           ...details,
           ...pricing,
           payment_method: 'cod',
-          source,
-          source_reference: reference,
+          ...origin,
           customer_request_attested: attested,
           idempotency_key: key.current,
           // The server refuses the order if its own totals differ from the ones reviewed here.
@@ -259,11 +279,27 @@ export function AssistedOrderForm({ session }: { session: StaffSession }) {
         void submit();
       }}
     >
-      <PageHeader
-        eyebrow="Orders"
-        title="Create manual order"
-        intro="For orders customers place by phone, Facebook, WhatsApp or in person. Prices, stock, delivery charges and tax come from your store's normal rules; the order is unpaid until cash is collected."
-      />
+      {conversation ? (
+        <PageHeader
+          eyebrow="Inbox"
+          title={`Create order for ${conversation.name || 'this customer'}`}
+          intro={`From a ${conversation.channelLabel} conversation. Prices, stock, delivery charges and tax come from your store's normal rules; the order is unpaid until cash is collected. Nothing is sent to the customer automatically.`}
+          actions={
+            <a
+              href={`/manage/inbox/${conversation.id}`}
+              className="text-sm font-semibold text-brand-deep hover:underline"
+            >
+              Back to the conversation
+            </a>
+          }
+        />
+      ) : (
+        <PageHeader
+          eyebrow="Orders"
+          title="Create manual order"
+          intro="For orders customers place by phone, Facebook, WhatsApp or in person. Prices, stock, delivery charges and tax come from your store's normal rules; the order is unpaid until cash is collected."
+        />
+      )}
       <Feedback error={error} />
       <div className="grid gap-6 xl:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
         <div className="grid content-start gap-6">
@@ -406,21 +442,31 @@ export function AssistedOrderForm({ session }: { session: StaffSession }) {
             </p>
           </Card>
           <Card title="3. Where the order came from">
-            <div className="grid gap-4 sm:grid-cols-2">
-              <SelectField
-                label="Order source"
-                value={source}
-                onChange={(e) => setSource(e.target.value)}
-                options={ASSISTED_SOURCES.map((value) => ({ value, label: label(SOURCE, value) }))}
-              />
-              <TextField
-                label="Reference (optional)"
-                maxLength={120}
-                placeholder="e.g. chat name or call time"
-                value={reference}
-                onChange={(e) => setReference(e.target.value)}
-              />
-            </div>
+            {conversation ? (
+              <p className="text-sm">
+                Source: <span className="font-semibold">{conversation.sourceLabel}</span>. The order
+                is linked to this conversation.
+              </p>
+            ) : (
+              <div className="grid gap-4 sm:grid-cols-2">
+                <SelectField
+                  label="Order source"
+                  value={source}
+                  onChange={(e) => setSource(e.target.value)}
+                  options={ASSISTED_SOURCES.map((value) => ({
+                    value,
+                    label: label(SOURCE, value),
+                  }))}
+                />
+                <TextField
+                  label="Reference (optional)"
+                  maxLength={120}
+                  placeholder="e.g. chat name or call time"
+                  value={reference}
+                  onChange={(e) => setReference(e.target.value)}
+                />
+              </div>
+            )}
             <label className="mt-4 flex gap-3 rounded-base border border-line p-3 text-sm">
               <input
                 type="checkbox"

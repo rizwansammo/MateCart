@@ -313,8 +313,14 @@ Delivery requirements:
 
 ## Growth, social and AI
 
-- [x] Campaigns, loyalty, SEO, analytics, Meta Pixel and CAPI, consent management (12; acceptance pending)
-- [ ] Facebook, Messenger, WhatsApp, website chat; unified inbox; social commerce (14)
+- [x] Campaigns, loyalty, SEO, analytics, Meta Pixel and CAPI, consent management (12)
+- [x] Website live chat over WebSocket: MateCart-native widget, guest credential, reconnection and recovery, module gating (14, D-092, D-093)
+- [x] Unified inbox: list, filters, search, cursor pagination, assignment, notes, status, per-staff unread, live updates, phone layout (14)
+- [x] Messenger, WhatsApp Cloud API and Instagram Direct adapters: signed webhooks, provider-scoped identities, messaging windows, templates, receipts, media (14, D-094); verified with fakes and the development simulator
+- [ ] Live Meta acceptance (needs a Meta app per store, app review, Human Agent approval for 7-day replies, WhatsApp Embedded Signup; DECISIONS Q8, Q9)
+- [x] Social commerce: product sharing from the catalogue, COD orders from conversations through the assisted engine, order links (14, D-097)
+- [x] Conversation alerts, inbox analytics and team activity (14, D-098); retention and privacy controls (D-096)
+- [ ] Facebook Shop or catalogue synchronisation (separate permissions; not built)
 - [ ] Provider-independent AI layer, GroqCloud first; product content, image analysis, support replies, marketing, BI (15)
 
 ## Customer accounts and after sales (Phase 10)

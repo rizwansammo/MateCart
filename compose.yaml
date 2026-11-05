@@ -47,6 +47,14 @@ x-commerce-api-environment: &commerce-api-environment
   GOOGLE_OIDC_CLIENT_SECRET: ${MATECART_GOOGLE_OIDC_CLIENT_SECRET:-}
   # Uploaded catalogue media (tenant-namespaced paths), outside the bind-mounted source tree.
   MATECART_MEDIA_ROOT: /var/lib/matecart/media
+  # Phase 14 (D-092): WebSocket events between ASGI workers, on the store's own Redis (db 3).
+  MATECART_CHANNEL_LAYER_URL: redis://:${MATECART_COMMERCE_REDIS_PASSWORD}@commerce-redis:6379/3
+  # Meta app (optional, .env): empty keeps Messenger, Instagram and WhatsApp at "configuration
+  # required". The labelled development simulator (D-097) allows local acceptance without Meta.
+  META_APP_ID: ${MATECART_META_APP_ID:-}
+  META_APP_SECRET: ${MATECART_META_APP_SECRET:-}
+  META_WEBHOOK_VERIFY_TOKEN: ${MATECART_META_WEBHOOK_VERIFY_TOKEN:-}
+  MATECART_CHANNEL_SIMULATOR: 'true'
 
 x-commerce-api-build: &commerce-api-build
   context: ./services/commerce-api
@@ -93,13 +101,17 @@ services:
   commerce-api:
     build: *commerce-api-build
     image: matecart-dev/commerce-api:dev
+    # ASGI (HTTP + WebSocket, D-092). Polling reload works on Windows bind mounts; access logs
+    # stay off because URLs can carry one-time tokens.
     command:
       [
         'sh',
         '-c',
-        'python manage.py migrate --noinput && exec python manage.py runserver 0.0.0.0:8000',
+        'python manage.py migrate --noinput && exec uvicorn config.asgi:application --host 0.0.0.0 --port 8000 --reload --reload-dir /app --no-access-log --ws-max-size 65536 --no-proxy-headers --lifespan off',
       ]
-    environment: *commerce-api-environment
+    environment:
+      <<: *commerce-api-environment
+      WATCHFILES_FORCE_POLLING: 'true'
     ports:
       - '127.0.0.1:${MATECART_COMMERCE_API_PORT:-8400}:8000'
     volumes:

@@ -1216,14 +1216,106 @@ idempotency_conflict`. The free-text reason, actor and a batch's supplier
 - **Not changed:** the engine, email transports, the dashboard and the API shape (`balance`
   keeps its fields; `used` now includes reserved and held units).
 
+### D-092 · Real-time transport: Django Channels on ASGI with a Redis channel layer (2026-11-05, Phase 14)
+
+- **Choice.** `channels` 4.3.2 (declares Django 5.2 and Python 3.13) with `channels-redis`
+  4.3.0 on the store's own Redis (database 3), served by `uvicorn[standard]` 0.54. One ASGI
+  application (`config.asgi`) serves HTTP (unchanged Django) and WebSocket. No separate
+  messaging service. Daphne was not chosen (Twisted stack); `types-channels` needs django-stubs 6,
+  so mypy ignores the untyped packages narrowly.
+- **Record versus transport.** PostgreSQL is the record. Events are published after commit; an
+  acknowledgement is sent only for a committed message; a broker failure never fails the
+  operation and clients reconcile on reconnect. Redis is never the only copy of anything.
+- **Routing.** Next.js proxies `/api/*` upgrades in development and `next start`; production
+  routes `/api/*` (including upgrades) to the API in Phase 17. Staff sockets are under
+  `/api/manage/ws/` because the staff cookie is path-scoped there.
+- **Development server.** `uvicorn --reload` with polling (Windows bind mounts), no access log
+  (URLs can carry one-time tokens), `--ws-max-size 65536`, no proxy-header trust.
+- **Production guard.** `MATECART_CHANNEL_LAYER_URL` is required, so every worker shares events.
+
+### D-093 · Website live chat: MateCart-native widget, guest credential and genuine availability (2026-11-05, Phase 14)
+
+- No third-party chat widget or script. The `live_chat` module (registry) is now available and
+  off by default; off removes the widget, refuses `/api/chat/*` and sockets, keeps history.
+- Guests get an opaque `mc_chat` credential (HttpOnly, Lax, path `/api/chat`, 30 days sliding,
+  hashed at rest), issued only when they write. It authorises one participant and nothing else;
+  web storage never holds it.
+- "Online" means opening hours (store time zone) and at least one staff socket with a live
+  heartbeat. Otherwise the away message shows. No fabricated availability or reply times.
+- Hidden on checkout pages and layered below the consent banner, so it never covers payment,
+  order or consent controls.
+
+### D-094 · Meta channels: one signed webhook, provider-scoped identities, honest delivery (2026-11-05, Phase 14)
+
+- Official APIs only (Graph API version in `META_GRAPH_API_VERSION`): Messenger Send API, the
+  Messenger Platform for Instagram professional accounts linked to a Page, and the WhatsApp
+  Cloud API. No scraping, personal-account automation or unofficial clients.
+- Webhooks: HMAC-SHA256 over the raw body with the app secret before parsing; routed only to a
+  live connection of this store by the account id the event names; provider ids unique per
+  connection; receipts monotonic.
+- Delivery states: queued, sending, accepted, delivered and read only when reported, failed,
+  unknown. Unknown outcomes are never resent automatically (no provider idempotency key);
+  bounded retries only for requests that never reached Meta and for rate limits. No cross-channel
+  failover.
+- Messaging rules are enforced on the server (`policy.reply_policy`): 24-hour windows; Human
+  Agent tag only when Meta approved it for the app; WhatsApp outside the window only with
+  approved utility templates and recorded agreement; no marketing templates; no bulk sending.
+- Meta's pricing category is displayed only; no conversation billing or credit purchasing.
+
+### D-095 · Participants are not customers; association only by proof (2026-11-05, Phase 14)
+
+- `Participant` (channel identity) and `identity.User` (customer account) stay separate. No
+  account is created from a message; nothing is merged by name, phone or email.
+- Verified association: a signed-in customer chats as themselves; a guest chat joins an account
+  only when the visitor confirms it while holding both credentials. External participants are
+  never associated in this phase.
+
+### D-096 · Conversation privacy, rendering and retention (2026-11-05, Phase 14)
+
+- All message text is plain text, rendered escaped; control characters are removed; files are
+  validated from their bytes and served only through checked views with `nosniff`, a sandbox CSP
+  and `private, no-store`.
+- Internal notes live in their own table and are published only to staff groups.
+- Retention defaults: closed conversations 365 days after closing, guest website conversations
+  180 days after the last message: text, product snapshots, provider ids, files and notes are
+  removed; rows, counts and order links stay. Expired guest credentials cleared; delivery
+  attempts kept 90 days; tokens erased at disconnect. Configurable per deployment. This is
+  data minimisation, not a legal compliance claim.
+
+### D-097 · Orders from conversations through the assisted engine; development simulator (2026-11-05, Phase 14)
+
+- No social order engine: `place_assisted_order` (D-077) unchanged, COD only, explicit
+  `customer_request_attested`, reviewed totals, idempotency, no account. Requires
+  `messages.manage` and `orders.manage`.
+- `OrderSource` gains `instagram` and `live_chat` (migration `orders.0006`); Messenger stays
+  `facebook`. Provenance: `AssistedOrder` (creator, attestation, reference) plus
+  `ConversationOrderLink` and a timeline event.
+- Development simulator: a connection flagged `is_simulated`, labelled in every view, whose
+  adapter answers locally; `simulate_inbound` feeds Meta-format payloads into the post-signature
+  processing. `MATECART_CHANNEL_SIMULATOR` is refused by production settings.
+
+### D-098 · Inbox alerts, unread semantics and operational metrics (2026-11-05, Phase 14)
+
+- Alerts use the Phase 13 engine (three kinds, topic `conversations`); messages are never
+  stored as notifications. `emit` gained `staff_users` (assignee-only alerts) and
+  `exclude_staff` (someone already viewing).
+- Unread is per staff member (`ConversationReadState`); reading never changes anyone else's
+  count. Visitor read receipts (website) and provider receipts are separate and shown only when
+  reported.
+- Metrics come from stored rows over store-local days; first response counts human replies
+  only; a linked order is a reference, not attribution; paid linked value needs `reports.view`.
+
 ## Open questions for the owner
 
-| #   | Question                                                                                                                                   | Status                                                                                                    | Needed by |
-| --- | ------------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------- | --------- |
-| Q1  | Does the **Optimus Custom** font licence allow redistribution and web embedding?                                                           | Open. Not relevant to Phase 02.                                                                           | Phase 05  |
-| Q2  | Is **Redis 8** licensing (RSALv2 / SSPLv1 / AGPLv3) acceptable for client deployments, or should we switch to **Valkey** (BSD-3, drop-in)? | Open. Redis stays as adopted; nothing in Phase 02 depends on it. Reviewed with infrastructure.            | Phase 17  |
-| Q3  | Initial market: Bangladesh?                                                                                                                | **Resolved (Phase 02 brief):** Bangladesh is the first market; data structures are international (D-031). | —         |
-| Q4  | Merchant dashboard placement                                                                                                               | **Resolved:** `/manage` on the storefront domain in commerce-web (D-044).                                 | —         |
-| Q5  | Branching and first commit.                                                                                                                | **Resolved:** Phase 01 committed on `main` (`8f3e34b`).                                                   | —         |
-| Q6  | Customer login methods                                                                                                                     | **Resolved:** email/password, phone OTP and Google OIDC; real provider gates apply (D-043).               | —         |
-| Q7  | Customer versus merchant identity                                                                                                          | **Resolved:** separate accounts, credentials, sessions and permissions, even for matching emails (D-040). | —         |
+| #   | Question                                                                                                                                                                                                      | Status                                                                                                                | Needed by            |
+| --- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- | -------------------- |
+| Q1  | Does the **Optimus Custom** font licence allow redistribution and web embedding?                                                                                                                              | Open. Not relevant to Phase 02.                                                                                       | Phase 05             |
+| Q2  | Is **Redis 8** licensing (RSALv2 / SSPLv1 / AGPLv3) acceptable for client deployments, or should we switch to **Valkey** (BSD-3, drop-in)?                                                                    | Open. Redis stays as adopted; nothing in Phase 02 depends on it. Reviewed with infrastructure.                        | Phase 17             |
+| Q3  | Initial market: Bangladesh?                                                                                                                                                                                   | **Resolved (Phase 02 brief):** Bangladesh is the first market; data structures are international (D-031).             | —                    |
+| Q4  | Merchant dashboard placement                                                                                                                                                                                  | **Resolved:** `/manage` on the storefront domain in commerce-web (D-044).                                             | —                    |
+| Q5  | Branching and first commit.                                                                                                                                                                                   | **Resolved:** Phase 01 committed on `main` (`8f3e34b`).                                                               | —                    |
+| Q6  | Customer login methods                                                                                                                                                                                        | **Resolved:** email/password, phone OTP and Google OIDC; real provider gates apply (D-043).                           | —                    |
+| Q7  | Customer versus merchant identity                                                                                                                                                                             | **Resolved:** separate accounts, credentials, sessions and permissions, even for matching emails (D-040).             | —                    |
+| Q8  | One shared NetaMate Meta app for every store, or a Meta app per store? Messenger and Instagram webhooks are per app, so a shared app needs a central webhook router, which conflicts with store independence. | Open. Phase 14 works per deployment (each store's own app and webhook URL); a router would be a Phase 16/17 decision. | Before live Meta use |
+| Q9  | Should NetaMate apply for Meta's Human Agent feature (7-day replies) and app review for the messaging permissions?                                                                                            | Open. Disabled until approved (`META_HUMAN_AGENT_APPROVED`).                                                          | Before live Meta use |
+| Q10 | Are the default retention periods (closed conversations 365 days, guest chats 180 days) right for your clients?                                                                                               | Open. Defaults set conservatively and configurable (D-096).                                                           | Phase 18             |

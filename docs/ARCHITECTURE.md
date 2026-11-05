@@ -1,7 +1,7 @@
 # Architecture
 
-Status: Phase 13 (mail and notifications) implemented locally, pending acceptance. Phases
-01–12 and their corrective subphases are accepted and closed. Sections marked **(planned)** describe later
+Status: Phase 14 (social commerce and unified inbox) implemented locally, pending acceptance.
+Phases 01–13 and their corrective subphases are accepted and closed. Sections marked **(planned)** describe later
 work. Schema: [DATA_MODEL.md](DATA_MODEL.md). Authentication: [AUTHENTICATION.md](AUTHENTICATION.md),
 security controls: [SECURITY.md](SECURITY.md).
 
@@ -217,6 +217,17 @@ Outside the database: cache keys use `tenant_cache_key(...)` (`tenant:<id>:...`)
   MateCart-only Celery beat (`commerce-beat`) sweeps the outbox and runs scheduled jobs.
   Authentication codes keep their synchronous after-commit path through the store transport.
 
+- **Communications and real time (Phase 14).** `commerce.communications` owns channel
+  connections, participants, conversations, messages, notes, timelines, read state, order links,
+  WhatsApp templates and website chat settings (D-092 to D-098,
+  [COMMUNICATIONS.md](COMMUNICATIONS.md)). `config.asgi` serves HTTP (Django) and WebSocket
+  (Channels) from one application; a Redis channel layer (database 3) distributes events between
+  ASGI workers after each commit, while PostgreSQL stays the record. Meta webhooks
+  (`/api/webhooks/meta/`) are verified with the app secret and routed only to this store's live
+  connections; outbound provider calls are Celery tasks outside locks. Orders from conversations
+  call the assisted order engine (D-077) unchanged. Website chat needs no external service, and a
+  Meta outage never affects website chat or checkout.
+
 ### Independence from the Central Console
 
 - Stores never need `control-api` at runtime. Licensing and configuration must not depend on a continuously reachable central endpoint.
@@ -229,8 +240,9 @@ Outside the database: cache keys use `tenant_cache_key(...)` (`tenant:<id>:...`)
 | ------------------ | ------------------------ | ---------------------------------------------------------- | ----------------------- |
 | `commerce-web`     | host (`pnpm dev`)        | http://127.0.0.1:3400                                      | —                       |
 | `platform-console` | host (`pnpm dev`)        | http://127.0.0.1:3410                                      | —                       |
-| `commerce-api`     | Docker                   | http://127.0.0.1:8400                                      | `matecart-dev-commerce` |
+| `commerce-api`     | Docker (uvicorn, ASGI)   | http://127.0.0.1:8400 (HTTP and WebSocket)                 | `matecart-dev-commerce` |
 | `commerce-worker`  | Docker                   | not published                                              | `matecart-dev-commerce` |
+| `commerce-beat`    | Docker                   | not published (scheduled sweeps and housekeeping)          | `matecart-dev-commerce` |
 | `commerce-db`      | Docker                   | 127.0.0.1:15440 (PostgreSQL 18)                            | `matecart-dev-commerce` |
 | `commerce-redis`   | Docker                   | 127.0.0.1:16380 (Redis 8, password protected)              | `matecart-dev-commerce` |
 | `control-api`      | Docker                   | http://127.0.0.1:8410                                      | `matecart-dev-control`  |
@@ -238,7 +250,7 @@ Outside the database: cache keys use `tenant_cache_key(...)` (`tenant:<id>:...`)
 | `control-redis`    | Docker                   | internal only (independent rate-limit Redis)               | `matecart-dev-control`  |
 | `mailpit`          | Docker, development only | http://127.0.0.1:18025 (testing inbox; SMTP internal only) | both MateCart networks  |
 
-Commerce and control use separate networks, so control-api cannot reach the commerce database. Only local Mailpit joins both for testing; it has no mail-forwarding configuration. Commerce Redis databases: `0` cache/rate limits, `1` Celery broker, `2` results. Control has its own Redis instance/volume, never commerce Redis.
+Commerce and control use separate networks, so control-api cannot reach the commerce database. Only local Mailpit joins both for testing; it has no mail-forwarding configuration. Commerce Redis databases: `0` cache/rate limits, `1` Celery broker, `2` results, `3` WebSocket channel layer (Phase 14). Control has its own Redis instance/volume, never commerce Redis.
 
 ## 5. Cross-cutting foundations
 

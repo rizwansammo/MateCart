@@ -225,7 +225,9 @@ REGISTRY: tuple[ModuleSpec, ...] = (
         True,
         requires=("cart_checkout", "customer_accounts"),
     ),
-    ModuleSpec("live_chat", "Live chat", "Website chat and unified inbox.", "14", False),
+    # Phase 14 (D-093): implemented; off until the merchant switches it on. Off removes the
+    # widget and refuses new chats and sockets; conversation history is kept.
+    ModuleSpec("live_chat", "Live chat", "Website chat and unified inbox.", "14", True),
     ModuleSpec("ai_assistant", "AI assistant", "AI help with product content.", "15", False),
 )
 BY_KEY = {spec.key: spec for spec in REGISTRY}

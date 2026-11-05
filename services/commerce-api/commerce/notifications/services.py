@@ -225,13 +225,28 @@ def emit(
     link_path: str = "",
     staff_link_path: str = "",
     staff_in_app: bool = True,
+    staff_users: Sequence[User] | None = None,
+    exclude_staff: Iterable[Any] = (),
 ) -> list[Notification]:
-    """Create the notifications for one business event. Never raises into the caller."""
+    """Create the notifications for one business event. Never raises into the caller.
+
+    ``staff_users`` narrows a staff event to those members (for example the assignee of a
+    conversation); each must still hold the kind's permission. ``exclude_staff`` (user ids)
+    skips members who already see the change live (Phase 14)."""
     kind = BY_KEY[kind_key]
     try:
         with transaction.atomic():
             created = _emit(
-                kind, event_id, values, customer, related, link_path, staff_link_path, staff_in_app
+                kind,
+                event_id,
+                values,
+                customer,
+                related,
+                link_path,
+                staff_link_path,
+                staff_in_app,
+                staff_users,
+                frozenset(str(pk) for pk in exclude_staff),
             )
     except Exception:
         logger.exception("Notification not recorded (kind=%s)", kind_key)
@@ -250,6 +265,8 @@ def _emit(
     link_path: str,
     staff_link_path: str,
     staff_in_app: bool = True,
+    staff_users: Sequence[User] | None = None,
+    exclude_staff: frozenset[str] = frozenset(),
 ) -> list[Notification]:
     brand = branding()
     now = timezone.now()
@@ -266,7 +283,13 @@ def _emit(
                 if channel != Channel.EMAIL or customer.email
             )
         else:
-            for user in staff_recipients(kind.permission):
+            members = staff_recipients(kind.permission)
+            if staff_users is not None:
+                wanted = {user.pk for user in staff_users}
+                members = [user for user in members if user.pk in wanted]
+            for user in members:
+                if str(user.pk) in exclude_staff:
+                    continue
                 staff = Recipient(user=user, email=user.email or "", name=user.full_name)
                 if staff_in_app:
                     targets.append((Channel.IN_APP, staff, kind.permission))

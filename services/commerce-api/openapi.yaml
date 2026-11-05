@@ -1109,6 +1109,126 @@ paths:
               schema:
                 $ref: '#/components/schemas/PublicProductDetail'
           description: ''
+  /api/chat/attachments/:
+    post:
+      operationId: chat_upload
+      description: Base for every cookie-authenticated or sign-in endpoint.
+      tags:
+      - chat
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+      security:
+      - customerSession: []
+      - {}
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VisitorMessage'
+          description: ''
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VisitorMessage'
+          description: ''
+  /api/chat/attachments/{attachment_id}/:
+    get:
+      operationId: chat_attachment
+      description: Base for every cookie-authenticated or sign-in endpoint.
+      parameters:
+      - in: path
+        name: attachment_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - chat
+      security:
+      - customerSession: []
+      - {}
+      responses:
+        '200':
+          description: The file.
+  /api/chat/config/:
+    get:
+      operationId: chat_config
+      description: Base for every cookie-authenticated or sign-in endpoint.
+      parameters:
+      - in: query
+        name: after_seq
+        schema:
+          type: integer
+          minimum: 0
+      - in: query
+        name: locale
+        schema:
+          enum:
+          - en
+          - bn
+          type: string
+          default: en
+          minLength: 1
+        description: |-
+          * `en` - en
+          * `bn` - bn
+      tags:
+      - chat
+      security:
+      - customerSession: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChatState'
+          description: ''
+  /api/chat/link-account/:
+    post:
+      operationId: chat_link_account
+      description: Base for every cookie-authenticated or sign-in endpoint.
+      tags:
+      - chat
+      security:
+      - customerSession: []
+      - {}
+      responses:
+        '204':
+          description: No response body
+  /api/chat/messages/:
+    post:
+      operationId: chat_send
+      description: Base for every cookie-authenticated or sign-in endpoint.
+      tags:
+      - chat
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChatSendInputRequest'
+        required: true
+      security:
+      - customerSession: []
+      - {}
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VisitorMessage'
+          description: ''
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VisitorMessage'
+          description: ''
   /api/checkout/:
     post:
       operationId: checkout_create
@@ -2955,6 +3075,226 @@ paths:
       responses:
         '204':
           description: No response body
+  /api/manage/communications/connections/{connection_id}/disconnect/:
+    post:
+      operationId: manage_social_disconnect
+      description: Base for every cookie-authenticated or sign-in endpoint.
+      parameters:
+      - in: path
+        name: connection_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - manage-social
+      security:
+      - staffSession: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChannelConnection'
+          description: ''
+  /api/manage/communications/connections/{connection_id}/enabled/:
+    post:
+      operationId: manage_social_enable
+      description: Base for every cookie-authenticated or sign-in endpoint.
+      parameters:
+      - in: path
+        name: connection_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - manage-social
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EnabledInputRequest'
+        required: true
+      security:
+      - staffSession: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChannelConnection'
+          description: ''
+  /api/manage/communications/connections/{connection_id}/templates/sync/:
+    post:
+      operationId: manage_social_sync_templates
+      description: Base for every cookie-authenticated or sign-in endpoint.
+      parameters:
+      - in: path
+        name: connection_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - manage-social
+      security:
+      - staffSession: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SyncResult'
+          description: ''
+  /api/manage/communications/connections/{connection_id}/verify/:
+    post:
+      operationId: manage_social_verify
+      description: Base for every cookie-authenticated or sign-in endpoint.
+      parameters:
+      - in: path
+        name: connection_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - manage-social
+      security:
+      - staffSession: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChannelConnection'
+          description: ''
+  /api/manage/communications/connections/select/:
+    post:
+      operationId: manage_social_select
+      description: Base for every cookie-authenticated or sign-in endpoint.
+      tags:
+      - manage-social
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SelectInputRequest'
+        required: true
+      security:
+      - staffSession: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChannelConnection'
+          description: ''
+  /api/manage/communications/connections/selection/:
+    get:
+      operationId: manage_social_selection
+      description: Base for every cookie-authenticated or sign-in endpoint.
+      tags:
+      - manage-social
+      security:
+      - staffSession: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Selection'
+          description: ''
+  /api/manage/communications/connections/start/:
+    post:
+      operationId: manage_social_connect_start
+      description: Base for every cookie-authenticated or sign-in endpoint.
+      tags:
+      - manage-social
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StartConnectionInputRequest'
+        required: true
+      security:
+      - staffSession: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StartConnection'
+          description: ''
+  /api/manage/communications/live-chat/:
+    put:
+      operationId: manage_social_live_chat
+      description: Base for every cookie-authenticated or sign-in endpoint.
+      tags:
+      - manage-social
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LiveChatSettingsRequest'
+        required: true
+      security:
+      - staffSession: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SocialSettings'
+          description: ''
+  /api/manage/communications/oauth/callback/:
+    get:
+      operationId: manage_social_oauth_callback
+      description: Meta's redirect target. Answers with a redirect to the dashboard,
+        never with data.
+      tags:
+      - manage-social
+      security:
+      - staffSession: []
+      responses:
+        '302':
+          description: No response body
+  /api/manage/communications/settings/:
+    get:
+      operationId: manage_social_settings
+      description: Base for every cookie-authenticated or sign-in endpoint.
+      tags:
+      - manage-social
+      security:
+      - staffSession: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SocialSettings'
+          description: ''
+  /api/manage/communications/simulator/:
+    post:
+      operationId: manage_social_simulator
+      description: Base for every cookie-authenticated or sign-in endpoint.
+      tags:
+      - manage-social
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StartConnectionInputRequest'
+        required: true
+      security:
+      - staffSession: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChannelConnection'
+          description: ''
   /api/manage/content/pages/:
     get:
       operationId: manage_content_pages
@@ -3645,6 +3985,545 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/MerchantShipment'
+          description: ''
+  /api/manage/inbox/analytics/:
+    get:
+      operationId: manage_inbox_analytics
+      description: Base for every cookie-authenticated or sign-in endpoint.
+      parameters:
+      - in: query
+        name: days
+        schema:
+          enum:
+          - 7
+          - 30
+          - 90
+          type: integer
+          default: 30
+        description: |-
+          * `7` - 7
+          * `30` - 30
+          * `90` - 90
+      tags:
+      - manage-inbox
+      security:
+      - staffSession: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InboxAnalytics'
+          description: ''
+  /api/manage/inbox/attachments/{attachment_id}/:
+    get:
+      operationId: manage_inbox_attachment
+      description: Base for every cookie-authenticated or sign-in endpoint.
+      parameters:
+      - in: path
+        name: attachment_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - manage-inbox
+      security:
+      - staffSession: []
+      responses:
+        '200':
+          description: The file.
+  /api/manage/inbox/conversations/:
+    get:
+      operationId: manage_inbox_conversations
+      description: Base for every cookie-authenticated or sign-in endpoint.
+      parameters:
+      - in: query
+        name: channel
+        schema:
+          enum:
+          - website
+          - messenger
+          - whatsapp
+          - instagram
+          type: string
+          minLength: 1
+        description: |-
+          * `website` - Website chat
+          * `messenger` - Facebook Messenger
+          * `whatsapp` - WhatsApp
+          * `instagram` - Instagram Direct
+      - in: query
+        name: cursor
+        schema:
+          type: string
+          maxLength: 200
+      - in: query
+        name: limit
+        schema:
+          type: integer
+          maximum: 100
+          minimum: 1
+          default: 30
+      - in: query
+        name: q
+        schema:
+          type: string
+          maxLength: 100
+      - in: query
+        name: status
+        schema:
+          enum:
+          - active
+          - open
+          - pending
+          - resolved
+          - closed
+          type: string
+          minLength: 1
+        description: |-
+          * `active` - active
+          * `open` - Open
+          * `pending` - Pending
+          * `resolved` - Resolved
+          * `closed` - Closed
+      - in: query
+        name: view
+        schema:
+          enum:
+          - all
+          - unassigned
+          - mine
+          - unread
+          type: string
+          default: all
+          minLength: 1
+        description: |-
+          * `all` - all
+          * `unassigned` - unassigned
+          * `mine` - mine
+          * `unread` - unread
+      tags:
+      - manage-inbox
+      security:
+      - staffSession: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConversationPage'
+          description: ''
+  /api/manage/inbox/conversations/{conversation_id}/:
+    get:
+      operationId: manage_inbox_conversation
+      description: Base for every cookie-authenticated or sign-in endpoint.
+      parameters:
+      - in: path
+        name: conversation_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - manage-inbox
+      security:
+      - staffSession: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConversationDetail'
+          description: ''
+  /api/manage/inbox/conversations/{conversation_id}/assign/:
+    post:
+      operationId: manage_inbox_assign
+      description: Base for every cookie-authenticated or sign-in endpoint.
+      parameters:
+      - in: path
+        name: conversation_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - manage-inbox
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AssignInputRequest'
+        required: true
+      security:
+      - staffSession: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConversationSummary'
+          description: ''
+  /api/manage/inbox/conversations/{conversation_id}/attachments/:
+    post:
+      operationId: manage_inbox_attachment_upload
+      description: 'Website chat only: staff send an image or PDF to the visitor.'
+      parameters:
+      - in: path
+        name: conversation_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - manage-inbox
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+      security:
+      - staffSession: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StaffMessage'
+          description: ''
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StaffMessage'
+          description: ''
+  /api/manage/inbox/conversations/{conversation_id}/messages/:
+    post:
+      operationId: manage_inbox_reply
+      description: Base for every cookie-authenticated or sign-in endpoint.
+      parameters:
+      - in: path
+        name: conversation_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - manage-inbox
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReplyInputRequest'
+        required: true
+      security:
+      - staffSession: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StaffMessage'
+          description: ''
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StaffMessage'
+          description: ''
+  /api/manage/inbox/conversations/{conversation_id}/notes/:
+    post:
+      operationId: manage_inbox_note
+      description: Base for every cookie-authenticated or sign-in endpoint.
+      parameters:
+      - in: path
+        name: conversation_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - manage-inbox
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NoteInputRequest'
+        required: true
+      security:
+      - staffSession: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Note'
+          description: ''
+  /api/manage/inbox/conversations/{conversation_id}/opt-in/:
+    post:
+      operationId: manage_inbox_opt_in
+      description: Base for every cookie-authenticated or sign-in endpoint.
+      parameters:
+      - in: path
+        name: conversation_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - manage-inbox
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OptInInputRequest'
+        required: true
+      security:
+      - staffSession: []
+      responses:
+        '204':
+          description: No response body
+  /api/manage/inbox/conversations/{conversation_id}/opt-out/:
+    post:
+      operationId: manage_inbox_opt_out
+      description: Base for every cookie-authenticated or sign-in endpoint.
+      parameters:
+      - in: path
+        name: conversation_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - manage-inbox
+      security:
+      - staffSession: []
+      responses:
+        '204':
+          description: No response body
+  /api/manage/inbox/conversations/{conversation_id}/orders/:
+    post:
+      operationId: manage_inbox_create_order
+      description: Order actions need ``orders.manage`` in addition to ``messages.manage``.
+      parameters:
+      - in: path
+        name: conversation_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - manage-inbox
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ConversationOrderInputRequest'
+        required: true
+      security:
+      - staffSession: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MerchantOrderDetail'
+          description: ''
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MerchantOrderDetail'
+          description: ''
+  /api/manage/inbox/conversations/{conversation_id}/orders/link/:
+    post:
+      operationId: manage_inbox_link_order
+      description: Order actions need ``orders.manage`` in addition to ``messages.manage``.
+      parameters:
+      - in: path
+        name: conversation_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - manage-inbox
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LinkOrderInputRequest'
+        required: true
+      security:
+      - staffSession: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LinkedOrder'
+          description: ''
+  /api/manage/inbox/conversations/{conversation_id}/read/:
+    post:
+      operationId: manage_inbox_mark_read
+      description: Base for every cookie-authenticated or sign-in endpoint.
+      parameters:
+      - in: path
+        name: conversation_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - manage-inbox
+      security:
+      - staffSession: []
+      responses:
+        '204':
+          description: No response body
+  /api/manage/inbox/conversations/{conversation_id}/status/:
+    post:
+      operationId: manage_inbox_status
+      description: Base for every cookie-authenticated or sign-in endpoint.
+      parameters:
+      - in: path
+        name: conversation_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - manage-inbox
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StatusInputRequest'
+        required: true
+      security:
+      - staffSession: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConversationSummary'
+          description: ''
+  /api/manage/inbox/conversations/{conversation_id}/thread/:
+    get:
+      operationId: manage_inbox_thread
+      description: Base for every cookie-authenticated or sign-in endpoint.
+      parameters:
+      - in: query
+        name: after_seq
+        schema:
+          type: integer
+          minimum: 0
+      - in: query
+        name: before_seq
+        schema:
+          type: integer
+          minimum: 1
+      - in: path
+        name: conversation_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: query
+        name: limit
+        schema:
+          type: integer
+          maximum: 200
+          minimum: 1
+          default: 50
+      tags:
+      - manage-inbox
+      security:
+      - staffSession: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Thread'
+          description: ''
+  /api/manage/inbox/messages/{message_id}/resend/:
+    post:
+      operationId: manage_inbox_resend
+      description: Base for every cookie-authenticated or sign-in endpoint.
+      parameters:
+      - in: path
+        name: message_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - manage-inbox
+      security:
+      - staffSession: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StaffMessage'
+          description: ''
+  /api/manage/inbox/products/:
+    get:
+      operationId: manage_inbox_products
+      description: Base for every cookie-authenticated or sign-in endpoint.
+      parameters:
+      - in: query
+        name: q
+        schema:
+          type: string
+          maxLength: 100
+      tags:
+      - manage-inbox
+      security:
+      - staffSession: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProductSearch'
+          description: ''
+  /api/manage/inbox/team/:
+    get:
+      operationId: manage_inbox_team
+      description: Base for every cookie-authenticated or sign-in endpoint.
+      tags:
+      - manage-inbox
+      security:
+      - staffSession: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/TeamMember'
+          description: ''
+  /api/manage/inbox/templates/:
+    get:
+      operationId: manage_inbox_templates
+      description: Base for every cookie-authenticated or sign-in endpoint.
+      tags:
+      - manage-inbox
+      security:
+      - staffSession: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/WhatsAppTemplate'
           description: ''
   /api/manage/inventory/adjustments/:
     post:
@@ -5708,6 +6587,8 @@ paths:
           - phone
           - in_store
           - other
+          - instagram
+          - live_chat
           type: string
           minLength: 1
         description: |-
@@ -5717,6 +6598,8 @@ paths:
           * `phone` - Phone call
           * `in_store` - In store
           * `other` - Other
+          * `instagram` - Instagram
+          * `live_chat` - Website chat
       - in: query
         name: status
         schema:
@@ -6684,6 +7567,33 @@ paths:
               schema:
                 $ref: '#/components/schemas/Sitemap'
           description: ''
+  /api/webhooks/meta/:
+    get:
+      operationId: webhook_meta_verify
+      description: Meta's webhook for Pages (Messenger), Instagram and WhatsApp Business
+        Accounts.
+      tags:
+      - webhooks
+      security:
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: string
+          description: ''
+    post:
+      operationId: webhook_meta
+      description: Meta's webhook for Pages (Messenger), Instagram and WhatsApp Business
+        Accounts.
+      tags:
+      - webhooks
+      security:
+      - {}
+      responses:
+        '200':
+          description: No response body
 components:
   schemas:
     ActiveThemeEnum:
@@ -6997,6 +7907,30 @@ components:
       - open_support
       - open_warranty
       - pending_reviews
+    AgentActivity:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        assigned_open:
+          type: integer
+        resolved:
+          type: integer
+        replies:
+          type: integer
+        median_first_response_seconds:
+          type: integer
+          nullable: true
+      required:
+      - assigned_open
+      - id
+      - median_first_response_seconds
+      - name
+      - replies
+      - resolved
     Amount:
       type: object
       properties:
@@ -7238,6 +8172,19 @@ components:
       - id
       - url
       - width
+    AssignInputRequest:
+      type: object
+      properties:
+        assignee:
+          type: string
+          format: uuid
+          nullable: true
+        version:
+          type: integer
+          minimum: 1
+      required:
+      - assignee
+      - version
     AssignableRoleEnum:
       enum:
       - manager
@@ -7393,6 +8340,8 @@ components:
       - phone
       - in_store
       - other
+      - instagram
+      - live_chat
       type: string
       description: |-
         * `facebook` - Facebook
@@ -7400,6 +8349,8 @@ components:
         * `phone` - Phone call
         * `in_store` - In store
         * `other` - Other
+        * `instagram` - Instagram
+        * `live_chat` - Website chat
     AssistedProvenance:
       type: object
       properties:
@@ -7656,6 +8607,53 @@ components:
       - sku
       - unit_price
       - variant_title
+    Attachment:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        status:
+          $ref: '#/components/schemas/AttachmentStatusEnum'
+        content_type:
+          type: string
+        size_bytes:
+          type: integer
+        width:
+          type: integer
+          nullable: true
+        height:
+          type: integer
+          nullable: true
+        filename:
+          type: string
+        url:
+          type: string
+          nullable: true
+          readOnly: true
+      required:
+      - content_type
+      - filename
+      - height
+      - id
+      - size_bytes
+      - status
+      - url
+      - width
+    AttachmentStatusEnum:
+      enum:
+      - pending
+      - stored
+      - failed
+      - unsupported
+      - removed
+      type: string
+      description: |-
+        * `pending` - Downloading
+        * `stored` - Stored
+        * `failed` - Could not be downloaded
+        * `unsupported` - Unsupported type
+        * `removed` - Removed by retention
     Attempt:
       type: object
       properties:
@@ -8504,6 +9502,24 @@ components:
           maxLength: 2000
       required:
       - body
+    CaseSummary:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        kind:
+          type: string
+        status:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+      required:
+      - created_at
+      - id
+      - kind
+      - status
     CashPosition:
       type: object
       properties:
@@ -8713,6 +9729,178 @@ components:
           format: uuid
       required:
       - challenge_id
+    ChannelConnection:
+      type: object
+      properties:
+        channel:
+          $ref: '#/components/schemas/ChannelTypeEnum'
+        state:
+          $ref: '#/components/schemas/ChannelConnectionStatusEnum'
+        id:
+          type: string
+          format: uuid
+          nullable: true
+        is_enabled:
+          type: boolean
+        is_simulated:
+          type: boolean
+        display_name:
+          type: string
+        display_identifier:
+          type: string
+        account_id:
+          type: string
+        connected_at:
+          type: string
+          format: date-time
+          nullable: true
+        last_verified_at:
+          type: string
+          format: date-time
+          nullable: true
+        last_error:
+          type: string
+        requirements:
+          type: array
+          items:
+            type: string
+        templates:
+          type: integer
+      required:
+      - account_id
+      - channel
+      - connected_at
+      - display_identifier
+      - display_name
+      - id
+      - is_enabled
+      - is_simulated
+      - last_error
+      - last_verified_at
+      - requirements
+      - state
+      - templates
+    ChannelConnectionStatusEnum:
+      enum:
+      - not_configured
+      - configuration_required
+      - pending
+      - connected
+      - permission_missing
+      - revoked
+      - suspended
+      - error
+      - disconnected
+      type: string
+      description: |-
+        * `not_configured` - Not configured
+        * `configuration_required` - Configuration required
+        * `pending` - Authorization pending
+        * `connected` - Connected
+        * `permission_missing` - Permission missing
+        * `revoked` - Revoked
+        * `suspended` - Suspended by the provider
+        * `error` - Error
+        * `disconnected` - Disconnected
+    ChannelCount:
+      type: object
+      properties:
+        channel:
+          type: string
+        conversations:
+          type: integer
+      required:
+      - channel
+      - conversations
+    ChannelTypeEnum:
+      enum:
+      - website
+      - messenger
+      - whatsapp
+      - instagram
+      type: string
+      description: |-
+        * `website` - Website chat
+        * `messenger` - Facebook Messenger
+        * `whatsapp` - WhatsApp
+        * `instagram` - Instagram Direct
+    ChatConfig:
+      type: object
+      properties:
+        enabled:
+          type: boolean
+        welcome:
+          type: string
+        button_label:
+          type: string
+        away_message:
+          type: string
+        languages:
+          type: array
+          items:
+            type: string
+        position:
+          type: string
+        online:
+          type: boolean
+        within_hours:
+          type: boolean
+      required:
+      - away_message
+      - button_label
+      - enabled
+      - languages
+      - online
+      - position
+      - welcome
+      - within_hours
+    ChatLanguagesEnum:
+      enum:
+      - en,bn
+      - en
+      - bn
+      type: string
+      description: |-
+        * `en,bn` - English and Bangla
+        * `en` - English
+        * `bn` - Bangla
+    ChatSendInputRequest:
+      type: object
+      properties:
+        client_key:
+          type: string
+          minLength: 1
+          maxLength: 64
+        body:
+          type: string
+          minLength: 1
+          maxLength: 4096
+      required:
+      - body
+      - client_key
+    ChatState:
+      type: object
+      description: The visitor's own conversation (or none yet).
+      properties:
+        config:
+          $ref: '#/components/schemas/ChatConfig'
+        conversation_status:
+          type: string
+          nullable: true
+        messages:
+          type: array
+          items:
+            $ref: '#/components/schemas/VisitorMessage'
+        signed_in:
+          type: boolean
+        guest_chat_linkable:
+          type: boolean
+      required:
+      - config
+      - conversation_status
+      - guest_chat_linkable
+      - messages
+      - signed_in
     CheckStateEnum:
       enum:
       - ok
@@ -9351,6 +10539,211 @@ components:
       description: |-
         * `banner` - banner
         * `preferences` - preferences
+    ConversationDetail:
+      type: object
+      properties:
+        conversation:
+          $ref: '#/components/schemas/ConversationSummary'
+        participant:
+          $ref: '#/components/schemas/Participant'
+        policy:
+          $ref: '#/components/schemas/Policy'
+        orders:
+          type: array
+          items:
+            $ref: '#/components/schemas/LinkedOrder'
+        cases:
+          type: array
+          items:
+            $ref: '#/components/schemas/CaseSummary'
+        recent:
+          type: array
+          items:
+            $ref: '#/components/schemas/ConversationSummary'
+        can_create_orders:
+          type: boolean
+        visitor_read_seq:
+          type: integer
+      required:
+      - can_create_orders
+      - cases
+      - conversation
+      - orders
+      - participant
+      - policy
+      - recent
+      - visitor_read_seq
+    ConversationOrderInputRequest:
+      type: object
+      description: 'The assisted order request without its source: the conversation''s
+        channel decides it.'
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/AssistedItemRequest'
+        recipient_name:
+          type: string
+          minLength: 1
+          maxLength: 150
+        contact_phone:
+          type: string
+          minLength: 1
+          maxLength: 40
+        contact_email:
+          oneOf:
+          - type: string
+            format: email
+          - type: string
+            maxLength: 0
+        address_line_1:
+          type: string
+          minLength: 1
+          maxLength: 200
+        address_line_2:
+          type: string
+          maxLength: 200
+        city:
+          type: string
+          minLength: 1
+          maxLength: 100
+        region:
+          type: string
+          maxLength: 100
+        postal_code:
+          type: string
+          maxLength: 32
+        country:
+          type: string
+          minLength: 1
+          maxLength: 2
+        delivery_notes:
+          type: string
+          maxLength: 500
+        shipping_method:
+          type: string
+          format: uuid
+          nullable: true
+        delivery_slot:
+          type: string
+          format: uuid
+          nullable: true
+        coupon_code:
+          type: string
+          maxLength: 32
+        payment_method:
+          $ref: '#/components/schemas/PaymentMethodEnum'
+        customer_request_attested:
+          type: boolean
+          description: Staff confirm the customer asked for this order. Not a customer
+            signature.
+        idempotency_key:
+          type: string
+          minLength: 8
+          maxLength: 100
+        expected_totals:
+          $ref: '#/components/schemas/AssistedExpectedTotalsRequest'
+      required:
+      - address_line_1
+      - city
+      - contact_phone
+      - country
+      - customer_request_attested
+      - expected_totals
+      - idempotency_key
+      - items
+      - payment_method
+      - recipient_name
+    ConversationPage:
+      type: object
+      properties:
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/ConversationSummary'
+        next_cursor:
+          type: string
+          nullable: true
+        unread_conversations:
+          type: integer
+      required:
+      - next_cursor
+      - results
+      - unread_conversations
+    ConversationStatusEnum:
+      enum:
+      - open
+      - pending
+      - resolved
+      - closed
+      type: string
+      description: |-
+        * `open` - Open
+        * `pending` - Pending
+        * `resolved` - Resolved
+        * `closed` - Closed
+    ConversationSummary:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        channel:
+          $ref: '#/components/schemas/ChannelTypeEnum'
+        status:
+          $ref: '#/components/schemas/ConversationStatusEnum'
+        version:
+          type: integer
+        display_name:
+          type: string
+          readOnly: true
+        connection_name:
+          type: string
+          readOnly: true
+        is_simulated:
+          type: boolean
+          readOnly: true
+        assignee:
+          allOf:
+          - $ref: '#/components/schemas/Person'
+          nullable: true
+          readOnly: true
+        last_message_at:
+          type: string
+          format: date-time
+          nullable: true
+        last_preview:
+          type: string
+        last_direction:
+          type: string
+        inbound_count:
+          type: integer
+        unread:
+          type: integer
+          nullable: true
+          readOnly: true
+        customer_linked:
+          type: boolean
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+      required:
+      - assignee
+      - channel
+      - connection_name
+      - created_at
+      - customer_linked
+      - display_name
+      - id
+      - inbound_count
+      - is_simulated
+      - last_direction
+      - last_message_at
+      - last_preview
+      - status
+      - unread
+      - version
     Coupon:
       type: object
       properties:
@@ -10082,6 +11475,13 @@ components:
       - matemail
       - matemail_available
       - smtp
+    EnabledInputRequest:
+      type: object
+      properties:
+        enabled:
+          type: boolean
+      required:
+      - enabled
     EngagedProduct:
       type: object
       properties:
@@ -10098,6 +11498,45 @@ components:
       - name
       - product
       - views
+    Event:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        kind:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        from_status:
+          type: string
+        to_status:
+          type: string
+        actor:
+          allOf:
+          - $ref: '#/components/schemas/Person'
+          nullable: true
+          readOnly: true
+        assignee:
+          allOf:
+          - $ref: '#/components/schemas/Person'
+          nullable: true
+          readOnly: true
+        order:
+          type: object
+          additionalProperties: {}
+          nullable: true
+          readOnly: true
+      required:
+      - actor
+      - assignee
+      - created_at
+      - from_status
+      - id
+      - kind
+      - order
+      - to_status
     EventInputRequest:
       type: object
       properties:
@@ -10614,6 +12053,86 @@ components:
       - imap_port
       - imap_security
       - imap_username
+    InboxAnalytics:
+      type: object
+      properties:
+        days:
+          type: integer
+        timezone:
+          type: string
+        start:
+          type: string
+          format: date
+        end:
+          type: string
+          format: date
+        new_conversations:
+          type: integer
+        unique_participants:
+          type: integer
+        messages_received:
+          type: integer
+        messages_sent:
+          type: integer
+        resolved_conversations:
+          type: integer
+        open_now:
+          type: integer
+        pending_now:
+          type: integer
+        unassigned_now:
+          type: integer
+        unread_now:
+          type: integer
+        median_first_response_seconds:
+          type: integer
+          nullable: true
+        average_first_response_seconds:
+          type: integer
+          nullable: true
+        average_resolution_seconds:
+          type: integer
+          nullable: true
+        by_channel:
+          type: array
+          items:
+            $ref: '#/components/schemas/ChannelCount'
+        orders_linked:
+          type: integer
+        linked_order_value:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,17}(?:\.\d{0,2})?$
+          nullable: true
+        linked_order_currency:
+          type: string
+          nullable: true
+        agents:
+          type: array
+          items:
+            $ref: '#/components/schemas/AgentActivity'
+      required:
+      - agents
+      - average_first_response_seconds
+      - average_resolution_seconds
+      - by_channel
+      - days
+      - end
+      - linked_order_currency
+      - linked_order_value
+      - median_first_response_seconds
+      - messages_received
+      - messages_sent
+      - new_conversations
+      - open_now
+      - orders_linked
+      - pending_now
+      - resolved_conversations
+      - start
+      - timezone
+      - unassigned_now
+      - unique_participants
+      - unread_now
     InboxItem:
       type: object
       properties:
@@ -10664,6 +12183,50 @@ components:
       - page
       - page_size
       - results
+    InboxProduct:
+      type: object
+      properties:
+        variant_id:
+          type: string
+          format: uuid
+        product_id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        variant_title:
+          type: string
+        sku:
+          type: string
+        amount:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,17}(?:\.\d{0,2})?$
+          nullable: true
+        currency:
+          type: string
+          nullable: true
+        in_stock:
+          type: boolean
+        available_quantity:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,11}(?:\.\d{0,3})?$
+          nullable: true
+        image_url:
+          type: string
+          nullable: true
+      required:
+      - amount
+      - available_quantity
+      - currency
+      - image_url
+      - in_stock
+      - name
+      - product_id
+      - sku
+      - variant_id
+      - variant_title
     InventorySummary:
       type: object
       properties:
@@ -10893,6 +12456,14 @@ components:
       required:
       - key
       - orders
+    LauncherPositionEnum:
+      enum:
+      - right
+      - left
+      type: string
+      description: |-
+        * `right` - Bottom right
+        * `left` - Bottom left
     LedgerEntry:
       type: object
       properties:
@@ -10944,7 +12515,7 @@ components:
           type: string
           format: date-time
         state:
-          $ref: '#/components/schemas/StateEnum'
+          $ref: '#/components/schemas/LibraryItemStateEnum'
         entitlement_id:
           type: string
           format: uuid
@@ -10960,6 +12531,133 @@ components:
       - remaining_downloads
       - state
       - variant_title
+    LibraryItemStateEnum:
+      enum:
+      - ready
+      - payment_required
+      - awaiting_resource
+      - unavailable
+      type: string
+      description: |-
+        * `ready` - ready
+        * `payment_required` - payment_required
+        * `awaiting_resource` - awaiting_resource
+        * `unavailable` - unavailable
+    LinkOrderInputRequest:
+      type: object
+      properties:
+        order:
+          type: string
+          format: uuid
+      required:
+      - order
+    LinkedOrder:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        number:
+          type: string
+        status:
+          type: string
+        payment_status:
+          type: string
+        grand_total:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,15}(?:\.\d{0,4})?$
+        currency:
+          type: string
+        order_source:
+          type: string
+        kind:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+      required:
+      - created_at
+      - currency
+      - grand_total
+      - id
+      - kind
+      - number
+      - order_source
+      - payment_status
+      - status
+    LiveChatSettings:
+      type: object
+      properties:
+        welcome_en:
+          type: string
+          maxLength: 300
+        welcome_bn:
+          type: string
+          maxLength: 300
+        button_label_en:
+          type: string
+          maxLength: 30
+        button_label_bn:
+          type: string
+          maxLength: 30
+        away_en:
+          type: string
+          maxLength: 300
+        away_bn:
+          type: string
+          maxLength: 300
+        hours: {}
+        languages:
+          $ref: '#/components/schemas/ChatLanguagesEnum'
+        position:
+          $ref: '#/components/schemas/LauncherPositionEnum'
+      required:
+      - away_bn
+      - away_en
+      - button_label_bn
+      - button_label_en
+      - hours
+      - languages
+      - position
+      - welcome_bn
+      - welcome_en
+    LiveChatSettingsRequest:
+      type: object
+      properties:
+        welcome_en:
+          type: string
+          maxLength: 300
+        welcome_bn:
+          type: string
+          maxLength: 300
+        button_label_en:
+          type: string
+          maxLength: 30
+        button_label_bn:
+          type: string
+          maxLength: 30
+        away_en:
+          type: string
+          maxLength: 300
+        away_bn:
+          type: string
+          maxLength: 300
+        hours: {}
+        languages:
+          $ref: '#/components/schemas/ChatLanguagesEnum'
+        position:
+          $ref: '#/components/schemas/LauncherPositionEnum'
+      required:
+      - away_bn
+      - away_en
+      - button_label_bn
+      - button_label_en
+      - hours
+      - languages
+      - position
+      - welcome_bn
+      - welcome_en
     LiveSummary:
       type: object
       properties:
@@ -12267,6 +13965,22 @@ components:
       - payment_method
       - reference
       - serial_allocations
+    MessageKindEnum:
+      enum:
+      - text
+      - image
+      - document
+      - product
+      - template
+      - unsupported
+      type: string
+      description: |-
+        * `text` - Text
+        * `image` - Image
+        * `document` - Document
+        * `product` - Product
+        * `template` - WhatsApp template
+        * `unsupported` - Unsupported content
     MfaEmailSendRequest:
       type: object
       properties:
@@ -12492,6 +14206,35 @@ components:
         * `kg` - Kilogram
         * `ml` - Millilitre
         * `l` - Litre
+    Note:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        body:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        author:
+          allOf:
+          - $ref: '#/components/schemas/Person'
+          readOnly: true
+      required:
+      - author
+      - body
+      - created_at
+      - id
+    NoteInputRequest:
+      type: object
+      properties:
+        body:
+          type: string
+          minLength: 1
+          maxLength: 2000
+      required:
+      - body
     NotificationCategoryEnum:
       enum:
       - transactional
@@ -12575,6 +14318,13 @@ components:
       - in_transit
       - pending_shipments
       - to_prepare
+    OptInInputRequest:
+      type: object
+      properties:
+        confirmed:
+          type: boolean
+      required:
+      - confirmed
     Option:
       type: object
       properties:
@@ -12916,6 +14666,8 @@ components:
       - phone
       - in_store
       - other
+      - instagram
+      - live_chat
       type: string
       description: |-
         * `storefront` - Online store
@@ -12924,6 +14676,8 @@ components:
         * `phone` - Phone call
         * `in_store` - In store
         * `other` - Other
+        * `instagram` - Instagram
+        * `live_chat` - Website chat
     OrderStatusEnum:
       enum:
       - pending_payment
@@ -13205,6 +14959,43 @@ components:
         translations: {}
       required:
       - title
+    Participant:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        display_name:
+          type: string
+        channel:
+          $ref: '#/components/schemas/ChannelTypeEnum'
+        phone:
+          type: string
+        customer_id:
+          type: string
+          format: uuid
+          nullable: true
+        customer_linked_at:
+          type: string
+          format: date-time
+          nullable: true
+        template_opt_in_at:
+          type: string
+          format: date-time
+          nullable: true
+        opted_out_at:
+          type: string
+          format: date-time
+          nullable: true
+      required:
+      - channel
+      - customer_id
+      - customer_linked_at
+      - display_name
+      - id
+      - opted_out_at
+      - phone
+      - template_opt_in_at
     PasswordChangeRequest:
       type: object
       properties:
@@ -14069,6 +15860,17 @@ components:
         * `content.manage` - Manage website content
         * `promotions.manage` - Manage promotions
         * `reports.view` - View reports
+    Person:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+      required:
+      - id
+      - name
     PhoneCompleteRequest:
       type: object
       properties:
@@ -14135,6 +15937,33 @@ components:
       required:
       - idempotency_key
       - payment_method
+    Policy:
+      type: object
+      properties:
+        can_reply:
+          type: boolean
+        reason:
+          type: string
+        message:
+          type: string
+        tag:
+          type: string
+        window_ends_at:
+          type: string
+          format: date-time
+          nullable: true
+        templates_allowed:
+          type: boolean
+        template_reason:
+          type: string
+      required:
+      - can_reply
+      - message
+      - reason
+      - tag
+      - template_reason
+      - templates_allowed
+      - window_ends_at
     Preference:
       type: object
       properties:
@@ -14397,6 +16226,45 @@ components:
       - currency
       - max_amount
       - min_amount
+    ProductCard:
+      type: object
+      properties:
+        product_id:
+          type: string
+          format: uuid
+        variant_id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        variant_title:
+          type: string
+        sku:
+          type: string
+        amount:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,17}(?:\.\d{0,2})?$
+        currency:
+          type: string
+        in_stock:
+          type: boolean
+        url:
+          type: string
+        image_url:
+          type: string
+          nullable: true
+      required:
+      - amount
+      - currency
+      - image_url
+      - in_stock
+      - name
+      - product_id
+      - sku
+      - url
+      - variant_id
+      - variant_title
     ProductCategory:
       type: object
       properties:
@@ -14824,6 +16692,18 @@ components:
       - count
       - page
       - page_size
+      - results
+    ProductSearch:
+      type: object
+      properties:
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/InboxProduct'
+        links_available:
+          type: boolean
+      required:
+      - links_available
       - results
     ProductStatusEnum:
       enum:
@@ -15839,6 +17719,33 @@ components:
       - kind
       - status
       - subject
+    ReplyInputRequest:
+      type: object
+      properties:
+        client_key:
+          type: string
+          minLength: 1
+          maxLength: 64
+        body:
+          type: string
+          maxLength: 4096
+        product_variant:
+          type: string
+          format: uuid
+          nullable: true
+        template:
+          type: string
+          format: uuid
+          nullable: true
+        template_parameters:
+          type: array
+          items:
+            type: string
+            minLength: 1
+            maxLength: 200
+          maxItems: 10
+      required:
+      - client_key
     ReversalRequest:
       type: object
       properties:
@@ -16100,6 +18007,20 @@ components:
       - reauthenticated
       - recovery_codes_remaining
       - totp
+    SelectInputRequest:
+      type: object
+      properties:
+        selection:
+          type: string
+          minLength: 1
+          maxLength: 100
+        account:
+          type: string
+          minLength: 1
+          maxLength: 64
+      required:
+      - account
+      - selection
     SelectRequest:
       type: object
       properties:
@@ -16110,6 +18031,31 @@ components:
           - $ref: '#/components/schemas/NullEnum'
       required:
       - provider
+    Selection:
+      type: object
+      properties:
+        channel:
+          type: string
+        accounts:
+          type: array
+          items:
+            $ref: '#/components/schemas/SelectionAccount'
+      required:
+      - accounts
+      - channel
+    SelectionAccount:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        identifier:
+          type: string
+      required:
+      - id
+      - identifier
+      - name
     SeoItem:
       type: object
       properties:
@@ -16629,6 +18575,42 @@ components:
       - smtp_host
       - smtp_port
       - smtp_security
+    SocialSettings:
+      type: object
+      properties:
+        live_chat_enabled:
+          type: boolean
+        live_chat:
+          $ref: '#/components/schemas/LiveChatSettings'
+        agents_online:
+          type: boolean
+        within_hours:
+          type: boolean
+        timezone:
+          type: string
+        connections:
+          type: array
+          items:
+            $ref: '#/components/schemas/ChannelConnection'
+        simulator_available:
+          type: boolean
+        webhook_url:
+          type: string
+        human_agent_approved:
+          type: boolean
+        product_links_available:
+          type: boolean
+      required:
+      - agents_online
+      - connections
+      - human_agent_approved
+      - live_chat
+      - live_chat_enabled
+      - product_links_available
+      - simulator_available
+      - timezone
+      - webhook_url
+      - within_hours
     SourceRow:
       type: object
       properties:
@@ -16686,6 +18668,88 @@ components:
       required:
       - attribute
       - value
+    StaffMessage:
+      type: object
+      description: What the website visitor sees of a message.
+      properties:
+        id:
+          type: string
+          format: uuid
+        seq:
+          type: integer
+        direction:
+          type: string
+        kind:
+          $ref: '#/components/schemas/MessageKindEnum'
+        body:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        client_key:
+          type: string
+          readOnly: true
+        sender_name:
+          type: string
+          readOnly: true
+        product:
+          allOf:
+          - $ref: '#/components/schemas/ProductCard'
+          nullable: true
+          readOnly: true
+        attachment:
+          allOf:
+          - $ref: '#/components/schemas/Attachment'
+          nullable: true
+          readOnly: true
+        delivery_status:
+          type: string
+        status_changed_at:
+          type: string
+          format: date-time
+          nullable: true
+        error_code:
+          type: string
+        provider_timestamp:
+          type: string
+          format: date-time
+          nullable: true
+        sender:
+          type: object
+          additionalProperties: {}
+          nullable: true
+          readOnly: true
+        template_name:
+          type: string
+        template_language:
+          type: string
+        reply_tag:
+          type: string
+        pricing_category:
+          type: string
+        attempts:
+          type: integer
+      required:
+      - attachment
+      - attempts
+      - body
+      - client_key
+      - created_at
+      - delivery_status
+      - direction
+      - error_code
+      - id
+      - kind
+      - pricing_category
+      - product
+      - provider_timestamp
+      - reply_tag
+      - sender
+      - sender_name
+      - seq
+      - status_changed_at
+      - template_language
+      - template_name
     StaffRoleEnum:
       enum:
       - owner
@@ -16750,18 +18814,30 @@ components:
       - email
       - full_name
       - id
-    StateEnum:
+    StartConnection:
+      type: object
+      properties:
+        authorize_url:
+          type: string
+      required:
+      - authorize_url
+    StartConnectionInputChannelEnum:
       enum:
-      - ready
-      - payment_required
-      - awaiting_resource
-      - unavailable
+      - messenger
+      - whatsapp
+      - instagram
       type: string
       description: |-
-        * `ready` - ready
-        * `payment_required` - payment_required
-        * `awaiting_resource` - awaiting_resource
-        * `unavailable` - unavailable
+        * `messenger` - messenger
+        * `whatsapp` - whatsapp
+        * `instagram` - instagram
+    StartConnectionInputRequest:
+      type: object
+      properties:
+        channel:
+          $ref: '#/components/schemas/StartConnectionInputChannelEnum'
+      required:
+      - channel
     StatusActionRequest:
       type: object
       properties:
@@ -16769,6 +18845,17 @@ components:
           $ref: '#/components/schemas/PromotionActionEnum'
       required:
       - action
+    StatusInputRequest:
+      type: object
+      properties:
+        status:
+          $ref: '#/components/schemas/ConversationStatusEnum'
+        version:
+          type: integer
+          minimum: 1
+      required:
+      - status
+      - version
     StockCounts:
       type: object
       properties:
@@ -16989,6 +19076,13 @@ components:
       - average_order_value
       - currency
       - order_value
+    SyncResult:
+      type: object
+      properties:
+        count:
+          type: integer
+      required:
+      - count
     TargetRef:
       type: object
       properties:
@@ -17043,6 +19137,20 @@ components:
       - invitations
       - members
       - roles
+    TeamMember:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        role:
+          type: string
+      required:
+      - id
+      - name
+      - role
     Template:
       type: object
       properties:
@@ -17221,6 +19329,28 @@ components:
       - logo_url
       - primary_color
       - show_name_with_logo
+    Thread:
+      type: object
+      properties:
+        messages:
+          type: array
+          items:
+            $ref: '#/components/schemas/StaffMessage'
+        notes:
+          type: array
+          items:
+            $ref: '#/components/schemas/Note'
+        events:
+          type: array
+          items:
+            $ref: '#/components/schemas/Event'
+        has_more:
+          type: boolean
+      required:
+      - events
+      - has_more
+      - messages
+      - notes
     TopProduct:
       type: object
       properties:
@@ -17658,6 +19788,51 @@ components:
           $ref: '#/components/schemas/PriceInputRequest'
       required:
       - sku
+    VisitorMessage:
+      type: object
+      description: What the website visitor sees of a message.
+      properties:
+        id:
+          type: string
+          format: uuid
+        seq:
+          type: integer
+        direction:
+          type: string
+        kind:
+          $ref: '#/components/schemas/MessageKindEnum'
+        body:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        client_key:
+          type: string
+          readOnly: true
+        sender_name:
+          type: string
+          readOnly: true
+        product:
+          allOf:
+          - $ref: '#/components/schemas/ProductCard'
+          nullable: true
+          readOnly: true
+        attachment:
+          allOf:
+          - $ref: '#/components/schemas/Attachment'
+          nullable: true
+          readOnly: true
+      required:
+      - attachment
+      - body
+      - client_key
+      - created_at
+      - direction
+      - id
+      - kind
+      - product
+      - sender_name
+      - seq
     Warranty:
       type: object
       properties:
@@ -17736,6 +19911,36 @@ components:
       - duration_months
       - name
       - provider
+    WhatsAppTemplate:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        language:
+          type: string
+        category:
+          type: string
+        status:
+          type: string
+        body_text:
+          type: string
+        parameter_count:
+          type: integer
+        sendable:
+          type: boolean
+          readOnly: true
+      required:
+      - body_text
+      - category
+      - id
+      - language
+      - name
+      - parameter_count
+      - sendable
+      - status
   securitySchemes:
     customerSession:
       type: apiKey

@@ -31,19 +31,19 @@ are in [AUTHENTICATION.md](AUTHENTICATION.md).
 
 ## Services, ports and URLs
 
-| Service             | URL / address (127.0.0.1 only)                 | Health                                    |
-| ------------------- | ---------------------------------------------- | ----------------------------------------- |
-| commerce-web        | http://127.0.0.1:3400                          | `/healthz`                                |
-| platform-console    | http://127.0.0.1:3410                          | `/healthz`                                |
-| commerce-api        | http://127.0.0.1:8400                          | `/api/health/live/`, `/api/health/ready/` |
-| commerce-api schema | http://127.0.0.1:8400/api/schema/              | development only                          |
-| control-api         | http://127.0.0.1:8410                          | `/api/health/live/`, `/api/health/ready/` |
-| commerce-db         | `127.0.0.1:15440`, db/user `matecart_commerce` | password in `.env`                        |
-| control-db          | `127.0.0.1:15441`, db/user `matecart_control`  | password in `.env`                        |
-| commerce-redis      | `127.0.0.1:16380` (password in `.env`)         | db 0 cache, 1 broker, 2 results           |
-| commerce-worker     | not published                                  | `celery inspect ping` healthcheck         |
-| control-redis       | not published, own password/volume             | internal console rate limits              |
-| mailpit             | http://127.0.0.1:18025                         | development inbox only; SMTP internal     |
+| Service             | URL / address (127.0.0.1 only)                      | Health                                    |
+| ------------------- | --------------------------------------------------- | ----------------------------------------- |
+| commerce-web        | http://127.0.0.1:3400                               | `/healthz`                                |
+| platform-console    | http://127.0.0.1:3410                               | `/healthz`                                |
+| commerce-api        | http://127.0.0.1:8400 (uvicorn: HTTP and WebSocket) | `/api/health/live/`, `/api/health/ready/` |
+| commerce-api schema | http://127.0.0.1:8400/api/schema/                   | development only                          |
+| control-api         | http://127.0.0.1:8410                               | `/api/health/live/`, `/api/health/ready/` |
+| commerce-db         | `127.0.0.1:15440`, db/user `matecart_commerce`      | password in `.env`                        |
+| control-db          | `127.0.0.1:15441`, db/user `matecart_control`       | password in `.env`                        |
+| commerce-redis      | `127.0.0.1:16380` (password in `.env`)              | db 0 cache, 1 broker, 2 results           |
+| commerce-worker     | not published                                       | `celery inspect ping` healthcheck         |
+| control-redis       | not published, own password/volume                  | internal console rate limits              |
+| mailpit             | http://127.0.0.1:18025                              | development inbox only; SMTP internal     |
 
 API and database ports can be changed in `.env`. The Next.js ports live in `apps/*/package.json` (and in `scripts/check-health.mjs`).
 
@@ -147,6 +147,19 @@ checks so the owner can review. No source/type-checking relaxation is needed.
 ### Optional: host Python environment for IDE support
 
 The backend does not need host Python. For editor autocompletion only, install uv (https://docs.astral.sh/uv/) and run `uv sync` inside `services/commerce-api` and `services/control-api`. This creates a git-ignored `.venv` that you point your editor at.
+
+## Live chat and social channels (Phase 14)
+
+- The API runs on uvicorn with polling reload. WebSockets go through the storefront origin:
+  `ws://127.0.0.1:3400/api/chat/ws/` (visitors) and `/api/manage/ws/inbox/` (staff); Next.js
+  proxies the upgrade to the API.
+- Switch on **Live chat** in Settings > Live chat and social channels. Without a Meta app the
+  other channels show "Configuration required"; "Use simulator" creates a labelled development
+  connection that never contacts Meta.
+- Simulate a verified inbound message (runs the same processing as a signed webhook):
+  `docker compose exec commerce-api python manage.py simulate_inbound --channel whatsapp --sender 8801711000001 --name "Sadia" --text "Hello"`
+- Optional real Meta app: set `MATECART_META_APP_ID`, `MATECART_META_APP_SECRET` and
+  `MATECART_META_WEBHOOK_VERIFY_TOKEN` in `.env` ([COMMUNICATIONS.md](COMMUNICATIONS.md) §10).
 
 ## Docker safety (summary of AGENTS.md)
 

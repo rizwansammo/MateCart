@@ -120,6 +120,8 @@ export const SOURCE: Record<string, string> = {
   phone: 'Phone call',
   in_store: 'In store',
   other: 'Other',
+  instagram: 'Instagram',
+  live_chat: 'Website chat',
 };
 export const CASE_KIND: Record<string, string> = {
   return: 'Return',

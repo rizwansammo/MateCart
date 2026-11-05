@@ -173,6 +173,33 @@ and keys, sharing only this local testing inbox.
   cookies, query strings or hosts; unknown or incompatible values fall back to the preset
   default. Themes are code in the release: no uploads, remote templates or merchant scripts.
 
+## Communications and WebSockets (Phase 14)
+
+Details: [COMMUNICATIONS.md](COMMUNICATIONS.md), D-092 to D-098.
+
+- **WebSocket handshake.** Exact Origin allowlist (no Origin is refused), so another site cannot
+  use a visitor's cookies (cross-site WebSocket hijacking). Authentication only from HttpOnly
+  cookies during the handshake, never query strings. Tenant from configuration.
+- **Server-controlled membership.** A visitor socket joins only its own participant group; a
+  staff socket joins a conversation only after the server finds it in this store. Visitor groups
+  carry only customer-visible events.
+- **Limits.** 16 KiB frames, 40 frames per 10 s, 120 connects per minute per address, socket caps
+  per identity, 90 s idle close, session and permission re-check every 30 s (revocation closes the
+  socket). Message, conversation and upload rate limits per visitor and per staff member.
+- **Guest credential.** `mc_chat` is opaque, hashed at rest, HttpOnly, SameSite=Lax, path
+  `/api/chat`; it grants one participant's chat and nothing else.
+- **Webhooks.** HMAC-SHA256 over the raw body with the app secret before parsing; 1 MiB limit;
+  routing only to this store's live connections; idempotent processing; headers never logged.
+- **Provider tokens.** Fernet-encrypted at rest; never in responses, logs, audit changes,
+  notifications, events or URLs (sent in the Authorization header); erased at disconnect. Meta
+  OAuth state is single-use and bound to the staff member and session; account choices are only
+  those Meta lists.
+- **Media (SSRF).** Downloads only from Meta CDN hosts over HTTPS to public addresses with a
+  pinned, TLS-verified connection, no redirects, size-bounded, then byte-validated.
+- **Content.** Messages and notes are plain text rendered escaped; product links are same-site
+  paths or the store's https origin; files are served with `nosniff`, a sandbox CSP and
+  `private, no-store`.
+
 ## Limits and scheduled follow-up
 
 - Phase 04 public catalogue and media routes have no dedicated rate limits or CDN

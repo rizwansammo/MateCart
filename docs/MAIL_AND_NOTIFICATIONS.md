@@ -52,6 +52,12 @@ business change (order, payment, shipment, request, security event)
 
 ## 2. Events
 
+Phase 14 adds three staff kinds in the topic `conversations` (permission `messages.manage`):
+`staff.conversation.new`, `staff.conversation.reply` and `staff.conversation.assigned`
+([COMMUNICATIONS.md](COMMUNICATIONS.md) §8). `services.emit` accepts `staff_users` (only those
+members, still permission-checked) and `exclude_staff` (members already viewing the change).
+Conversation messages are never stored as notifications.
+
 | Audience  | Events                                                                                                                                                                                                                            |
 | --------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Customer  | Order placed, confirmed, cancelled; payment received (verified only); payment not completed (window expired); shipped; delivered; delivery failed; refund started; refund completed; request received, updated, replied           |

@@ -34,6 +34,16 @@ GOOGLE_OIDC_CLIENT_SECRET = ""
 # Meta Conversions API: never configured in tests; tests that need it use a fake client.
 META_CAPI_ACCESS_TOKEN = ""
 
+# Phase 14: in-process channel layer (a dedicated test uses Redis); Meta never configured unless a
+# test sets fake credentials; the development simulator stays off.
+CHANNEL_LAYERS = {"default": {"BACKEND": "channels.layers.InMemoryChannelLayer"}}
+META_APP_ID = ""
+META_APP_SECRET = ""
+META_WEBHOOK_VERIFY_TOKEN = ""
+META_HUMAN_AGENT_APPROVED = False
+MATECART_CHANNEL_SIMULATOR = False
+MATECART_WEBSOCKET_ORIGINS = ["http://testserver"]
+
 CELERY_TASK_ALWAYS_EAGER = True
 CELERY_TASK_EAGER_PROPAGATES = True
 

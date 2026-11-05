@@ -52,6 +52,8 @@ INSTALLED_APPS = [
     "commerce.marketing",
     # Phase 13: notification engine, email connections (SMTP, IMAP, MateMail), SMS, templates.
     "commerce.notifications",
+    # Phase 14: website live chat (WebSocket), Messenger, WhatsApp, Instagram, unified inbox.
+    "commerce.communications",
     # Phase 05: store content (pages, homepage sections). Theme and modules live in stores.
     "commerce.content",
 ]
@@ -67,6 +69,8 @@ MIDDLEWARE = [
 
 ROOT_URLCONF = "config.urls"
 WSGI_APPLICATION = "config.wsgi.application"
+# Phase 14 (D-092): HTTP and WebSocket are served by one ASGI application (config.asgi).
+ASGI_APPLICATION = "config.asgi.application"
 
 # --- Database (one dedicated PostgreSQL database per store deployment) ---
 DATABASES = {"default": env.db("DATABASE_URL")}
@@ -211,6 +215,50 @@ CACHES = {
     },
 }
 
+# --- Real-time events (Phase 14, D-092) ---
+# Channels distributes WebSocket events between ASGI workers through the store's own Redis (a
+# separate database number). It is a transport only: messages are persisted in PostgreSQL first.
+CHANNEL_LAYER_URL = env("MATECART_CHANNEL_LAYER_URL", default="")
+CHANNEL_LAYERS: dict[str, Any] = (
+    {
+        "default": {
+            "BACKEND": "channels_redis.core.RedisChannelLayer",
+            "CONFIG": {
+                "hosts": [CHANNEL_LAYER_URL],
+                "prefix": "commerce-ws",
+                "capacity": 200,
+                "expiry": 30,
+                "group_expiry": 3600,
+            },
+        }
+    }
+    if CHANNEL_LAYER_URL
+    else {"default": {"BACKEND": "channels.layers.InMemoryChannelLayer"}}
+)
+
+# --- Communications (Phase 14, D-092 to D-098; docs/COMMUNICATIONS.md) ---
+# Meta app used for Messenger, Instagram and WhatsApp. Deployment secrets: read only here, never
+# stored in the database, returned by an API or logged. Empty = those channels show
+# "configuration required"; website chat needs none of them.
+META_APP_ID = env("META_APP_ID", default="")
+META_APP_SECRET = env("META_APP_SECRET", default="")
+META_WEBHOOK_VERIFY_TOKEN = env("META_WEBHOOK_VERIFY_TOKEN", default="")
+# Facebook Login for Business / WhatsApp Embedded Signup configuration ids (optional).
+META_LOGIN_CONFIG_ID = env("META_LOGIN_CONFIG_ID", default="")
+META_WHATSAPP_CONFIG_ID = env("META_WHATSAPP_CONFIG_ID", default="")
+# Set only after Meta approves the app's Human Agent feature: allows Messenger and Instagram
+# replies with the HUMAN_AGENT tag up to 7 days after the customer's last message.
+META_HUMAN_AGENT_APPROVED = env.bool("META_HUMAN_AGENT_APPROVED", default=False)
+# Development simulator (D-097): a labelled fake connection for local acceptance. Never in
+# production (production settings force it off).
+MATECART_CHANNEL_SIMULATOR = env.bool("MATECART_CHANNEL_SIMULATOR", default=False)
+# Browser origins allowed to open WebSockets (besides MATECART_PUBLIC_BASE_URL). Defaults to the
+# CSRF trusted origins, which already list the storefront origins.
+MATECART_WEBSOCKET_ORIGINS: list[str] = env.list("MATECART_WEBSOCKET_ORIGINS", default=[])
+# Retention (D-096): message bodies and files of inactive closed conversations.
+MATECART_CONVERSATION_RETENTION_DAYS = env.int("MATECART_CONVERSATION_RETENTION_DAYS", default=365)
+MATECART_GUEST_CHAT_RETENTION_DAYS = env.int("MATECART_GUEST_CHAT_RETENTION_DAYS", default=180)
+
 # --- Templates (email bodies only; the web UI is the Next.js apps) ---
 TEMPLATES = [
     {
@@ -310,6 +358,17 @@ SPECTACULAR_SETTINGS = {
         "SmsSenderStatusEnum": "commerce.notifications.models.SenderStatus",
         "OtpChannelEnum": "commerce.identity.models.OtpChannel",
         "WarrantyProviderEnum": "commerce.catalog.models.WarrantyProvider",
+        "ChannelTypeEnum": "commerce.communications.models.ChannelType",
+        "ChannelConnectionStatusEnum": "commerce.communications.serializers.CONNECTION_STATES",
+        "ConversationStatusEnum": "commerce.communications.models.ConversationStatus",
+        "MessageDirectionEnum": "commerce.communications.models.MessageDirection",
+        "MessageKindEnum": "commerce.communications.models.MessageKind",
+        "MessageDeliveryStatusEnum": "commerce.communications.models.DeliveryStatus",
+        "AttachmentStatusEnum": "commerce.communications.models.AttachmentStatus",
+        "ConversationEventKindEnum": "commerce.communications.models.EventKind",
+        "OrderLinkKindEnum": "commerce.communications.models.OrderLinkKind",
+        "ChatLanguagesEnum": "commerce.communications.models.ChatLanguages",
+        "LauncherPositionEnum": "commerce.communications.models.LauncherPosition",
     },
 }
 API_SCHEMA_ENABLED = env.bool("DJANGO_API_SCHEMA_ENABLED", default=False)
@@ -357,6 +416,9 @@ CELERY_BEAT_SCHEDULE = {
         "schedule": 86400.0,
         "args": ("cleanup",),
     },
+    # Phase 14: re-queue stuck outbound messages and media downloads; daily housekeeping.
+    "communications-sweep": {"task": "communications.sweep", "schedule": 60.0},
+    "communications-housekeeping": {"task": "communications.housekeeping", "schedule": 3600.0},
 }
 
 # --- Logging (stdout; JSON in deployed environments, readable text locally) ---

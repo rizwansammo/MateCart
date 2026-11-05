@@ -26,6 +26,7 @@ import { AfterSalesWorkspace } from './manage/aftersales';
 import { AssistedOrderForm } from './manage/assisted-order';
 import { CatalogManager } from './manage/catalog';
 import { CustomerList, CustomerProfile } from './manage/customers';
+import { InboxWorkspace } from './manage/inbox';
 import { InventoryManager } from './manage/inventory';
 import { MarketingWorkspace } from './manage/marketing';
 import { NotificationSettings } from './manage/notification-settings';
@@ -35,6 +36,7 @@ import { Overview } from './manage/overview';
 import { ProductCreate, ProductEditor, ProductList } from './manage/products';
 import { Reports } from './manage/reports';
 import { SettingsHub } from './manage/settings';
+import { SocialSettings } from './manage/social-settings';
 import { ShipmentDetail, ShipmentList } from './manage/shipments';
 
 function TeamSettings() {
@@ -352,9 +354,12 @@ function Section({ path, session }: { path: string; session: StaffSession }) {
       return <Reports />;
     case 'settings':
       if (second === 'notifications') return <NotificationSettings path={path} session={session} />;
+      if (second === 'social') return <SocialSettings />;
       return <SettingsHub session={session} />;
     case 'notifications':
       return <NotificationCenter />;
+    case 'inbox':
+      return <InboxWorkspace path={path} session={session} />;
     case 'appearance':
       return <AppearanceSettings canManageSettings={can('store.settings')} />;
     case 'content':

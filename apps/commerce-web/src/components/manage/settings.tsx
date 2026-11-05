@@ -33,6 +33,12 @@ export function SettingsHub({ session }: { session: StaffSession }) {
       allowed: can('store.settings'),
     },
     {
+      href: '/manage/settings/social',
+      title: 'Live chat and social channels',
+      body: 'Website chat, Facebook Messenger, WhatsApp Business and Instagram Direct connections.',
+      allowed: can('store.settings'),
+    },
+    {
       href: '/manage/team',
       title: 'Team and access',
       body: 'Invite staff, change roles, suspend or restore access.',
