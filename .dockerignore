@@ -1,0 +1,18 @@
+# Build context for apps/web.Dockerfile (repository root). Keep secrets, local state and other
+# services out of the image build.
+.git
+.github
+.env
+.env.*
+**/.env
+**/.env.*
+*.pem
+*.key
+**/node_modules
+**/.next
+**/coverage
+**/*.tsbuildinfo
+.acceptance
+services
+docs
+scripts

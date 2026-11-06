@@ -1,0 +1,159 @@
+# MateCart release images and deployment manifest (Phase 17, D-121).
+#
+# Runs only when the owner starts it from the Actions tab (workflow_dispatch). It never runs on a
+# push or pull request, never creates Git tags or GitHub Releases, and never tags `latest`.
+#
+#   publish = false (default): build all four production images and validate them. Nothing is
+#                              pushed; no package permission is used.
+#   publish = true           : additionally push version-tagged images to ghcr.io and produce the
+#                              release manifest (images pinned by sha256 digest). Requires the
+#                              `ghcr-release` environment, which the owner protects with required
+#                              reviewers before the first publication.
+name: Release images
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Release version (MAJOR.MINOR.PATCH, immutable; e.g. 1.0.0)'
+        required: true
+        type: string
+      publish:
+        description: 'Push images to ghcr.io (needs ghcr-release environment approval)'
+        required: true
+        type: boolean
+        default: false
+      rollback_compatible_with:
+        description: 'Comma-separated older versions whose code tolerates this schema (optional)'
+        required: false
+        type: string
+        default: ''
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ inputs.version }}
+  cancel-in-progress: false
+
+env:
+  VERSION: ${{ inputs.version }}
+
+jobs:
+  build:
+    name: Build and validate (${{ matrix.image }})
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    strategy:
+      fail-fast: true
+      matrix:
+        include:
+          - {
+              image: commerce-api,
+              context: services/commerce-api,
+              file: services/commerce-api/Dockerfile,
+              target: prod,
+              app: '',
+            }
+          - {
+              image: control-api,
+              context: services/control-api,
+              file: services/control-api/Dockerfile,
+              target: prod,
+              app: '',
+            }
+          - {
+              image: commerce-web,
+              context: .,
+              file: apps/web.Dockerfile,
+              target: prod,
+              app: commerce-web,
+            }
+          - {
+              image: platform-console,
+              context: .,
+              file: apps/web.Dockerfile,
+              target: prod,
+              app: platform-console,
+            }
+    steps:
+      - uses: actions/checkout@v7
+      - name: Validate version
+        run: |
+          [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z][0-9A-Za-z.-]{0,31})?$ ]] \
+            || { echo "Version must be MAJOR.MINOR.PATCH"; exit 1; }
+      - name: Build (no push)
+        run: |
+          docker buildx build \
+            --file "${{ matrix.file }}" --target "${{ matrix.target }}" \
+            --build-arg "APP=${{ matrix.app }}" \
+            --build-arg "MATECART_VERSION=$VERSION" --build-arg "MATECART_GIT_SHA=$GITHUB_SHA" \
+            --tag "local/matecart-${{ matrix.image }}:$VERSION" --load "${{ matrix.context }}"
+      - name: Check image contents
+        run: |
+          image="local/matecart-${{ matrix.image }}:$VERSION"
+          user=$(docker image inspect --format '{{.Config.User}}' "$image")
+          [ -n "$user" ] && [ "$user" != "root" ] && [ "$user" != "0" ] \
+            || { echo "Image must not run as root"; exit 1; }
+          if docker run --rm --entrypoint sh "$image" -c 'find / -xdev \( -name ".env" -o -name ".env.*" -o -name "*.pem" -o -name "*.key" \) -not -path "/proc/*" -not -path "/usr/*" -not -path "/etc/ssl/*" 2>/dev/null | grep -q .'; then
+            echo "Secret-like files found in the image"; exit 1
+          fi
+
+  publish:
+    name: Publish to GHCR and write the release manifest
+    if: ${{ inputs.publish }}
+    needs: build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    environment: ghcr-release
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v7
+      # The manifest tool is stdlib-only and runs on the runner's Python 3.12.
+      - name: Sign in to ghcr.io (job token, packages scope only)
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+      - name: Refuse to overwrite an existing version
+        run: |
+          owner="${GITHUB_REPOSITORY_OWNER,,}"
+          for image in commerce-api control-api commerce-web platform-console; do
+            if docker manifest inspect "ghcr.io/$owner/matecart-$image:$VERSION" >/dev/null 2>&1; then
+              echo "ghcr.io/$owner/matecart-$image:$VERSION already exists; versions are immutable"; exit 1
+            fi
+          done
+      - name: Build and push version-tagged images
+        run: |
+          owner="${GITHUB_REPOSITORY_OWNER,,}"
+          echo '{}' > digests.json
+          build() {
+            local image="$1" context="$2" file="$3" app="$4"
+            docker buildx build --file "$file" --target prod --build-arg "APP=$app" \
+              --build-arg "MATECART_VERSION=$VERSION" --build-arg "MATECART_GIT_SHA=$GITHUB_SHA" \
+              --tag "ghcr.io/$owner/matecart-$image:$VERSION" \
+              --metadata-file "meta-$image.json" --push "$context"
+            digest=$(jq -r '."containerimage.digest"' "meta-$image.json")
+            [[ "$digest" =~ ^sha256:[0-9a-f]{64}$ ]] || { echo "No digest for $image"; exit 1; }
+            jq --arg k "$image" --arg v "$digest" '.[$k] = $v' digests.json > digests.tmp
+            mv digests.tmp digests.json
+          }
+          build commerce-api services/commerce-api services/commerce-api/Dockerfile ""
+          build control-api services/control-api services/control-api/Dockerfile ""
+          build commerce-web . apps/web.Dockerfile commerce-web
+          build platform-console . apps/web.Dockerfile platform-console
+      - name: Write and validate the release manifest
+        working-directory: services/deploy-agent
+        run: |
+          python3 -m matecart_agent.manifest build --version "$VERSION" \
+            --git-commit "$GITHUB_SHA" --owner "$GITHUB_REPOSITORY_OWNER" \
+            --digests ../../digests.json --repo-root ../.. \
+            --rollback-compatible-with "${{ inputs.rollback_compatible_with }}" > ../../release.json
+          python3 -m matecart_agent.manifest validate ../../release.json | tee ../../release.sha256.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: matecart-release-${{ inputs.version }}
+          path: |
+            release.json
+            release.sha256.txt
+            digests.json
+          retention-days: 90

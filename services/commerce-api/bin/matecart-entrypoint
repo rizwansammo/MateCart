@@ -1,0 +1,57 @@
+#!/bin/sh
+# MateCart commerce-api production entrypoint (D-117). The first argument selects a fixed role;
+# nothing else is accepted, so a deployment cannot turn the image into a general shell.
+#
+#   api      ASGI HTTP + WebSocket server (uvicorn workers)
+#   worker   Celery worker
+#   beat     Celery beat (one per Store deployment)
+#   migrate  one-shot: migrations as the migration role, runtime grants, idempotent tenant
+#            provisioning for MATECART_TENANT_ID (the Console Store Registration ID)
+#   check    Django system checks with production settings
+set -eu
+
+role="${1:-api}"
+
+case "$role" in
+  api)
+    exec uvicorn config.asgi:application \
+      --host 0.0.0.0 --port 8000 \
+      --workers "${MATECART_API_WORKERS:-2}" \
+      --no-access-log --no-proxy-headers --no-server-header \
+      --ws-max-size 65536 --lifespan off \
+      --timeout-keep-alive 10 --timeout-graceful-shutdown 25
+    ;;
+  worker)
+    exec celery -A config worker --loglevel=INFO \
+      --concurrency="${MATECART_WORKER_CONCURRENCY:-2}" \
+      --hostname="commerce-worker@%h"
+    ;;
+  beat)
+    exec celery -A config beat --loglevel=INFO --schedule=/tmp/celerybeat-schedule
+    ;;
+  migrate)
+    : "${MATECART_TENANT_ID:?MATECART_TENANT_ID must be the Console Store Registration ID}"
+    : "${MATECART_DB_RUNTIME_ROLE:?MATECART_DB_RUNTIME_ROLE must name the runtime database role}"
+    python manage.py check
+    python manage.py migrate --noinput
+    python manage.py apply_runtime_grants --role "$MATECART_DB_RUNTIME_ROLE"
+    # Idempotent: an existing tenant with this ID is left unchanged; a different tenant fails.
+    python manage.py provision_tenant --if-missing \
+      --handle "${MATECART_STORE_HANDLE:?}" \
+      --name "${MATECART_STORE_NAME:?}" \
+      --preset "${MATECART_STORE_PRESET:?}" \
+      --country "${MATECART_STORE_COUNTRY:?}" \
+      --currency "${MATECART_STORE_CURRENCY:?}" \
+      --timezone "${MATECART_STORE_TIMEZONE:?}" \
+      --language "${MATECART_STORE_LANGUAGE:?}" \
+      --languages "${MATECART_STORE_LANGUAGES:-}"
+    exec python manage.py check_deployment_ready
+    ;;
+  check)
+    exec python manage.py check --deploy --fail-level ERROR
+    ;;
+  *)
+    echo "matecart-entrypoint: unknown role '$role' (api, worker, beat, migrate, check)" >&2
+    exit 64
+    ;;
+esac

@@ -1,8 +1,34 @@
 from django.urls import path
 
-from . import views
+from . import deployment_views, views
 
 urlpatterns = [
+    path(
+        "servers/<uuid:pk>/agent/",
+        deployment_views.ServerAgentView.as_view(),
+        name="console-server-agent",
+    ),
+    path("releases/", deployment_views.ReleaseCollectionView.as_view(), name="console-releases"),
+    path(
+        "releases/<uuid:pk>/",
+        deployment_views.ReleaseDetailView.as_view(),
+        name="console-release",
+    ),
+    path(
+        "deployments/<uuid:pk>/automation/",
+        deployment_views.DeploymentCommandView.as_view(),
+        name="console-deployment-automation",
+    ),
+    path(
+        "deployments/<uuid:pk>/backup-policy/",
+        deployment_views.BackupPolicyView.as_view(),
+        name="console-deployment-backup-policy",
+    ),
+    path(
+        "domains/<uuid:pk>/verify/",
+        deployment_views.DomainVerifyView.as_view(),
+        name="console-domain-verify",
+    ),
     path("overview/", views.OverviewView.as_view(), name="console-overview"),
     path("capabilities/", views.CapabilitiesView.as_view(), name="console-capabilities"),
     path("clients/", views.ClientCollectionView.as_view(), name="console-clients"),

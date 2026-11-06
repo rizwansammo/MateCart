@@ -2,6 +2,7 @@ from datetime import datetime, timedelta
 
 from celery import shared_task
 from django.db import transaction
+from django.db.models import Q
 from django.utils import timezone
 
 from .models import (
@@ -12,13 +13,14 @@ from .models import (
     MonitoringObservation,
     OperationalAlert,
 )
-from .services import notify_alert
+from .services import apply_alert_condition, end_expired_silence
 
 
 @shared_task(name="platform.evaluate_monitoring", ignore_result=True)
 def evaluate_monitoring() -> None:
     """Idempotently open or recover missing-heartbeat alerts from authoritative timestamps."""
     now = timezone.now()
+    expire_silences(now)
     stale_before = now - timedelta(minutes=5)
     for deployment in Deployment.objects.all().iterator():
         last_observed_at = deployment.last_observed_at
@@ -100,45 +102,30 @@ def _set_alert(
     details: dict[str, str] | None = None,
 ) -> None:
     deployment_key = str(deployment.pk) if deployment else "unassigned"
-    key = f"deployment:{deployment_key}:{category}:{key_suffix}"
-    evidence = details or {"source": "control_evaluation"}
-    with transaction.atomic():
-        alert = OperationalAlert.objects.select_for_update().filter(deduplication_key=key).first()
-        if active and alert is None:
-            alert = OperationalAlert.objects.create(
-                deployment=deployment,
-                category=category,
-                severity=severity,
-                deduplication_key=key,
-                title=title,
-                details=evidence,
-            )
-            notify_alert(alert)
-        elif active and alert is not None and alert.status == "resolved":
-            alert.status = "open"
-            alert.resolved_at = None
-            alert.resolved_by = None
-            alert.acknowledged_at = None
-            alert.acknowledged_by = None
-            alert.silenced_until = None
-            alert.details = {**evidence, "reactivated_at": now.isoformat()}
-            alert.save(
-                update_fields=[
-                    "status",
-                    "resolved_at",
-                    "resolved_by",
-                    "acknowledged_at",
-                    "acknowledged_by",
-                    "silenced_until",
-                    "details",
-                    "updated_at",
-                ]
-            )
-            notify_alert(alert, incident_at=now)
-        elif not active and alert is not None and alert.status in {"open", "acknowledged"}:
-            alert.status = "resolved"
-            alert.resolved_at = now
-            alert.save(update_fields=["status", "resolved_at", "updated_at"])
+    apply_alert_condition(
+        key=f"deployment:{deployment_key}:{category}:{key_suffix}",
+        active=active,
+        now=now,
+        deployment=deployment,
+        category=category,
+        severity=severity,
+        title=title,
+        evidence=details or {"source": "control_evaluation"},
+    )
+
+
+def expire_silences(now: datetime) -> int:
+    """End every lapsed silence, whether or not a fresh report arrived (D-116)."""
+    ended = 0
+    lapsed = OperationalAlert.objects.filter(status="silenced").filter(
+        Q(silenced_until__lte=now) | Q(silenced_until__isnull=True)
+    )
+    for alert_id in lapsed.values_list("pk", flat=True):
+        with transaction.atomic():
+            alert = OperationalAlert.objects.select_for_update().filter(pk=alert_id).first()
+            if alert is not None and end_expired_silence(alert, now):
+                ended += 1
+    return ended
 
 
 @shared_task(name="platform.retention", ignore_result=True)
@@ -154,3 +141,11 @@ def retention() -> None:
     OperationalAlert.objects.filter(
         status="resolved", resolved_at__lt=now - timedelta(days=400)
     ).delete()
+
+
+@shared_task(name="platform.reconcile_deployments", ignore_result=True)
+def reconcile_deployments() -> None:
+    """Expire undelivered commands, time out silent ones and raise Agent connectivity alerts."""
+    from .deployment import reconcile_commands
+
+    reconcile_commands()

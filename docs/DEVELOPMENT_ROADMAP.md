@@ -257,6 +257,11 @@ visibility, isolated Control worker and complete Console workspaces. Remote exec
 
 Docker releases, GHCR, dedicated deployments, client-owned VPS deployment, SSH installer, secure deployment agent, domain and SSL automation, health checks, controlled updates, production reverse proxy and images.
 
+Status (2026-11-06): implemented and locally accepted in disposable containers (see
+[DEPLOYMENT_AUTOMATION.md](DEPLOYMENT_AUTOMATION.md)); includes the Phase 16 alert-silence
+carry-over. By owner decision no real VPS, DNS, public TLS or GHCR publication was used; those
+acceptance steps move to Phase 19 with owner approval.
+
 ### Phase 18 — Final Quality, Performance & Security
 
 Comprehensive testing, vulnerability assessment, tenant isolation verification, load testing, scalability validation, monitoring, backup and restore, recovery testing, release readiness.

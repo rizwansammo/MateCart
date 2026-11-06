@@ -1,3 +1,5 @@
+import path from 'node:path';
+
 import type { NextConfig } from 'next';
 
 // Baseline headers only. A Content-Security-Policy is deferred until payment, analytics and
@@ -14,7 +16,14 @@ const securityHeaders = [
 // /api/* to the API directly (Phase 17); this rewrite serves local development and `next start`.
 const apiOrigin = process.env.CONTROL_API_INTERNAL_URL?.trim().replace(/\/+$/, '');
 
+// Production images (apps/web.Dockerfile, Phase 17) build with MATECART_NEXT_OUTPUT=standalone:
+// only traced runtime files are shipped. Local `pnpm build` keeps the default output.
+const standalone = process.env.MATECART_NEXT_OUTPUT === 'standalone';
+
 const nextConfig: NextConfig = {
+  ...(standalone
+    ? { output: 'standalone' as const, outputFileTracingRoot: path.resolve(process.cwd(), '../..') }
+    : {}),
   reactStrictMode: true,
   logging: { incomingRequests: false, browserToTerminal: false },
   // Django's routes end with "/"; keep the slash instead of redirecting it away.

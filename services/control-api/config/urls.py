@@ -9,6 +9,8 @@ urlpatterns: list[URLPattern | URLResolver] = [
     path("api/csrf/", CsrfView.as_view(), name="csrf"),
     path("api/console/", include("control.accounts.urls")),
     path("api/console/", include("control.platform.urls")),
+    # Phase 17: signed Deployment Agent protocol (outbound from Servers only).
+    path("api/agent/v1/", include("control.platform.agent_urls")),
 ]
 
 if settings.API_SCHEMA_ENABLED:

@@ -425,3 +425,28 @@ All tables are tenant-owned with composite tenant keys. Migrations: `ai.0001_ini
 | `transfers_externalsourcemapping` | Source record ↔ MateCart record                                                                                                                                                                | unique per external id and per local id within a source                                                     |
 | `transfers_historicalcustomer`    | Read-only customer copied from a source store                                                                                                                                                  | unique per source and external id; not an account                                                           |
 | `transfers_historicalorder`       | Read-only past order with source statuses, totals and lines                                                                                                                                    | unique per source and external id; never an order; excluded from reports                                    |
+
+## Phase 17 deployment automation schema (Control database)
+
+Migration `platform.0003_deployment_automation`. All rows live in the Control database; no Store
+business data is copied (D-119 to D-123).
+
+| Model             | Purpose and key constraints                                                                                                                                                                                                                                                                                                                                                 |
+| ----------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `DeploymentAgent` | One Agent per Server (partial unique: one `active` per Server). `key_id` unique; HMAC secret and pending rotation secret Fernet-encrypted; credential expiry; host facts (bounded allowlist); last heartbeat; revocation actor/time.                                                                                                                                        |
+| `AgentEnrollment` | Single-use, one-hour enrollment token stored as SHA-256 plus last four characters; issuer; used time and resulting Agent.                                                                                                                                                                                                                                                   |
+| `ReleaseRecord`   | Validated `matecart.release/v1` manifest (unique version), its SHA-256, status `available`/`withdrawn`, registering administrator.                                                                                                                                                                                                                                          |
+| `AgentCommand`    | One per executable `OperationalRequest` (one-to-one). Kind (allowlist), Control-built payload and its SHA-256, status lifecycle, target/previous version, target configuration revision, expiry, delivery count, start/finish/verification times, bounded progress events, last event sequence, failure category/detail. Partial unique: one active command per Deployment. |
+| `BackupPolicy`    | One per Deployment: enabled, daily UTC time, retention 1-365 days (check constraints), media flag, destination kind (`local` only), revision.                                                                                                                                                                                                                               |
+
+Changed models: `Deployment` (+ `verified_version`, `verified_at`, `rollback_version`; `state` is
+read-only through the API), `DomainRecord` (+ ownership token, verification state/time/detail,
+`tls_mode`, `renewal_state`), `OperationalRequest` (+ validated `parameters`; executable kinds
+also use status `failed`), `MonitoringObservation` (credential now optional; + `agent`, worker and
+database status, configuration revision; check constraint: exactly one source),
+`BackupObservation` (+ `report_id` unique per Deployment when present, size, SHA-256, artifact
+name).
+
+Commerce has no schema change in Phase 17. Production Store databases add the roles described in
+D-118 (`matecart_owner`, `matecart_app`), created by the template's init script and granted by
+`manage.py apply_runtime_grants`.

@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import {
   clientPage,
+  deploymentAutomation,
+  releasePage,
+  serverAgentState,
   consoleSession,
   deploymentPage,
   monitoringCredentialPage,
@@ -129,5 +132,70 @@ describe('central platform contracts', () => {
       ],
     });
     expect(result.results[0]?.health_state).toBe('unknown');
+  });
+});
+
+describe('deployment automation contracts', () => {
+  it('decodes agent, readiness, verified commands and backup policy', () => {
+    const value = deploymentAutomation({
+      agent: {
+        id: 'agent-1',
+        server_id: 'server-1',
+        status: 'active',
+        connection: 'connected',
+        agent_version: '1.0.0',
+        host_facts: { os: 'Ubuntu 24.04' },
+        enrolled_at: '2026-11-06T00:00:00Z',
+        last_seen_at: '2026-11-06T00:01:00Z',
+        credential_expires_at: '2027-02-04T00:00:00Z',
+        revoked_at: null,
+      },
+      readiness: { ready: false, checks: { agent_connected: true, domain_verified: false } },
+      rollback_eligible: true,
+      commands: [
+        {
+          id: 'cmd-1',
+          kind: 'update_release',
+          status: 'awaiting_verification',
+          operation_id: 'op-1',
+          target_version: '1.1.0',
+          previous_version: '1.0.0',
+          created_at: '2026-11-06T00:00:00Z',
+          started_at: '2026-11-06T00:00:10Z',
+          finished_at: '2026-11-06T00:02:00Z',
+          verified_at: null,
+          progress: [{ sequence: 1, event: 'started', stage: '', message: '', at: 'x' }],
+          failure_category: '',
+          failure_detail: '',
+        },
+      ],
+      backup_policy: null,
+    });
+    expect(value.agent?.connection).toBe('connected');
+    expect(value.readiness.checks.domain_verified).toBe(false);
+    expect(value.commands[0]?.verified_at).toBeNull();
+    expect(value.backup_policy).toBeNull();
+  });
+
+  it('rejects malformed release pages and decodes digest references', () => {
+    expect(() => releasePage({ count: 1, next: null, previous: null, results: [{}] })).toThrow();
+    const page = releasePage({
+      count: 1,
+      next: null,
+      previous: null,
+      results: [
+        {
+          id: 'r-1',
+          version: '1.0.0',
+          status: 'available',
+          git_commit: 'f'.repeat(40),
+          created_at: '2026-11-06T00:00:00Z',
+          manifest_sha256: 'a'.repeat(64),
+          images: { 'commerce-api': `ghcr.io/o/matecart-commerce-api@sha256:${'b'.repeat(64)}` },
+        },
+      ],
+    });
+    expect(page.results[0]?.images['commerce-api']).toContain('@sha256:');
+    expect(serverAgentState({ agent: null, enrollments: [] }).agent).toBeNull();
   });
 });

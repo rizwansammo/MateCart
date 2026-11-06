@@ -1,0 +1,156 @@
+# MateCart dedicated Store deployment (Phase 17, D-117/D-118). Rendered into
+# /opt/matecart/stores/<handle>/compose.yaml by the Deployment Agent; run as
+#   docker compose --project-name matecart-store-<handle> --env-file deploy.env ...
+#
+# Isolation per Store: own Compose project, containers, networks, volumes, PostgreSQL, Redis,
+# secrets (env files generated on the Server, 0600) and tenant (MATECART_TENANT_ID is the
+# Console Store Registration ID). deploy.env holds only non-secret interpolation values:
+# the project name, the edge network alias and the two image references (pinned by digest).
+#
+# Networks:
+#   data   internal; PostgreSQL and Redis are reachable only from this Store's app containers
+#   egress app containers' outbound access (payment, courier, email and AI providers)
+#   edge   internal; shared only with the host proxy, which reaches api and web by unique alias
+
+name: ${MATECART_STORE_PROJECT:?set in deploy.env}
+
+x-app: &app
+  image: ${MATECART_COMMERCE_API_IMAGE:?set in deploy.env}
+  init: true
+  read_only: true
+  tmpfs: ['/tmp:size=64m']
+  cap_drop: [ALL]
+  security_opt: ['no-new-privileges:true']
+  env_file: [app.env]
+  stop_grace_period: 30s
+  logging: &logging
+    driver: local
+    options: { max-size: 10m, max-file: '5' }
+  restart: unless-stopped
+
+services:
+  db:
+    image: postgres:18.6-alpine3.24
+    env_file: [db.env]
+    volumes:
+      - db-data:/var/lib/postgresql
+      - ./postgres-init:/docker-entrypoint-initdb.d:ro
+    networks: [data]
+    shm_size: 256m
+    security_opt: ['no-new-privileges:true']
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U "$$POSTGRES_USER" -d "$$POSTGRES_DB"']
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    logging: *logging
+    restart: unless-stopped
+
+  redis:
+    image: redis:8.10.2-alpine
+    env_file: [redis.env]
+    command: ['sh', '-c', 'exec redis-server --requirepass "$$REDIS_PASSWORD" --appendonly yes']
+    volumes: [redis-data:/data]
+    networks: [data]
+    security_opt: ['no-new-privileges:true']
+    healthcheck:
+      test: ['CMD-SHELL', 'REDISCLI_AUTH="$$REDIS_PASSWORD" redis-cli ping | grep -q PONG']
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    logging: *logging
+    restart: unless-stopped
+
+  # One-shot job, run explicitly by the Agent: `run --rm migrate`. Connects as the schema owner
+  # (migrate.env overrides DATABASE_URL); everything else uses the data-only runtime role.
+  migrate:
+    <<: *app
+    command: [migrate]
+    env_file: [app.env, migrate.env]
+    networks: [data]
+    restart: 'no'
+    profiles: [jobs]
+
+  api:
+    <<: *app
+    command: [api]
+    volumes: [media:/var/lib/matecart/media]
+    networks:
+      data: {}
+      egress: {}
+      edge:
+        aliases: ['${MATECART_STORE_ALIAS:?set in deploy.env}-api']
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'python',
+          '-c',
+          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/health/ready/', timeout=4)",
+        ]
+      interval: 10s
+      timeout: 6s
+      retries: 6
+      start_period: 40s
+    depends_on:
+      db: { condition: service_healthy }
+      redis: { condition: service_healthy }
+
+  worker:
+    <<: *app
+    command: [worker]
+    volumes: [media:/var/lib/matecart/media]
+    networks: [data, egress]
+    healthcheck:
+      test:
+        ['CMD-SHELL', 'celery -A config inspect ping --destination commerce-worker@$$HOSTNAME --timeout 5']
+      interval: 30s
+      timeout: 15s
+      retries: 3
+      start_period: 40s
+    depends_on:
+      db: { condition: service_healthy }
+      redis: { condition: service_healthy }
+
+  beat:
+    <<: *app
+    command: [beat]
+    networks: [data]
+    depends_on:
+      redis: { condition: service_healthy }
+
+  web:
+    image: ${MATECART_COMMERCE_WEB_IMAGE:?set in deploy.env}
+    init: true
+    read_only: true
+    tmpfs: ['/tmp:size=64m', '/app/apps/commerce-web/.next/cache:size=256m,uid=1000,gid=1000']
+    cap_drop: [ALL]
+    security_opt: ['no-new-privileges:true']
+    env_file: [web.env]
+    networks:
+      egress: {}
+      edge:
+        aliases: ['${MATECART_STORE_ALIAS}-web']
+    stop_grace_period: 20s
+    logging: *logging
+    restart: unless-stopped
+    depends_on:
+      api: { condition: service_healthy }
+
+networks:
+  data:
+    name: ${MATECART_STORE_PROJECT}-data
+    internal: true
+  egress:
+    name: ${MATECART_STORE_PROJECT}-egress
+  edge:
+    name: ${MATECART_STORE_PROJECT}-edge
+    internal: true
+
+volumes:
+  db-data:
+    name: ${MATECART_STORE_PROJECT}-db-data
+  redis-data:
+    name: ${MATECART_STORE_PROJECT}-redis-data
+  media:
+    name: ${MATECART_STORE_PROJECT}-media

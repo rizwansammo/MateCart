@@ -49,6 +49,22 @@ are in [AUTHENTICATION.md](AUTHENTICATION.md).
 
 API and database ports can be changed in `.env`. The Next.js ports live in `apps/*/package.json` (and in `scripts/check-health.mjs`).
 
+### Phase 17 tools and local deployment acceptance
+
+Profile-gated services never start with `pnpm stack:up`:
+
+| Command                              | What it does                                                                                                             |
+| ------------------------------------ | ------------------------------------------------------------------------------------------------------------------------ |
+| `pnpm agent:test`, `pnpm agent:lint` | Deployment Agent tests and ruff/mypy (`deploy-agent` tools service, no network, no Docker socket)                        |
+| `pnpm images:build`                  | Builds the four production images locally as `matecart-dev/<image>:acceptance-1` (never pushed)                          |
+| `pnpm deploy:acceptance`             | Builds the images, then runs the disposable acceptance (two Stores, proxy, Control) and writes `.acceptance/report.json` |
+| `pnpm deploy:acceptance:down`        | Removes only `matecart-dev-acc-*` containers and volumes                                                                 |
+
+Acceptance needs Python 3.11+ on the host and these free loopback ports: 18480 (proxy HTTP),
+18443 (proxy HTTPS, Caddy internal test CA) and 18410 (disposable Control API). Generated secrets
+and backups stay in the gitignored `.acceptance/` folder. See
+[DEPLOYMENT_AUTOMATION.md](DEPLOYMENT_AUTOMATION.md).
+
 ## Command reference
 
 | Task                                            | Command                                                                                |
@@ -168,6 +184,7 @@ The backend does not need host Python. For editor autocompletion only, install u
 - Use only `pnpm stack:*` or `docker compose …` from this repository root (project `matecart-dev`).
 - Never run `docker system prune`, `docker volume prune` or any other global cleanup, and never touch `mateerp-*`, `deltawave-*`, `honrisesol-*` or other projects' resources.
 - **Reset MateCart's local data** (destructive, MateCart only, ask the owner first): `docker compose down -v` deletes the `matecart-dev-*` volumes.
+- Acceptance resources (`matecart-dev-acc-*`) are disposable; remove them with `pnpm deploy:acceptance:down`, which never touches the development databases.
 - Containers use `restart: unless-stopped`. They come back after a Docker Desktop restart unless you ran `pnpm stack:down`.
 
 ## Troubleshooting

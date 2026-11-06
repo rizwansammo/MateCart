@@ -403,3 +403,165 @@ export function auditRecord(value: unknown): AuditRecord {
   };
 }
 export const auditPage = page(auditRecord);
+
+// ---------------------------------------------------------------- Phase 17 deployment automation
+
+export interface AgentRecord {
+  id: string;
+  server_id: string;
+  status: string;
+  connection: string;
+  agent_version: string;
+  enrolled_at: string;
+  last_seen_at: string | null;
+  credential_expires_at: string;
+  revoked_at: string | null;
+}
+export function agentRecord(value: unknown): AgentRecord {
+  const row = object(value);
+  return {
+    id: string(row.id),
+    server_id: string(row.server_id),
+    status: string(row.status),
+    connection: string(row.connection),
+    agent_version: string(row.agent_version),
+    enrolled_at: string(row.enrolled_at),
+    last_seen_at: nullable(string)(row.last_seen_at),
+    credential_expires_at: string(row.credential_expires_at),
+    revoked_at: nullable(string)(row.revoked_at),
+  };
+}
+
+export interface ServerAgentState {
+  agent: AgentRecord | null;
+  enrollments: { id: string; last_four: string; expires_at: string; used_at: string | null }[];
+}
+export function serverAgentState(value: unknown): ServerAgentState {
+  const row = object(value);
+  return {
+    agent: nullable(agentRecord)(row.agent),
+    enrollments: array(row.enrollments, (item) => {
+      const entry = object(item);
+      return {
+        id: string(entry.id),
+        last_four: string(entry.last_four),
+        expires_at: string(entry.expires_at),
+        used_at: nullable(string)(entry.used_at),
+      };
+    }),
+  };
+}
+
+export interface CommandProgress {
+  sequence: number;
+  event: string;
+  stage: string;
+  message: string;
+  at: string;
+}
+export interface DeploymentCommandRecord {
+  id: string;
+  kind: string;
+  status: string;
+  operation_id: string;
+  target_version: string;
+  previous_version: string;
+  created_at: string;
+  started_at: string | null;
+  finished_at: string | null;
+  verified_at: string | null;
+  progress: CommandProgress[];
+  failure_category: string;
+  failure_detail: string;
+}
+export function deploymentCommandRecord(value: unknown): DeploymentCommandRecord {
+  const row = object(value);
+  return {
+    id: string(row.id),
+    kind: string(row.kind),
+    status: string(row.status),
+    operation_id: string(row.operation_id),
+    target_version: string(row.target_version),
+    previous_version: string(row.previous_version),
+    created_at: string(row.created_at),
+    started_at: nullable(string)(row.started_at),
+    finished_at: nullable(string)(row.finished_at),
+    verified_at: nullable(string)(row.verified_at),
+    progress: array(row.progress, (item) => {
+      const entry = object(item);
+      return {
+        sequence: number(entry.sequence),
+        event: string(entry.event),
+        stage: string(entry.stage),
+        message: string(entry.message),
+        at: string(entry.at),
+      };
+    }),
+    failure_category: string(row.failure_category),
+    failure_detail: string(row.failure_detail),
+  };
+}
+
+export interface DeploymentAutomation {
+  agent: AgentRecord | null;
+  readiness: { ready: boolean; checks: Record<string, boolean> };
+  rollback_eligible: boolean;
+  commands: DeploymentCommandRecord[];
+  backup_policy: {
+    enabled: boolean;
+    schedule_hour_utc: number;
+    schedule_minute: number;
+    retention_days: number;
+    include_media: boolean;
+    revision: number;
+  } | null;
+}
+export function deploymentAutomation(value: unknown): DeploymentAutomation {
+  const row = object(value);
+  const readiness = object(row.readiness);
+  const checks = object(readiness.checks);
+  return {
+    agent: nullable(agentRecord)(row.agent),
+    readiness: {
+      ready: boolean(readiness.ready),
+      checks: Object.fromEntries(Object.entries(checks).map(([key, item]) => [key, boolean(item)])),
+    },
+    rollback_eligible: boolean(row.rollback_eligible),
+    commands: array(row.commands, deploymentCommandRecord),
+    backup_policy: nullable((item: unknown) => {
+      const policy = object(item);
+      return {
+        enabled: boolean(policy.enabled),
+        schedule_hour_utc: number(policy.schedule_hour_utc),
+        schedule_minute: number(policy.schedule_minute),
+        retention_days: number(policy.retention_days),
+        include_media: boolean(policy.include_media),
+        revision: number(policy.revision),
+      };
+    })(row.backup_policy),
+  };
+}
+
+export interface ReleaseRecord {
+  id: string;
+  version: string;
+  status: string;
+  git_commit: string;
+  created_at: string;
+  manifest_sha256: string;
+  images: Record<string, string>;
+}
+export function releaseRecord(value: unknown): ReleaseRecord {
+  const row = object(value);
+  const images = object(row.images);
+  return {
+    id: string(row.id),
+    version: string(row.version),
+    status: string(row.status),
+    git_commit: string(row.git_commit),
+    created_at: string(row.created_at),
+    manifest_sha256: string(row.manifest_sha256),
+    images: Object.fromEntries(Object.entries(images).map(([key, item]) => [key, string(item)])),
+  };
+}
+export const releasePage = page(releaseRecord);

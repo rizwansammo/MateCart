@@ -34,6 +34,11 @@
     "api:format": "docker compose run --rm --no-deps commerce-api ruff format . && docker compose run --rm --no-deps control-api ruff format .",
     "api:schema": "docker compose run --rm --no-deps commerce-api python manage.py spectacular --file openapi.yaml --validate --fail-on-warn && docker compose run --rm --no-deps control-api python manage.py spectacular --file openapi.yaml --validate --fail-on-warn",
     "api:celery-check": "docker compose exec commerce-api python manage.py check_celery",
+    "agent:test": "docker compose run --rm deploy-agent pytest",
+    "agent:lint": "docker compose run --rm deploy-agent sh -c \"ruff check . && ruff format --check . && mypy\"",
+    "images:build": "node scripts/build-images.mjs",
+    "deploy:acceptance": "node scripts/build-images.mjs && python services/deploy-agent/acceptance/run.py",
+    "deploy:acceptance:down": "python services/deploy-agent/acceptance/run.py --down",
     "api:provision": "docker compose exec commerce-api python manage.py provision_tenant --if-missing --handle dev-store --name \"MateCart Dev Store\" --preset general --country BD --currency BDT --timezone Asia/Dhaka --language en --languages en,bn"
   },
   "devDependencies": {

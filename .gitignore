@@ -37,3 +37,6 @@ Thumbs.db
 *.swp
 .vscode/*
 !.vscode/extensions.json
+
+# --- Phase 17 local deployment acceptance (generated secrets, disposable data) ---
+/.acceptance/

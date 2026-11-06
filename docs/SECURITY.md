@@ -266,9 +266,10 @@ Details: [COMMUNICATIONS.md](COMMUNICATIONS.md), D-092 to D-098.
 - Expired session/challenge/invitation retention and key-rotation operations need
   explicit production policies (13/17/18). Protect database backups containing
   encrypted seeds and retain encryption keys securely; never blindly regenerate.
-- Phase 17: separate migration/runtime PostgreSQL roles, remove runtime schema/DDL
-  and trigger-bypass privileges, secure proxy trust, secret provisioning, TLS and
-  logging. Compose's database owner is for local development only.
+- Phase 17 (done, D-118): separate migration/runtime PostgreSQL roles; the runtime role has no
+  schema/DDL or trigger-bypass privileges. Proxy trust (one Caddy hop, forwarded headers replaced),
+  Server-side secret generation (0600 env files), TLS and Agent security: DEPLOYMENT_AUTOMATION.md.
+  Compose's database owner is for local development only.
 - Phase 18: final Django-version compatibility and private `_do_update()` review,
   tenant bypass audit, race/load tests, dependency vulnerabilities, recovery and
   backup/restore verification. Existing Phase 02.1/02.2 tests stay mandatory.

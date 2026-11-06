@@ -243,7 +243,7 @@ Update the status in the same change that completes a feature.
 ## Commerce core
 
 - [x] Store modules, theme and branding; preset engine (05)
-- [ ] Store domains and TLS (17)
+- [~] Store domains and TLS (17: ownership/DNS verification, Caddy routing, ACME/internal TLS, renewal observation; public certificates need a real domain, 19)
 - [x] Customer, merchant-staff and central-admin sign-in foundations, tenant-scoped RBAC, MFA and sessions (03; provider limits above)
 - [x] Catalogue, categories, variants, SKUs, pricing, stock movements (04)
 - [~] Preset-specific attributes (data in 04, storefront presentation in 06; delivery slots, comparison and EMI remain): fashion variants and size guides; grocery weight, expiry, batch, delivery slots; electronics specs, warranty, serial numbers, comparison, EMI; bookstore ISBN, author, publisher, language, edition, genre, format, pages, series, pre-orders, digital editions (04, 05)
@@ -308,7 +308,8 @@ Central Console alerts:
   signals need future authoritative inputs
 - [~] SSL expiry and renewal recovery (16.1); security, payment and courier incident feeds remain
   future integrations
-- [ ] Deployment agent disconnections · recovery notifications
+- [x] Deployment Agent disconnection, deployment failure, worker/database unavailable and
+      certificate renewal failure alerts with recovery, reusing deduplication/silence (17, D-116/D-120)
 
 Delivery requirements:
 
@@ -424,15 +425,19 @@ Accepted and closed with 10.1: `6fe1a8c`, GitHub Actions 41115310035, 4/4 jobs, 
 
 ## Platform and operations
 
-- [ ] Production PostgreSQL runtime/migration role separation and privilege hardening (17)
+- [x] Production PostgreSQL runtime/migration role separation and privilege hardening (17, D-118)
 - [ ] Final Django private-hook compatibility and tenant/authentication audit (18)
 
 - [x] Central Console: client registry, onboarding, browser-editable desired store configuration,
       preset/module validation, both Server ownership types and essential monitoring fields
       (16.1; automated gates passed, authenticated owner browser checklist pending)
 - [x] Control-side deployment/release requests, domain/TLS inventory and pending integration contracts (16); remote execution/provisioning remains 17
-- [x] Backup status visibility and secure support/administrative workflows (16); installation and restore drills remain 17–18
-- [ ] GHCR releases, dedicated deployments, client-owned VPS installer, deployment agent (17)
+- [x] Backup status visibility and secure support/administrative workflows (16); Agent-run local backups and a disposable restore smoke test (17); restore drills remain 18
+- [x] Production images, manual GHCR release workflow (not run), dedicated Store Compose with
+      separated DB roles, installer/preflight/dry-run, pinned-key SSH plan, Deployment Agent,
+      approved command execution with verification, Caddy proxy/TLS, update/rollback, local backups
+      (17; locally accepted in disposable containers; real VPS/DNS/TLS/GHCR acceptance is 19)
+- [x] Alert silence expiry correction (16 carry-over, D-116)
 - [ ] Tenant isolation verification, load tests, vulnerability assessment, backup and restore drills (18)
 - [ ] Production deployment and private beta launch (19)
 

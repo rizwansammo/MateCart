@@ -1521,6 +1521,105 @@ channels remain Phase 17; Phase 16 records truthful pending requests and observe
   recently authenticated metadata-list and audited revoke operations; raw credentials remain
   one-time values and replacement remains an explicit create action.
 
+### D-116 · Silences expire into visible incidents; recovery resolves silenced alerts (2026-11-06, Phase 17 carry-over)
+
+One lifecycle function (`services.apply_alert_condition`) now serves telemetry and scheduled
+rules. A silence holds only while `silenced_until` is in the future. When it lapses, the alert
+returns to Open (audited as a system event, one notification per silence period), whether or not
+a new report arrived, because an unresolved alert is still a failure and recovery is never inferred
+from missing data. Recovery evidence resolves an alert even while it is silenced. Acknowledge and
+silence are refused on resolved alerts, so a silence can never resurrect a closed incident.
+
+### D-117 · Production images: one Python image per service, standalone Next.js, fixed roles (2026-11-06, Phase 17)
+
+`commerce-api` and `control-api` gain a `prod` stage (locked `--no-dev` dependencies, root-owned
+read-only source, UID 10001, no tests) and an entrypoint with fixed roles only (`api`, `worker`,
+`beat`, `migrate`, `check`). Commerce serves ASGI (HTTP + WebSocket) with uvicorn workers; Control
+uses gunicorn (WSGI), added with dnspython. Both Next.js apps build from `apps/web.Dockerfile`
+with `output: 'standalone'` enabled only when `MATECART_NEXT_OUTPUT=standalone`, so local builds
+are unchanged; they run as `node` with a health check. Production Compose adds `init`, read-only
+root filesystems, tmpfs, dropped capabilities and `no-new-privileges`.
+
+### D-118 · Separate migration and runtime database roles per Store (2026-11-06, Phase 17)
+
+Each Store database has a bootstrap superuser (init only), `matecart_owner` (owns the schema; used
+only by the migrate job and backups) and `matecart_app` (api/worker/beat: SELECT/INSERT/UPDATE/
+DELETE and sequence use only, via `apply_runtime_grants` and default privileges). The runtime role
+cannot create, alter or drop objects or disable the audit/stock triggers. Migrations run only in the
+explicit one-shot migrate job, never at API start.
+
+### D-119 · One outbound, HMAC-signed Deployment Agent per Server (2026-11-06, Phase 17)
+
+A stdlib-only Python Agent (systemd, `matecart-agent` user in the docker group) polls Control over
+HTTPS; no inbound port or shell is exposed. Enrollment uses a single-use one-hour token issued by
+a recently authenticated `servers.manage` operator. Requests are signed (method, path, timestamp,
+single-use nonce, body digest); responses are signed back and bound to the request nonce. Secrets
+are Fernet-encrypted at rest in Control, rotate through a pending secret promoted on first use, and
+revocation is immediate and fails in-flight commands. The Agent executes only the allowlisted
+operations in `matecart_agent.operations`; all Docker invocations are built by `compose.py` from
+validated handles and run as argv, never through a shell. Docker group membership is root-equivalent
+on the host; that risk is accepted for this single service account and documented.
+
+### D-120 · Approval is not execution; acknowledgment is not success (2026-11-06, Phase 17)
+
+Executable request kinds (install, update, rollback, apply configuration, configure domains, run
+backup) require `deployments.manage` to create and decide, a separate approver, and recent
+authentication to approve and to move to Pending Execution, which is the only step that creates an
+`AgentCommand`. A partial unique constraint allows one active command per Deployment. The Agent
+must claim (`started`) a delivered, unexpired command before acting; duplicates are idempotent by
+command id and event sequence. A reported success only moves the command to Awaiting
+Verification; Control completes it from a later authenticated observation (version and health,
+configuration revision, valid TLS, or a successful backup with a digest), or fails it after 15
+minutes. Executable requests can never be completed manually. New requests can only start as draft
+or submitted.
+
+### D-121 · Immutable releases on GHCR, digest-pinned manifests, conservative rollback (2026-11-06, Phase 17)
+
+`release.yml` runs only on manual dispatch. Without `publish` it only builds and checks images;
+with `publish` it needs the protected `ghcr-release` environment, refuses existing versions, pushes
+version tags (never `latest`) with the job token's `packages: write`, and writes `release.json`
+(`matecart.release/v1`: four `ghcr.io/<owner>/matecart-*` images by sha256 digest, migration
+fingerprints, optional `rollback_compatible_with`). Control and the Agent validate manifests
+independently. Automatic rollback is allowed only to the last verified release and only when the
+schema fingerprint is unchanged or the newer release declares the older one compatible; otherwise
+it is refused and the pre-update backup must be restored by an operator. Databases are never reset
+or restored automatically.
+
+### D-122 · Caddy host proxy, verified domains only (2026-11-06, Phase 17)
+
+One Caddy 2.11 proxy per Server routes `/api/*` (including WebSockets) to a Store's api and
+everything else to its web, using per-Store internal edge networks and unique aliases, so Stores
+cannot reach each other. Incoming `X-Forwarded-*` headers are replaced, unknown hosts get 421 and
+no certificate, and certificates are issued only for site addresses the Agent rendered from
+domains Control verified: an ownership TXT record at `_matecart-verify.<domain>` plus A/AAAA records
+pointing at the Server. Control only queries DNS and never connects to customer domains. TLS mode is
+`acme` (public CA) or `internal` (test CA, local acceptance only). The Agent reports certificate
+expiry and renewal state, which feeds the existing expiry alerts and a renewal-failure alert.
+
+### D-123 · Local, Agent-run backups with integrity metadata only in Control (2026-11-06, Phase 17)
+
+Backup policy (schedule, retention 1-365 days, media on/off) is stored in Control and delivered in
+heartbeats; the Agent runs it locally even when Control is unreachable. Database dumps
+(`pg_dump -Fc` as the owner role) and media archives go to `/var/lib/matecart/backups/<handle>/`
+(0700/0600) with a SHA-256 manifest. Control receives only status, size, digest and artifact name,
+idempotent by report id. Only `local` is selectable until the owner chooses an off-site provider.
+
+### D-124 · Local deployment acceptance inside the matecart-dev project (2026-11-06, Phase 17)
+
+To respect the Docker rules, acceptance services are included into `matecart-dev` from
+`services/deploy-agent/acceptance/compose.yaml`, all behind the `deploy-acceptance` profile and
+named `matecart-dev-acc-*`, with loopback ports only. Store services extend the real production
+template. The Agent's acceptance mode (Compose service mapping, local images, no pull) is refused
+unless Control is on loopback. Generated secrets live in the gitignored `.acceptance/` folder.
+
+### D-125 · SSH bootstrap only with a pinned host key (2026-11-06, Phase 17)
+
+The future SSH path (`matecart-agent ssh-plan`) requires the Server's host key out of band and its
+expected SHA256 fingerprint, writes a pinned known_hosts file and uses
+`StrictHostKeyChecking=yes`, `BatchMode`, key authentication and a fixed `sudo -n /bin/bash -s`
+command with the bootstrap script on stdin. Without `--execute` it only prints the plan. No SSH
+connection was made in Phase 17.
+
 ## Open questions for the owner
 
 | #   | Question                                                                                                                                                                                                      | Status                                                                                                                | Needed by                    |

@@ -1,8 +1,8 @@
 # Central Platform Console
 
-Status: Phase 16.1 integrity corrections implemented locally; owner browser acceptance and GitHub
-CI remain pending. This document describes the Control-side management plane; remote deployment
-execution remains Phase 17.
+Status: Phase 16 accepted with two carried-forward items handled in Phase 17 (alert silence
+expiry corrected, D-116; authenticated browser checklist still owner work). Phase 17 connects
+Operational Requests to the Deployment Agent; see [DEPLOYMENT_AUTOMATION.md](DEPLOYMENT_AUTOMATION.md).
 
 ## Boundary
 
@@ -101,9 +101,18 @@ transition, not per repeated evaluation. Operators can acknowledge, silence for 
 resolve with audit attribution. Notifications are Control-only and role-aware; they never enter
 merchant notification tables.
 
+Silences (D-116): a silenced alert stays silent only until `silenced_until`. When the silence
+lapses, the scheduled evaluation returns it to Open (system audit event, one notification for that
+silence period) unless recovery evidence already resolved it; missing data never counts as
+recovery. Recovery evidence resolves an alert even while silenced, and a later failure reopens it.
+Resolved alerts cannot be acknowledged or silenced. Phase 17 adds Agent-fed categories:
+`agent_disconnected`, `deployment_failed`, `worker_unavailable`, `database_unavailable` and
+`certificate_renewal_failed`.
+
 Operational requests progress Draft → Submitted → Approved → Pending Execution → Completed, with
-Rejected/Cancelled branches. A requester cannot approve their own request. Completion requires
-verified evidence. Approval never means a server action ran, and the UI has no fake Execute action.
+Rejected/Cancelled branches (and Failed for executable kinds). New requests start only as Draft or
+Submitted. A requester cannot approve their own request. Completion requires verified evidence.
+Approval never means a server action ran, and the UI has no fake Execute action.
 
 ## Audit and retention
 
@@ -118,12 +127,22 @@ for 90 days and resolved alerts for 400 days. Audit records are retained. The is
 `control-worker` and `control-beat` use Control Redis databases only and run idempotent
 evaluation/retention tasks.
 
-## Phase 17 integration boundary
+## Phase 17 deployment integration
 
-Phase 16 prepares records and acknowledgment contracts only. Not implemented: SSH, remote Docker,
-GHCR rollout, agent enrollment software, production secret installation, remote migrations,
-automatic DNS/TLS, reverse proxy changes, backup installation or restore. Until those exist,
-deployment/configuration/version requests stay pending and applied/observed fields remain factual.
+Executable request kinds (`deploy_release`, `update_release`, `rollback_release`,
+`apply_configuration`, `configure_domains`, `run_backup`) need `deployments.manage` as well as
+`operations.manage`. Moving an approved request to Pending Execution creates exactly one scoped
+command for the Server's enrolled Agent; the command is verified from later telemetry before the
+request is Completed, and executable requests cannot be completed manually (D-120). New screens:
+
+- **Server detail → Deployment Agent:** connection, last heartbeat, version, credential expiry;
+  issue a single-use enrollment token; revoke.
+- **Deployment detail → Deployment automation:** readiness checks, rollback eligibility, commands
+  with live progress and verified results, request form, backup policy, domain DNS checks.
+- **Deployments → Releases:** registered release manifests (digest-pinned) and registration.
+
+The Agent protocol is `/api/agent/v1/` (HMAC-signed, not session-authenticated). Full design:
+[DEPLOYMENT_AUTOMATION.md](DEPLOYMENT_AUTOMATION.md).
 
 ## Local acceptance
 
@@ -151,6 +170,14 @@ Owner checklist (use existing development accounts and Mailpit where required):
 9. Confirm role restrictions with Support Operator and Read-only Auditor accounts, including no
    registry/configuration/credential mutations for the auditor.
 10. Check all navigation at desktop and phone width, including no horizontal page overflow.
+11. (Phase 17) Silence an open review alert for a few minutes; confirm it stays silent, then returns
+    to Open after the silence ends (within about a minute) with one notification.
+12. (Phase 17) On a Server, issue an Agent enrollment token (shown once) and confirm the Deployment
+    Agent panel shows "No Agent is enrolled" until one enrolls; on a Deployment, confirm the
+    Deployment automation panel shows readiness checks, an empty command list and the backup
+    policy form, and that a Support Operator or Auditor sees no request/policy controls.
+13. (Phase 17) Submit an Update request; confirm it cannot be approved by its requester, cannot be
+    completed manually and, without an enrolled Agent, cannot move to Pending Execution.
 
 Local URLs are documented in DEVELOPMENT_SETUP.md. Remove or retain only clearly labelled review
 records according to the owner's normal local-data practice.

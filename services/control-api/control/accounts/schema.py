@@ -37,3 +37,20 @@ class PendingEnrollmentScheme(OpenApiAuthenticationExtension):  # type: ignore[n
 
     def get_security_definition(self, auto_schema: Any) -> dict[str, Any]:
         return _cookie("A session that must set up two-step verification before anything else.")
+
+
+class AgentSignatureScheme(OpenApiAuthenticationExtension):  # type: ignore[no-untyped-call]
+    target_class = "control.platform.agent_views.AgentChallenge"
+    name = "deploymentAgentHmac"
+
+    def get_security_definition(self, auto_schema: Any) -> dict[str, Any]:
+        return {
+            "type": "apiKey",
+            "in": "header",
+            "name": "X-MateCart-Signature",
+            "description": (
+                "HMAC-SHA256 over method, path, X-MateCart-Timestamp, single-use "
+                "X-MateCart-Nonce and the body digest, keyed by the Agent credential "
+                "(X-MateCart-Agent-Key). Enrollment uses a one-time token instead."
+            ),
+        }

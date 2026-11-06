@@ -14,7 +14,7 @@ security controls: [SECURITY.md](SECURITY.md).
                        │        │                    │  └──► Redis (cache, Celery broker) ◄── commerce-worker  │
                        │        │                    └──► payment / courier / mail / AI providers (Phases 08+) │
                        └────────────────────────────────────────────────────────────────────────────────────┘
-                                         ▲  deployment agent / signed, scoped operations (planned, Phase 17)
+                                         ▲  Deployment Agent: outbound, HMAC-signed, allowlisted operations (Phase 17)
                                          │  aggregate health and traffic metrics, no business data
  NetaMate staff ──HTTPS──► platform-console (Next.js) ──► control-api (Django/DRF) ──► PostgreSQL (console DB)
 ```
@@ -51,7 +51,7 @@ MateCart/
 └── package.json               pnpm workspace root and command hub
 ```
 
-`deployment/` (production Compose, installer, agent) and a top-level `tests/` (cross-service end-to-end tests) are created when their phases begin (17 and 18), not as empty folders now.
+`services/deploy-agent/` (Phase 17: Deployment Agent, installer, production Store/proxy templates and the local acceptance harness) and `apps/web.Dockerfile` (Next.js production images) hold deployment automation. A top-level `tests/` (cross-service end-to-end tests) is created when Phase 18 begins.
 
 Each Django service is independently deployable with its own `pyproject.toml`, `uv.lock` and Dockerfile. The two share small foundation modules by copy (request id, logging, error envelope). Extracting a shared Python package is deferred until the duplication grows (DECISIONS D-016).
 
@@ -247,10 +247,10 @@ Outside the database: cache keys use `tenant_cache_key(...)` (`tenant:<id>:...`)
 ### Independence from the Central Console
 
 - Stores never need `control-api` at runtime. Licensing and configuration must not depend on a continuously reachable central endpoint.
-- **(planned)** The console manages stores through a deployment agent and SSH-based installer (Phase 17) with signed, narrowly scoped operations.
+- The Console manages Stores through one outbound Deployment Agent per Server and a pinned-host-key SSH bootstrap (Phase 17, D-119/D-125) with signed, allowlisted operations. A Console or Agent outage never stops a running Store. See [DEPLOYMENT_AUTOMATION.md](DEPLOYMENT_AUTOMATION.md).
 - The Console accepts authenticated aggregate operational metrics (health, resource values and
   rolling 24-hour visitors) and no customer personal/business records. An optional Store publisher
-  or deployment agent remains Phase 17; Commerce has no runtime dependency on this channel.
+  or the Deployment Agent reports them; Commerce has no runtime dependency on this channel.
 
 ### Central management plane (Phase 16)
 
@@ -308,7 +308,7 @@ Commerce and control use separate networks, so control-api cannot reach the comm
 | control-api                    | `GET /api/health/live/` | `GET /api/health/ready/` checks database                                        |
 | commerce-web, platform-console | `GET /healthz`          | —                                                                               |
 
-Liveness never touches dependencies. Readiness reports `ok` or `error` per check and never failure details. Responses are `Cache-Control: no-store`. **(planned)** In production, readiness should be reachable only from the proxy or orchestrator, not the public internet (Phase 17).
+Liveness never touches dependencies. Readiness reports `ok` or `error` per check and never failure details. Responses are `Cache-Control: no-store`. In production (Phase 17) the container health checks and the Agent call readiness inside the Store network; the proxy forwards `/api/*`, so public readiness exposes only ok/error per check.
 
 ### Logging
 
@@ -335,12 +335,12 @@ Redis broker, JSON-only serialisation, `acks_late` + `reject_on_worker_lost` + p
 
 ## 7. Planned architecture (not built yet)
 
-| Topic                                                                               | Phase                            |
-| ----------------------------------------------------------------------------------- | -------------------------------- |
-| Live Google/SMS provider configuration and acceptance; full notification delivery   | 13 (or approved provider setup)  |
-| Preset and theme system, white-label branding                                       | 05, 06.2                         |
-| Theme showcase (themes.matecart.pro), premium theme licences, console assignment UI | later; console 16, operations 17 |
-| Production reverse proxy, production images, GHCR releases, installer, agent, TLS   | 17                               |
-| Rate limiting, bot protection, CDN, horizontal scaling validation                   | 12, 17, 18                       |
-| Optional Store telemetry publisher / deployment agent                               | 17                               |
-| Row-level security and verified domain → tenant resolution (pooled mode)            | if approved                      |
+| Topic                                                                                                                             | Phase                            |
+| --------------------------------------------------------------------------------------------------------------------------------- | -------------------------------- |
+| Live Google/SMS provider configuration and acceptance; full notification delivery                                                 | 13 (or approved provider setup)  |
+| Preset and theme system, white-label branding                                                                                     | 05, 06.2                         |
+| Theme showcase (themes.matecart.pro), premium theme licences, console assignment UI                                               | later; console 16, operations 17 |
+| Production reverse proxy, images, GHCR releases, installer, Agent, TLS: built (17); real VPS, public DNS/TLS and GHCR publication | 19 (owner approval)              |
+| Rate limiting, bot protection, CDN, horizontal scaling validation                                                                 | 12, 17, 18                       |
+| Off-site backup destination (provider not selected)                                                                               | owner decision                   |
+| Row-level security and verified domain → tenant resolution (pooled mode)                                                          | if approved                      |

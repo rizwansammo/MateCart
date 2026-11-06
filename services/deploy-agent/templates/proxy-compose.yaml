@@ -1,0 +1,32 @@
+# MateCart host reverse proxy (Phase 17, D-122). One per Server; rendered by the Agent into
+# /opt/matecart/proxy/compose.yaml. The networks list below is generated: one internal edge
+# network per installed Store, so the proxy can reach each Store's api/web aliases while the
+# Stores cannot reach each other.
+name: matecart-proxy
+
+services:
+  proxy:
+    image: caddy:2.11.2-alpine
+    ports:
+      - '80:80'
+      - '443:443'
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./sites:/etc/caddy/sites:ro
+      - ./data:/data
+      - ./config:/config
+    cap_drop: [ALL]
+    cap_add: [NET_BIND_SERVICE]
+    security_opt: ['no-new-privileges:true']
+    networks: __NETWORK_LIST__
+    healthcheck:
+      test: ['CMD', 'wget', '-q', '--spider', 'http://127.0.0.1:2019/config/']
+      interval: 15s
+      timeout: 5s
+      retries: 5
+    logging:
+      driver: local
+      options: { max-size: 10m, max-file: '5' }
+    restart: unless-stopped
+
+networks: __NETWORK_DEFINITIONS__

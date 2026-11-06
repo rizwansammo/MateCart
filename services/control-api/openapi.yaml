@@ -4,6 +4,120 @@ info:
   version: 0.1.0
   description: Internal API behind the NetaMate Central Platform Console.
 paths:
+  /api/agent/v1/backups/:
+    post:
+      operationId: agent_v1_backups_create
+      tags:
+      - agent
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AgentBackupRequest'
+        required: true
+      security:
+      - deploymentAgentHmac: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AgentBackup'
+          description: ''
+  /api/agent/v1/commands/{id}/events/:
+    post:
+      operationId: agent_v1_commands_events_create
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - agent
+      security:
+      - deploymentAgentHmac: []
+      - {}
+      responses:
+        '200':
+          description: No response body
+  /api/agent/v1/commands/lease/:
+    post:
+      operationId: agent_v1_commands_lease_create
+      tags:
+      - agent
+      security:
+      - deploymentAgentHmac: []
+      - {}
+      responses:
+        '200':
+          description: No response body
+  /api/agent/v1/enroll/:
+    post:
+      operationId: agent_v1_enroll_create
+      tags:
+      - agent
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EnrollRequest'
+        required: true
+      security:
+      - deploymentAgentHmac: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Enroll'
+          description: ''
+  /api/agent/v1/heartbeat/:
+    post:
+      operationId: agent_v1_heartbeat_create
+      tags:
+      - agent
+      security:
+      - deploymentAgentHmac: []
+      - {}
+      responses:
+        '200':
+          description: No response body
+  /api/agent/v1/observations/:
+    post:
+      operationId: agent_v1_observations_create
+      tags:
+      - agent
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AgentObservationRequest'
+        required: true
+      security:
+      - deploymentAgentHmac: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AgentObservation'
+          description: ''
+  /api/agent/v1/rotate/:
+    post:
+      operationId: agent_v1_rotate_create
+      tags:
+      - agent
+      security:
+      - deploymentAgentHmac: []
+      - {}
+      responses:
+        '200':
+          description: No response body
   /api/console/account/mfa/email/confirm/:
     post:
       operationId: console_email_codes_confirm
@@ -633,6 +747,50 @@ paths:
               schema:
                 $ref: '#/components/schemas/Deployment'
           description: ''
+  /api/console/deployments/{id}/automation/:
+    get:
+      operationId: console_deployments_automation_retrieve
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - console
+      security:
+      - consoleSession: []
+      responses:
+        '200':
+          description: No response body
+  /api/console/deployments/{id}/backup-policy/:
+    put:
+      operationId: console_deployments_backup_policy_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - console
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BackupPolicyRequest'
+        required: true
+      security:
+      - consoleSession: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BackupPolicy'
+          description: ''
   /api/console/domains/:
     get:
       operationId: console_domains_retrieve
@@ -645,6 +803,23 @@ paths:
           description: No response body
     post:
       operationId: console_domains_create
+      tags:
+      - console
+      security:
+      - consoleSession: []
+      responses:
+        '200':
+          description: No response body
+  /api/console/domains/{id}/verify/:
+    post:
+      operationId: console_domains_verify_create
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        required: true
       tags:
       - console
       security:
@@ -800,6 +975,42 @@ paths:
       responses:
         '200':
           description: No response body
+  /api/console/releases/:
+    get:
+      operationId: console_releases_retrieve
+      tags:
+      - console
+      security:
+      - consoleSession: []
+      responses:
+        '200':
+          description: No response body
+    post:
+      operationId: console_releases_create
+      tags:
+      - console
+      security:
+      - consoleSession: []
+      responses:
+        '200':
+          description: No response body
+  /api/console/releases/{id}/:
+    patch:
+      operationId: console_releases_partial_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - console
+      security:
+      - consoleSession: []
+      responses:
+        '200':
+          description: No response body
   /api/console/servers/:
     get:
       operationId: console_server_list
@@ -848,6 +1059,56 @@ paths:
           description: ''
     patch:
       operationId: console_servers_partial_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - console
+      security:
+      - consoleSession: []
+      responses:
+        '200':
+          description: No response body
+  /api/console/servers/{id}/agent/:
+    get:
+      operationId: console_servers_agent_retrieve
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - console
+      security:
+      - consoleSession: []
+      responses:
+        '200':
+          description: No response body
+    post:
+      operationId: console_servers_agent_create
+      description: Issue a single-use, one-hour enrollment token (shown once).
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - console
+      security:
+      - consoleSession: []
+      responses:
+        '200':
+          description: No response body
+    patch:
+      operationId: console_servers_agent_partial_update
       parameters:
       - in: path
         name: id
@@ -1031,7 +1292,339 @@ components:
       - id
       - permissions
       - role
-    BackupStatusEnum:
+    AgentBackup:
+      type: object
+      properties:
+        deployment_id:
+          type: string
+          format: uuid
+        report_id:
+          type: string
+          format: uuid
+        backup_type:
+          $ref: '#/components/schemas/AgentBackupTypeEnum'
+        status:
+          $ref: '#/components/schemas/BackupResultEnum'
+        started_at:
+          type: string
+          format: date-time
+        finished_at:
+          type: string
+          format: date-time
+        size_bytes:
+          type: integer
+          minimum: 0
+          nullable: true
+        sha256:
+          oneOf:
+          - type: string
+            pattern: ^[0-9a-f]{64}$
+          - type: string
+            maxLength: 0
+        artifact_name:
+          oneOf:
+          - type: string
+            pattern: ^[A-Za-z0-9._-]{1,200}$
+          - type: string
+            maxLength: 0
+        notes:
+          type: string
+          maxLength: 300
+      required:
+      - backup_type
+      - deployment_id
+      - finished_at
+      - report_id
+      - started_at
+      - status
+    AgentBackupRequest:
+      type: object
+      properties:
+        deployment_id:
+          type: string
+          format: uuid
+        report_id:
+          type: string
+          format: uuid
+        backup_type:
+          $ref: '#/components/schemas/AgentBackupTypeEnum'
+        status:
+          $ref: '#/components/schemas/BackupResultEnum'
+        started_at:
+          type: string
+          format: date-time
+        finished_at:
+          type: string
+          format: date-time
+        size_bytes:
+          type: integer
+          minimum: 0
+          nullable: true
+        sha256:
+          oneOf:
+          - type: string
+            pattern: ^[0-9a-f]{64}$
+          - type: string
+            maxLength: 0
+        artifact_name:
+          oneOf:
+          - type: string
+            pattern: ^[A-Za-z0-9._-]{1,200}$
+          - type: string
+            maxLength: 0
+        notes:
+          type: string
+          maxLength: 300
+      required:
+      - backup_type
+      - deployment_id
+      - finished_at
+      - report_id
+      - started_at
+      - status
+    AgentBackupTypeEnum:
+      enum:
+      - database
+      - media
+      - full
+      type: string
+      description: |-
+        * `database` - database
+        * `media` - media
+        * `full` - full
+    AgentObservation:
+      type: object
+      properties:
+        deployment_id:
+          type: string
+          format: uuid
+        store_id:
+          type: string
+          format: uuid
+        report_id:
+          type: string
+          format: uuid
+        observed_at:
+          type: string
+          format: date-time
+        store_status:
+          $ref: '#/components/schemas/TelemetryHealthStateEnum'
+        api_status:
+          $ref: '#/components/schemas/TelemetryHealthStateEnum'
+        response_ms:
+          type: integer
+          maximum: 120000
+          minimum: 0
+          nullable: true
+        cpu_percent:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,3}(?:\.\d{0,2})?$
+          nullable: true
+        ram_percent:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,3}(?:\.\d{0,2})?$
+          nullable: true
+        disk_percent:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,3}(?:\.\d{0,2})?$
+          nullable: true
+        visitor_count_24h:
+          type: integer
+          maximum: 1000000000
+          minimum: 0
+          nullable: true
+        application_version:
+          type: string
+          maxLength: 80
+        backup_status:
+          nullable: true
+          oneOf:
+          - $ref: '#/components/schemas/BackupResultEnum'
+          - $ref: '#/components/schemas/NullEnum'
+        backup_type:
+          type: string
+          maxLength: 32
+        backup_at:
+          type: string
+          format: date-time
+          nullable: true
+        worker_status:
+          oneOf:
+          - $ref: '#/components/schemas/TelemetryHealthStateEnum'
+          - $ref: '#/components/schemas/BlankEnum'
+        database_status:
+          oneOf:
+          - $ref: '#/components/schemas/TelemetryHealthStateEnum'
+          - $ref: '#/components/schemas/BlankEnum'
+        configuration_revision:
+          type: integer
+          maximum: 1000000
+          minimum: 0
+          nullable: true
+        domains:
+          type: array
+          items:
+            type: object
+            additionalProperties: {}
+          maxItems: 20
+      required:
+      - api_status
+      - deployment_id
+      - observed_at
+      - report_id
+      - store_id
+      - store_status
+    AgentObservationRequest:
+      type: object
+      properties:
+        deployment_id:
+          type: string
+          format: uuid
+        store_id:
+          type: string
+          format: uuid
+        report_id:
+          type: string
+          format: uuid
+        observed_at:
+          type: string
+          format: date-time
+        store_status:
+          $ref: '#/components/schemas/TelemetryHealthStateEnum'
+        api_status:
+          $ref: '#/components/schemas/TelemetryHealthStateEnum'
+        response_ms:
+          type: integer
+          maximum: 120000
+          minimum: 0
+          nullable: true
+        cpu_percent:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,3}(?:\.\d{0,2})?$
+          nullable: true
+        ram_percent:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,3}(?:\.\d{0,2})?$
+          nullable: true
+        disk_percent:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,3}(?:\.\d{0,2})?$
+          nullable: true
+        visitor_count_24h:
+          type: integer
+          maximum: 1000000000
+          minimum: 0
+          nullable: true
+        application_version:
+          type: string
+          maxLength: 80
+        backup_status:
+          nullable: true
+          oneOf:
+          - $ref: '#/components/schemas/BackupResultEnum'
+          - $ref: '#/components/schemas/NullEnum'
+        backup_type:
+          type: string
+          maxLength: 32
+        backup_at:
+          type: string
+          format: date-time
+          nullable: true
+        worker_status:
+          oneOf:
+          - $ref: '#/components/schemas/TelemetryHealthStateEnum'
+          - $ref: '#/components/schemas/BlankEnum'
+        database_status:
+          oneOf:
+          - $ref: '#/components/schemas/TelemetryHealthStateEnum'
+          - $ref: '#/components/schemas/BlankEnum'
+        configuration_revision:
+          type: integer
+          maximum: 1000000
+          minimum: 0
+          nullable: true
+        domains:
+          type: array
+          items:
+            type: object
+            additionalProperties: {}
+          maxItems: 20
+      required:
+      - api_status
+      - deployment_id
+      - observed_at
+      - report_id
+      - store_id
+      - store_status
+    BackupPolicy:
+      type: object
+      properties:
+        enabled:
+          type: boolean
+        schedule_hour_utc:
+          type: integer
+          maximum: 23
+          minimum: 0
+        schedule_minute:
+          type: integer
+          maximum: 59
+          minimum: 0
+        retention_days:
+          type: integer
+          maximum: 365
+          minimum: 1
+        include_media:
+          type: boolean
+        destination_kind:
+          $ref: '#/components/schemas/DestinationKindEnum'
+        destination_label:
+          type: string
+          maxLength: 100
+      required:
+      - destination_kind
+      - enabled
+      - include_media
+      - retention_days
+      - schedule_hour_utc
+      - schedule_minute
+    BackupPolicyRequest:
+      type: object
+      properties:
+        enabled:
+          type: boolean
+        schedule_hour_utc:
+          type: integer
+          maximum: 23
+          minimum: 0
+        schedule_minute:
+          type: integer
+          maximum: 59
+          minimum: 0
+        retention_days:
+          type: integer
+          maximum: 365
+          minimum: 1
+        include_media:
+          type: boolean
+        destination_kind:
+          $ref: '#/components/schemas/DestinationKindEnum'
+        destination_label:
+          type: string
+          maxLength: 100
+      required:
+      - destination_kind
+      - enabled
+      - include_media
+      - retention_days
+      - schedule_hour_utc
+      - schedule_minute
+    BackupResultEnum:
       enum:
       - successful
       - failed
@@ -1039,6 +1632,9 @@ components:
       description: |-
         * `successful` - successful
         * `failed` - failed
+    BlankEnum:
+      enum:
+      - ''
     Challenge:
       type: object
       properties:
@@ -1286,7 +1882,7 @@ components:
           readOnly: true
         state:
           type: string
-          maxLength: 32
+          readOnly: true
         public_origin:
           oneOf:
           - type: string
@@ -1310,6 +1906,17 @@ components:
         configuration_revision:
           type: integer
           readOnly: true
+        rollback_version:
+          type: string
+          readOnly: true
+        verified_version:
+          type: string
+          readOnly: true
+        verified_at:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
         store:
           type: string
           format: uuid
@@ -1326,11 +1933,20 @@ components:
       - last_observed_at
       - observed_version
       - reference
+      - rollback_version
       - server
       - server_name
+      - state
       - store
       - store_name
       - updated_at
+      - verified_at
+      - verified_version
+    DestinationKindEnum:
+      enum:
+      - local
+      type: string
+      description: '* `local` - local'
     EmailRequest:
       type: object
       properties:
@@ -1341,6 +1957,38 @@ components:
           maxLength: 254
       required:
       - email
+    Enroll:
+      type: object
+      properties:
+        token:
+          type: string
+          maxLength: 256
+        agent_version:
+          type: string
+          maxLength: 40
+        host_facts:
+          type: object
+          additionalProperties: {}
+      required:
+      - agent_version
+      - token
+    EnrollRequest:
+      type: object
+      properties:
+        token:
+          type: string
+          minLength: 1
+          maxLength: 256
+        agent_version:
+          type: string
+          minLength: 1
+          maxLength: 40
+        host_facts:
+          type: object
+          additionalProperties: {}
+      required:
+      - agent_version
+      - token
     Liveness:
       type: object
       properties:
@@ -1777,7 +2425,7 @@ components:
         backup_status:
           nullable: true
           oneOf:
-          - $ref: '#/components/schemas/BackupStatusEnum'
+          - $ref: '#/components/schemas/BackupResultEnum'
           - $ref: '#/components/schemas/NullEnum'
         backup_type:
           type: string
@@ -1853,7 +2501,7 @@ components:
         backup_status:
           nullable: true
           oneOf:
-          - $ref: '#/components/schemas/BackupStatusEnum'
+          - $ref: '#/components/schemas/BackupResultEnum'
           - $ref: '#/components/schemas/NullEnum'
         backup_type:
           type: string
@@ -1923,3 +2571,10 @@ components:
       in: cookie
       name: mc_console
       description: Console session after both sign-in steps (HttpOnly, SameSite=Strict).
+    deploymentAgentHmac:
+      type: apiKey
+      in: header
+      name: X-MateCart-Signature
+      description: HMAC-SHA256 over method, path, X-MateCart-Timestamp, single-use
+        X-MateCart-Nonce and the body digest, keyed by the Agent credential (X-MateCart-Agent-Key).
+        Enrollment uses a one-time token instead.

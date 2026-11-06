@@ -8,10 +8,13 @@ import {
   clientPage,
   deploymentPage,
   monitoringCredentialPage,
+  deploymentAutomation,
   monitoringObservationPage,
   operationPage,
   platformCapabilities,
   platformOverview,
+  releasePage,
+  serverAgentState,
   serverPage,
   storePage,
   type ClientRecord,
@@ -941,6 +944,7 @@ function Deployments({
           ])}
         />
       )}
+      {!monitoring && <Releases canManage={canManage} />}
     </>
   );
 }
@@ -1490,16 +1494,412 @@ function DeploymentCredentials({ deploymentId }: { deploymentId: string }) {
   );
 }
 
+// ---------------------------------------------------------------- Phase 17 deployment automation
+
+function when(value: string | null): string {
+  return value ? new Date(value).toLocaleString() : '—';
+}
+
+function ServerAgent({ serverId, canManage }: { serverId: string; canManage: boolean }) {
+  const [refresh, setRefresh] = useState(0);
+  const [error, setError] = useState('');
+  const [token, setToken] = useState('');
+  const { data, error: loadError } = useData(
+    `/api/console/servers/${serverId}/agent/`,
+    serverAgentState,
+    refresh,
+  );
+  async function issue() {
+    try {
+      const response = await api.post<unknown>(`/api/console/servers/${serverId}/agent/`, {});
+      const raw =
+        response && typeof response === 'object'
+          ? (response as Record<string, unknown>).token
+          : null;
+      if (typeof raw !== 'string') throw new Error('The server returned an invalid token.');
+      setToken(raw);
+      setError('');
+      setRefresh((item) => item + 1);
+    } catch (reason) {
+      setError(errorMessage(reason));
+    }
+  }
+  async function revoke() {
+    if (!window.confirm('Revoke this Deployment Agent? Queued and running commands will fail.'))
+      return;
+    try {
+      await api.patch(`/api/console/servers/${serverId}/agent/`, { action: 'revoke' });
+      setRefresh((item) => item + 1);
+    } catch (reason) {
+      setError(errorMessage(reason));
+    }
+  }
+  const agent = data?.agent ?? null;
+  return (
+    <div className="mt-5">
+      <h2 className="mb-3 text-lg font-bold">Deployment Agent</h2>
+      <Card>
+        {(error || loadError) && <Alert>{error || loadError}</Alert>}
+        {token && (
+          <Alert>
+            Single-use enrollment token (expires in 1 hour, shown once). On the Server, pipe it to
+            <code className="mx-1">python3 -m matecart_agent enroll</code>
+            through standard input; never put it on a command line.
+            <code className="mt-2 block break-all">{token}</code>
+          </Alert>
+        )}
+        {!data ? (
+          <Loading>Loading Agent…</Loading>
+        ) : agent ? (
+          <dl className="grid gap-4 text-sm sm:grid-cols-2 xl:grid-cols-4">
+            <div>
+              <dt className="font-bold text-muted">Connection</dt>
+              <dd>
+                <Status value={agent.connection} />
+              </dd>
+            </div>
+            <div>
+              <dt className="font-bold text-muted">Last heartbeat</dt>
+              <dd>{when(agent.last_seen_at)}</dd>
+            </div>
+            <div>
+              <dt className="font-bold text-muted">Agent version</dt>
+              <dd>{agent.agent_version || 'Not reported'}</dd>
+            </div>
+            <div>
+              <dt className="font-bold text-muted">Credential expires</dt>
+              <dd>{when(agent.credential_expires_at)}</dd>
+            </div>
+          </dl>
+        ) : (
+          <Empty>No Agent is enrolled. Commands cannot be delivered to this Server.</Empty>
+        )}
+        {canManage && (
+          <div className="mt-4 flex flex-wrap gap-3">
+            {!agent && <Button onClick={() => void issue()}>Issue enrollment token</Button>}
+            {agent && (
+              <Button variant="danger" onClick={() => void revoke()}>
+                Revoke Agent
+              </Button>
+            )}
+          </div>
+        )}
+      </Card>
+    </div>
+  );
+}
+
+const COMMAND_KINDS: [string, string][] = [
+  ['deploy_release', 'Install release'],
+  ['update_release', 'Update release'],
+  ['rollback_release', 'Roll back to previous release'],
+  ['apply_configuration', 'Apply store configuration'],
+  ['configure_domains', 'Configure verified domains'],
+  ['run_backup', 'Run backup now'],
+];
+
+function DeploymentAutomationPanel({
+  deploymentId,
+  canManage,
+  domains,
+  refreshed,
+}: {
+  deploymentId: string;
+  canManage: boolean;
+  domains: Record<string, unknown>[];
+  refreshed: () => void;
+}) {
+  const [refresh, setRefresh] = useState(0);
+  const [error, setError] = useState('');
+  const [notice, setNotice] = useState('');
+  const { data, error: loadError } = useData(
+    `/api/console/deployments/${deploymentId}/automation/`,
+    deploymentAutomation,
+    refresh,
+  );
+  const releases = useData('/api/console/releases/', releasePage, refresh).data;
+  async function request(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const form = new FormData(event.currentTarget);
+    const kind = String(form.get('kind') ?? '');
+    const version = String(form.get('version') ?? '');
+    try {
+      await api.post('/api/console/operations/', {
+        kind,
+        title: `${title(kind)}${version ? ` ${version}` : ''}`,
+        status: 'submitted',
+        deployment: deploymentId,
+        parameters: version ? { version } : {},
+      });
+      setNotice(
+        'Request submitted. A different authorized administrator must approve it on Operations; ' +
+          'approval does not run anything until it is moved to Pending Execution.',
+      );
+      setError('');
+    } catch (reason) {
+      setError(errorMessage(reason));
+    }
+  }
+  async function savePolicy(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const form = new FormData(event.currentTarget);
+    try {
+      await api.put(`/api/console/deployments/${deploymentId}/backup-policy/`, {
+        enabled: form.get('enabled') === 'on',
+        schedule_hour_utc: Number(form.get('hour') ?? 2),
+        schedule_minute: Number(form.get('minute') ?? 30),
+        retention_days: Number(form.get('retention') ?? 14),
+        include_media: form.get('media') === 'on',
+        destination_kind: 'local',
+      });
+      setRefresh((item) => item + 1);
+    } catch (reason) {
+      setError(errorMessage(reason));
+    }
+  }
+  async function verify(domainId: string) {
+    try {
+      const result = await api.post<unknown>(`/api/console/domains/${domainId}/verify/`, {});
+      const row = result && typeof result === 'object' ? (result as Record<string, unknown>) : {};
+      setNotice(
+        `${String(row.verification_detail ?? '')} Create TXT ${String(row.txt_record_name ?? '')} = ${String(row.txt_record_value ?? '')}`,
+      );
+      refreshed();
+    } catch (reason) {
+      setError(errorMessage(reason));
+    }
+  }
+  const policy = data?.backup_policy ?? null;
+  return (
+    <div className="mt-5 grid gap-5">
+      <h2 className="text-lg font-bold">Deployment automation</h2>
+      {(error || loadError) && <Alert>{error || loadError}</Alert>}
+      {notice && <Alert>{notice}</Alert>}
+      {!data ? (
+        <Loading>Loading deployment automation…</Loading>
+      ) : (
+        <>
+          <Card>
+            <h3 className="mb-3 font-bold">
+              Readiness: <Status value={data.readiness.ready ? 'ready' : 'not_ready'} />
+            </h3>
+            <ul className="grid gap-1 text-sm sm:grid-cols-2">
+              {Object.entries(data.readiness.checks).map(([key, ok]) => (
+                <li key={key}>
+                  {ok ? '✓' : '✗'} {title(key)}
+                </li>
+              ))}
+            </ul>
+            <p className="mt-3 text-sm text-muted">
+              Agent: {data.agent ? title(data.agent.connection) : 'not enrolled'} · Rollback{' '}
+              {data.rollback_eligible ? 'available to the last verified release' : 'not available'}
+            </p>
+          </Card>
+          <Card>
+            <h3 className="mb-3 font-bold">Commands</h3>
+            {data.commands.length === 0 ? (
+              <Empty>No deployment commands yet.</Empty>
+            ) : (
+              <Table
+                headers={['Command', 'Status', 'Target', 'Latest step', 'Started', 'Verified']}
+                rows={data.commands.map((item) => {
+                  const last = item.progress[item.progress.length - 1];
+                  return [
+                    title(item.kind),
+                    <Status key="status" value={item.status} />,
+                    item.target_version || '—',
+                    item.failure_category
+                      ? `${title(item.failure_category)}: ${item.failure_detail}`
+                      : last
+                        ? `${last.stage || last.event}${last.message ? ` — ${last.message}` : ''}`
+                        : 'Waiting for the Agent',
+                    when(item.started_at),
+                    when(item.verified_at),
+                  ];
+                })}
+              />
+            )}
+          </Card>
+          {canManage && (
+            <Card>
+              <h3 className="mb-3 font-bold">Request a deployment operation</h3>
+              <form onSubmit={request} className="flex flex-wrap items-end gap-3">
+                <label className="grid min-w-56 gap-1 text-sm font-semibold">
+                  Operation
+                  <select className={inputClass} name="kind" defaultValue="update_release">
+                    {COMMAND_KINDS.map(([value, label]) => (
+                      <option key={value} value={value}>
+                        {label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="grid min-w-48 gap-1 text-sm font-semibold">
+                  Release (install, update, rollback)
+                  <select className={inputClass} name="version" defaultValue="">
+                    <option value="">Not applicable</option>
+                    {releases?.results
+                      .filter((item) => item.status === 'available')
+                      .map((item) => (
+                        <option key={item.id} value={item.version}>
+                          {item.version}
+                        </option>
+                      ))}
+                  </select>
+                </label>
+                <Button type="submit">Submit for approval</Button>
+              </form>
+            </Card>
+          )}
+          {canManage && (
+            <Card>
+              <h3 className="mb-3 font-bold">Backup policy (local Server storage)</h3>
+              <form onSubmit={savePolicy} className="flex flex-wrap items-end gap-3 text-sm">
+                <label className="flex items-center gap-2 font-semibold">
+                  <input type="checkbox" name="enabled" defaultChecked={policy?.enabled ?? true} />
+                  Enabled
+                </label>
+                <label className="grid gap-1 font-semibold">
+                  Hour (UTC)
+                  <input
+                    className={inputClass}
+                    name="hour"
+                    type="number"
+                    min={0}
+                    max={23}
+                    defaultValue={policy?.schedule_hour_utc ?? 2}
+                  />
+                </label>
+                <label className="grid gap-1 font-semibold">
+                  Minute
+                  <input
+                    className={inputClass}
+                    name="minute"
+                    type="number"
+                    min={0}
+                    max={59}
+                    defaultValue={policy?.schedule_minute ?? 30}
+                  />
+                </label>
+                <label className="grid gap-1 font-semibold">
+                  Retention (days)
+                  <input
+                    className={inputClass}
+                    name="retention"
+                    type="number"
+                    min={1}
+                    max={365}
+                    defaultValue={policy?.retention_days ?? 14}
+                  />
+                </label>
+                <label className="flex items-center gap-2 font-semibold">
+                  <input
+                    type="checkbox"
+                    name="media"
+                    defaultChecked={policy?.include_media ?? true}
+                  />
+                  Include media
+                </label>
+                <Button type="submit">Save policy</Button>
+              </form>
+            </Card>
+          )}
+          {canManage && domains.length > 0 && (
+            <Card>
+              <h3 className="mb-3 font-bold">Domain verification</h3>
+              <Table
+                headers={['Domain', 'Ownership', 'DNS', 'TLS', 'Renewal', 'Action']}
+                rows={domains.map((item) => [
+                  String(item.domain ?? ''),
+                  <Status key="v" value={String(item.verification_state ?? 'pending')} />,
+                  String(item.dns_state ?? 'unknown'),
+                  String(item.tls_state ?? 'unknown'),
+                  String(item.renewal_state ?? 'unknown'),
+                  <Button key="verify" onClick={() => void verify(String(item.id))}>
+                    Check DNS
+                  </Button>,
+                ])}
+              />
+            </Card>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
+function Releases({ canManage }: { canManage: boolean }) {
+  const [refresh, setRefresh] = useState(0);
+  const [error, setError] = useState('');
+  const { data, error: loadError } = useData('/api/console/releases/', releasePage, refresh);
+  async function register(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const form = new FormData(event.currentTarget);
+    try {
+      const manifest: unknown = JSON.parse(String(form.get('manifest') ?? ''));
+      await api.post('/api/console/releases/', {
+        manifest,
+        notes: String(form.get('notes') ?? ''),
+      });
+      event.currentTarget.reset();
+      setError('');
+      setRefresh((item) => item + 1);
+    } catch (reason) {
+      setError(
+        reason instanceof SyntaxError ? 'Paste the release.json content.' : errorMessage(reason),
+      );
+    }
+  }
+  return (
+    <div className="mt-6">
+      <h2 className="mb-3 text-lg font-bold">Releases</h2>
+      <Card>
+        {(error || loadError) && <Alert>{error || loadError}</Alert>}
+        {!data ? (
+          <Loading>Loading releases…</Loading>
+        ) : data.results.length === 0 ? (
+          <Empty>No release is registered. Publishing to GHCR needs separate owner approval.</Empty>
+        ) : (
+          <Table
+            headers={['Version', 'Status', 'Commit', 'Registered', 'Commerce API image']}
+            rows={data.results.map((item) => [
+              item.version,
+              <Status key="status" value={item.status} />,
+              item.git_commit.slice(0, 12),
+              when(item.created_at),
+              <code key="image" className="text-xs break-all">
+                {item.images['commerce-api'] ?? '—'}
+              </code>,
+            ])}
+          />
+        )}
+        {canManage && (
+          <form onSubmit={register} className="mt-4 grid gap-3">
+            <label className="grid gap-1 text-sm font-semibold">
+              Release manifest (release.json from the release workflow)
+              <textarea className={`${inputClass} min-h-32 font-mono`} name="manifest" required />
+            </label>
+            <input className={inputClass} name="notes" placeholder="Notes (optional)" />
+            <Button type="submit">Register release</Button>
+          </form>
+        )}
+      </Card>
+    </div>
+  );
+}
+
 function Detail({
   kind,
   id,
   canManage,
   canMonitor,
+  canDeploy,
 }: {
   kind: 'clients' | 'stores' | 'servers' | 'deployments';
   id: string;
   canManage: boolean;
   canMonitor: boolean;
+  canDeploy: boolean;
 }) {
   const [value, setValue] = useState<Record<string, unknown> | null>(null);
   const [error, setError] = useState('');
@@ -1719,8 +2119,15 @@ function Detail({
             ]}
           />
           {canMonitor && <DeploymentCredentials deploymentId={id} />}
+          <DeploymentAutomationPanel
+            deploymentId={id}
+            canManage={canDeploy}
+            domains={domains}
+            refreshed={() => setRefresh((item) => item + 1)}
+          />
         </>
       )}
+      {kind === 'servers' && <ServerAgent serverId={id} canManage={canManage} />}
       {kind === 'stores' && (
         <RelatedRecords
           heading="Configuration revisions"
@@ -1761,6 +2168,9 @@ export function PlatformWorkspace({ path, permissions }: { path: string; permiss
           `${root === 'stores' ? 'store_configuration' : root}.manage`,
         )}
         canMonitor={permissions.includes('monitoring.manage')}
+        canDeploy={
+          permissions.includes('deployments.manage') && permissions.includes('operations.manage')
+        }
       />
     );
   if (path === 'clients') return <Clients canManage={permissions.includes('clients.manage')} />;

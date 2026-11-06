@@ -1,0 +1,23 @@
+# MateCart host proxy (D-122). Each Store's site block lives in sites/<handle>.caddy and is
+# rendered by the Agent only for domains that Control verified (ownership TXT + DNS readiness).
+{
+	# Certificates only for configured site addresses; never on demand for arbitrary hosts.
+	admin 127.0.0.1:2019
+	__ACME_EMAIL__
+	# No trusted_proxies: incoming X-Forwarded-* headers are replaced from the connection.
+	servers {
+		timeouts {
+			read_header 10s
+			idle 2m
+		}
+	}
+}
+
+import sites/*.caddy
+
+# Unknown Host headers never reach a Store.
+:80 {
+	respond "Unknown host" 421 {
+		close
+	}
+}

@@ -1,0 +1,35 @@
+[project]
+name = "matecart-deploy-agent"
+version = "1.0.0"
+description = "MateCart Deployment Agent and Store installer (stdlib only; runs on Linux VPS hosts)."
+# Debian 12 ships Python 3.11; Ubuntu 24.04 ships 3.12. The Agent has no runtime dependencies.
+requires-python = ">=3.11"
+dependencies = []
+
+[dependency-groups]
+dev = ["pytest>=9.1.1", "ruff>=0.17.2", "mypy"]
+
+[tool.uv]
+package = false
+
+[tool.pytest.ini_options]
+addopts = "--strict-markers"
+testpaths = ["tests"]
+
+[tool.ruff]
+target-version = "py311"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP", "S", "SIM", "PT", "RUF"]
+ignore = ["S603", "S607"]  # argv-only subprocess calls are the reviewed execution boundary
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["S101", "S105", "S106", "S108"]
+# Local acceptance harness: embeds Django shell snippets for the disposable Control.
+"acceptance/*" = ["E501"]
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
+files = ["matecart_agent", "tests"]

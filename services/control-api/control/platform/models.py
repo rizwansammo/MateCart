@@ -168,6 +168,11 @@ class Deployment(UUIDModel, TimestampedModel):
     last_observed_at = models.DateTimeField(null=True, blank=True)
     last_healthy_at = models.DateTimeField(null=True, blank=True)
     configuration_revision = models.PositiveIntegerField(default=0)
+    # Phase 17 (D-120): the last version verified healthy after an update, which is the only
+    # automatic rollback target. Empty until a verified installation exists.
+    rollback_version = models.CharField(max_length=80, blank=True)
+    verified_version = models.CharField(max_length=80, blank=True)
+    verified_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:
         ordering = ["store__name", "environment"]
@@ -191,6 +196,14 @@ class DomainRecord(UUIDModel, TimestampedModel):
     certificate_expires_at = models.DateTimeField(null=True, blank=True)
     last_verified_at = models.DateTimeField(null=True, blank=True)
     notes = models.CharField(max_length=500, blank=True)
+    # Phase 17 (D-122): ownership proof is a TXT record _matecart-verify.<domain> holding this
+    # value. Only verified domains are ever sent to an Agent for proxy/TLS configuration.
+    verification_token = models.CharField(max_length=64, blank=True)
+    verification_state = models.CharField(max_length=24, default="pending")
+    verification_checked_at = models.DateTimeField(null=True, blank=True)
+    verification_detail = models.CharField(max_length=200, blank=True)
+    tls_mode = models.CharField(max_length=16, default="acme")
+    renewal_state = models.CharField(max_length=24, default="unknown")
 
 
 class OperationalRequest(UUIDModel, TimestampedModel):
@@ -230,6 +243,8 @@ class OperationalRequest(UUIDModel, TimestampedModel):
     )
     decided_at = models.DateTimeField(null=True, blank=True)
     completed_evidence = models.CharField(max_length=500, blank=True)
+    # Phase 17: validated parameters of an executable request (release version, domain id).
+    parameters = models.JSONField(default=dict, blank=True)
 
     class Meta:
         ordering = ["-created_at"]
@@ -250,9 +265,25 @@ class MonitoringObservation(UUIDModel):
     deployment = models.ForeignKey(
         Deployment, on_delete=models.PROTECT, related_name="observations"
     )
+    # Exactly one source: a deployment monitoring credential (Phase 16) or the server's
+    # enrolled Deployment Agent (Phase 17).
     credential = models.ForeignKey(
-        MonitoringCredential, on_delete=models.PROTECT, related_name="observations"
+        MonitoringCredential,
+        null=True,
+        blank=True,
+        on_delete=models.PROTECT,
+        related_name="observations",
     )
+    agent = models.ForeignKey(
+        "DeploymentAgent",
+        null=True,
+        blank=True,
+        on_delete=models.PROTECT,
+        related_name="observations",
+    )
+    worker_status = models.CharField(max_length=24, blank=True)
+    database_status = models.CharField(max_length=24, blank=True)
+    configuration_revision = models.PositiveIntegerField(null=True, blank=True)
     report_id = models.UUIDField()
     observed_at = models.DateTimeField()
     received_at = models.DateTimeField(auto_now_add=True)
@@ -271,7 +302,12 @@ class MonitoringObservation(UUIDModel):
         constraints = [
             models.UniqueConstraint(
                 fields=["deployment", "report_id"], name="platform_observation_replay"
-            )
+            ),
+            models.CheckConstraint(
+                condition=Q(credential__isnull=False, agent__isnull=True)
+                | Q(credential__isnull=True, agent__isnull=False),
+                name="platform_observation_one_source",
+            ),
         ]
         indexes = [
             models.Index(fields=["deployment", "-observed_at"], name="platform_observation_recent")
@@ -287,6 +323,21 @@ class BackupObservation(UUIDModel):
     source = models.CharField(max_length=24, default="reported")
     recovery_tested_at = models.DateTimeField(null=True, blank=True)
     notes = models.CharField(max_length=500, blank=True)
+    # Phase 17 (D-123): Agent-reported backups carry their idempotency id and integrity metadata.
+    # The artifact itself never leaves the Server; no destination credentials are stored here.
+    report_id = models.UUIDField(null=True, blank=True)
+    size_bytes = models.PositiveBigIntegerField(null=True, blank=True)
+    sha256 = models.CharField(max_length=64, blank=True)
+    artifact_name = models.CharField(max_length=200, blank=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["deployment", "report_id"],
+                condition=Q(report_id__isnull=False),
+                name="platform_backup_report_unique",
+            )
+        ]
 
 
 class OperationalAlert(UUIDModel, TimestampedModel):
@@ -375,3 +426,181 @@ class ConsoleAuditEvent(UUIDModel):
 
     def delete(self, *args: Any, **kwargs: Any) -> tuple[int, dict[str, int]]:
         raise ValidationError("Console audit events are append-only.")
+
+
+# ---------------------------------------------------------------- Phase 17: deployment automation
+
+
+class AgentStatus(models.TextChoices):
+    ACTIVE = "active", "Active"
+    REVOKED = "revoked", "Revoked"
+
+
+class DeploymentAgent(UUIDModel, TimestampedModel):
+    """One host Agent per Server (D-119). It acts only on Deployments registered to its Server."""
+
+    server = models.ForeignKey(Server, on_delete=models.PROTECT, related_name="agents")
+    status = models.CharField(
+        max_length=16, choices=AgentStatus.choices, default=AgentStatus.ACTIVE
+    )
+    key_id = models.CharField(max_length=32, unique=True)
+    # HMAC secrets are Fernet-encrypted (control.core.security); never returned after issue.
+    secret_encrypted = models.TextField()
+    pending_secret_encrypted = models.TextField(blank=True)
+    credential_expires_at = models.DateTimeField()
+    agent_version = models.CharField(max_length=40, blank=True)
+    host_facts = models.JSONField(default=dict, blank=True)
+    enrolled_at = models.DateTimeField(auto_now_add=True)
+    last_seen_at = models.DateTimeField(null=True, blank=True)
+    revoked_at = models.DateTimeField(null=True, blank=True)
+    revoked_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.PROTECT,
+        related_name="+",
+    )
+
+    class Meta:
+        ordering = ["-enrolled_at"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["server"],
+                condition=Q(status="active"),
+                name="platform_agent_one_active_per_server",
+            )
+        ]
+
+
+class AgentEnrollment(UUIDModel):
+    """Single-use, short-lived enrollment token for one Server (stored as SHA-256 only)."""
+
+    server = models.ForeignKey(Server, on_delete=models.PROTECT, related_name="enrollments")
+    token_hash = models.CharField(max_length=64, unique=True)
+    last_four = models.CharField(max_length=4)
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="+"
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    expires_at = models.DateTimeField()
+    used_at = models.DateTimeField(null=True, blank=True)
+    agent = models.ForeignKey(
+        DeploymentAgent, null=True, blank=True, on_delete=models.PROTECT, related_name="+"
+    )
+
+    class Meta:
+        ordering = ["-created_at"]
+
+
+class ReleaseRecord(UUIDModel, TimestampedModel):
+    """A validated release manifest (D-121). Images are referenced only by immutable digest."""
+
+    version = models.CharField(max_length=80, unique=True)
+    manifest = models.JSONField()
+    manifest_sha256 = models.CharField(max_length=64)
+    status = models.CharField(max_length=16, default="available")
+    registered_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="+"
+    )
+    notes = models.CharField(max_length=500, blank=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+
+class CommandKind(models.TextChoices):
+    DEPLOY_RELEASE = "deploy_release", "Install release"
+    UPDATE_RELEASE = "update_release", "Update release"
+    ROLLBACK_RELEASE = "rollback_release", "Roll back release"
+    APPLY_CONFIGURATION = "apply_configuration", "Apply store configuration"
+    CONFIGURE_DOMAINS = "configure_domains", "Configure domains and TLS"
+    RUN_BACKUP = "run_backup", "Run backup"
+
+
+class CommandStatus(models.TextChoices):
+    QUEUED = "queued", "Queued"
+    DELIVERED = "delivered", "Delivered"
+    RUNNING = "running", "Running"
+    AWAITING_VERIFICATION = "awaiting_verification", "Awaiting verification"
+    SUCCEEDED = "succeeded", "Succeeded (verified)"
+    FAILED = "failed", "Failed"
+    VERIFICATION_FAILED = "verification_failed", "Verification failed"
+    EXPIRED = "expired", "Expired"
+    CANCELLED = "cancelled", "Cancelled"
+
+
+ACTIVE_COMMAND_STATUSES = (
+    CommandStatus.QUEUED,
+    CommandStatus.DELIVERED,
+    CommandStatus.RUNNING,
+    CommandStatus.AWAITING_VERIFICATION,
+)
+
+
+class AgentCommand(UUIDModel, TimestampedModel):
+    """A scoped, allowlisted deployment operation derived from one approved request (D-120)."""
+
+    agent = models.ForeignKey(DeploymentAgent, on_delete=models.PROTECT, related_name="commands")
+    deployment = models.ForeignKey(Deployment, on_delete=models.PROTECT, related_name="commands")
+    operation = models.OneToOneField(
+        OperationalRequest, on_delete=models.PROTECT, related_name="command"
+    )
+    kind = models.CharField(max_length=32, choices=CommandKind.choices)
+    payload = models.JSONField()
+    payload_sha256 = models.CharField(max_length=64)
+    status = models.CharField(
+        max_length=24, choices=CommandStatus.choices, default=CommandStatus.QUEUED
+    )
+    target_version = models.CharField(max_length=80, blank=True)
+    previous_version = models.CharField(max_length=80, blank=True)
+    target_revision = models.PositiveIntegerField(null=True, blank=True)
+    expires_at = models.DateTimeField()
+    delivered_at = models.DateTimeField(null=True, blank=True)
+    delivery_count = models.PositiveSmallIntegerField(default=0)
+    started_at = models.DateTimeField(null=True, blank=True)
+    finished_at = models.DateTimeField(null=True, blank=True)
+    verified_at = models.DateTimeField(null=True, blank=True)
+    last_event_sequence = models.PositiveIntegerField(default=0)
+    progress = models.JSONField(default=list, blank=True)
+    result = models.JSONField(default=dict, blank=True)
+    failure_category = models.CharField(max_length=40, blank=True)
+    failure_detail = models.CharField(max_length=300, blank=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["deployment"],
+                condition=Q(status__in=["queued", "delivered", "running", "awaiting_verification"]),
+                name="platform_command_one_active_per_deployment",
+            )
+        ]
+        indexes = [models.Index(fields=["agent", "status"], name="platform_command_queue")]
+
+
+class BackupPolicy(UUIDModel, TimestampedModel):
+    """Desired backup schedule for one Deployment, executed locally by the Agent (D-123)."""
+
+    deployment = models.OneToOneField(
+        Deployment, on_delete=models.PROTECT, related_name="backup_policy"
+    )
+    enabled = models.BooleanField(default=True)
+    schedule_hour_utc = models.PositiveSmallIntegerField(default=2)
+    schedule_minute = models.PositiveSmallIntegerField(default=30)
+    retention_days = models.PositiveSmallIntegerField(default=14)
+    include_media = models.BooleanField(default=True)
+    destination_kind = models.CharField(max_length=24, default="local")
+    destination_label = models.CharField(max_length=100, blank=True)
+    revision = models.PositiveIntegerField(default=1)
+
+    class Meta:
+        constraints = [
+            models.CheckConstraint(
+                condition=Q(schedule_hour_utc__lte=23) & Q(schedule_minute__lte=59),
+                name="platform_backup_schedule_valid",
+            ),
+            models.CheckConstraint(
+                condition=Q(retention_days__gte=1) & Q(retention_days__lte=365),
+                name="platform_backup_retention_valid",
+            ),
+        ]

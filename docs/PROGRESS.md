@@ -2,10 +2,137 @@
 
 Updated: 2026-11-06 (Asia/Dhaka).
 
-## Phase 16.1: Central Console integrity corrections (implemented locally; owner acceptance pending)
+## Phase 17: Deployment Automation (implemented; local acceptance passed; owner review pending)
 
-**Active phase: 16.1.** Starting baseline `55e51a7af9f7b804d97275c3d16170e0e11e395f`
-(Phase 16, GitHub Actions 42172599083: 4/4 jobs, 1,609 tests). Phase 17 has not started.
+**Active phase: 17.** The owner explicitly authorized Phase 17 in the assignment, starting from
+`f735f8950804b54e819e57f05f786ef883d9734a` (Phase 16.1, GitHub Actions 42190440557, 1,621 tests).
+Phase 16/16.1 implementation is accepted as the baseline, with two carried-forward items: the alert
+silence defect (fixed, D-116) and the authenticated Console browser checklist (still owner work).
+**Owner restriction honoured:** no real VPS, MateServer, SSH connection, DNS change, public
+certificate, infrastructure purchase or GHCR publication; no commit or push; Phases 18-19 untouched.
+Reference: [DEPLOYMENT_AUTOMATION.md](DEPLOYMENT_AUTOMATION.md); decisions D-116 to D-125.
+
+### Delivered
+
+- **Alert silence (D-116):** one lifecycle for telemetry and scheduled rules; lapsed silences reopen
+  (audited, one notification per silence period, also without a new report); recovery resolves
+  silenced alerts; resolved alerts cannot be silenced/acknowledged.
+- **Production images (D-117):** `prod` stages for commerce-api (uvicorn ASGI) and control-api
+  (gunicorn), fixed-role entrypoints, `apps/web.Dockerfile` (Next.js standalone, only in image
+  builds). Non-root, no secrets, locked dependencies.
+- **Release pipeline (D-121):** manual `release.yml` (build-only by default; publishing needs the
+  `ghcr-release` environment, version tags only, digest manifest artifact). CI gains Agent and
+  build-only image jobs. **Not run; nothing published.**
+- **Store deployment (D-117/D-118):** production Store template (isolated data/egress/edge networks,
+  volumes, secrets, read-only containers), separate owner/runtime database roles
+  (`apply_runtime_grants`), migrate job with idempotent provisioning of the Console Store ID,
+  `check_deployment_ready`, `apply_platform_configuration`.
+- **Deployment Agent (D-119/D-125):** `services/deploy-agent` (stdlib only): signed outbound
+  protocol, enrollment/rotation/revocation, allowlisted operations (install, update, rollback,
+  configuration, domains, backup), journal and offline outbox, interrupted-command recovery, host
+  metrics and TLS observation, preflight/dry-run installer, bootstrap script, hardened systemd unit,
+  pinned-host-key SSH planning.
+- **Control (D-119 to D-123):** models and migration `platform.0003`, Agent API `/api/agent/v1/`,
+  release registry, approval → command dispatch with one active command per Store, verification
+  from telemetry, reconciliation task, domain ownership/DNS checks, backup policy, new alerts.
+  Operational requests can no longer be created pre-approved.
+- **Console UI:** Server → Deployment Agent; Deployment → readiness, commands/progress, request
+  form, backup policy, domain checks; Deployments → Releases. Shared Contracts decoders.
+- **Proxy/TLS (D-122):** Caddy 2.11 per Server, verified domains only, WebSocket, 421 for unknown
+  hosts, ACME or internal CA, renewal observation.
+- **Local acceptance (D-124):** profile-gated `acc-*` services inside `matecart-dev`,
+  `pnpm deploy:acceptance` / `deploy:acceptance:down`.
+
+### Verification (observed locally, 2026-11-06)
+
+- **Backend tests:** Commerce **1,199 passed** (1,195 + 4), Control **105 passed** (77 + 28: 8
+  alert-silence and 20 deployment-automation tests on real PostgreSQL/Redis), Deployment Agent
+  **36 passed**; 0 failed.
+- **Frontend tests:** Shared Contracts **100** (98 + 2), Shared UI **78**, Node scripts **5**,
+  Commerce Web **168/168** with `--testTimeout=20000`. At the default 5 s timeout, full Commerce
+  Web runs on this machine had intermittent timeouts (3-6 different tests per run); every affected
+  file passed alone, and the only Commerce Web change (`next.config.ts`) is not loaded by Vitest.
+  Recorded as a load-dependent timing flake, not a pass at the default timeout.
+- **Total automated tests: 1,691 passed** (1,621 baseline + 70 new), 0 failed (Commerce Web at the
+  20 s timeout as above).
+- `pnpm api:lint` (ruff, format, strict mypy: Commerce 357, Control 72 files) and a separate
+  cold-cache mypy run passed; `pnpm agent:lint` passed (23 files). Django `check` and
+  `makemigrations --check --dry-run` passed for both services. `pnpm api:schema` validated both
+  schemas without warnings (Control schema regenerated; Commerce unchanged).
+- `pnpm format:check`, `pnpm lint`, typecheck and `pnpm build` (both Next.js apps) passed;
+  `docker compose config --quiet` passed with and without the acceptance profile.
+- **Production images:** all four built locally (`pnpm images:build`), non-root, no secret files,
+  entrypoint refuses unknown roles. Not pushed anywhere.
+- **Local deployment acceptance (`pnpm deploy:acceptance`): 58/58 checks passed** in disposable
+  `acc-*` containers: Control production image (migrate + gunicorn), real-HTTP enrollment (invalid
+  and reused tokens refused), signed heartbeat scoped to the Server, two Stores installed through
+  the Agent's release operation (migrate, runtime grants, provisioning of the Console Store IDs,
+  health), runtime role refused DDL, HTTPS storefront/API through Caddy, WebSocket upgrade reaching
+  the Store (403 from the Store's own origin/consumer policy), cross-Store DNS isolation, distinct
+  secrets, 421 for unknown hosts, no certificate for unknown names, HTTP→HTTPS 308, TLS observed via
+  Caddy's internal CA (simulated, not public), Agent observation recorded by Control, update
+  1.0.0→1.1.0 with running-image check, broken 1.2.0 automatically rolled back, unsafe rollback
+  refused, compatible rollback, backup + integrity + per-Store isolation + report to Control,
+  `pg_restore` into a throwaway database, Stores serving while Control was down, buffering and
+  flush on reconnection, revoked credential refused, re-enrollment, and the development database
+  and containers untouched.
+- `pnpm health`: all six checks passed. Storefront http://127.0.0.1:3400 and Console
+  http://127.0.0.1:3410 respond 200 (the owner's already-running dev servers).
+- **Browser acceptance:** not performed. No usable development administrator credentials were
+  available; MFA was not bypassed and no session or administrator was created. Owner checklist
+  items 1-13 in `CENTRAL_CONSOLE.md` remain unverified.
+- **Not done by design:** no real VPS/SSH/DNS/ACME/GHCR action; the release workflow was not run.
+
+### Incident during this session (resolved, no data loss)
+
+The first version of `deploy:acceptance:down` ran `docker compose rm --stop --force` without
+service names, which stopped and removed the 11 development containers as well as the `acc-*`
+ones. Named volumes (all development data) were not affected; `pnpm stack:up` recreated the
+containers, and the development tenant count was confirmed unchanged. The command now removes
+only explicitly listed `acc-*` services, and acceptance verifies the development stack is running
+and untouched (both checks passed in the final run).
+
+### Files and services
+
+- New: `services/deploy-agent/` (Agent package, templates, installer, acceptance harness, tests,
+  Dockerfile, `uv.lock`), `apps/web.Dockerfile`, `.dockerignore`, `.github/workflows/release.yml`,
+  `scripts/build-images.mjs`, `docs/DEPLOYMENT_AUTOMATION.md`, Control `deployment.py`,
+  `agent_views.py`, `agent_urls.py`, `deployment_views.py`, migration `0003`, Commerce commands
+  `apply_runtime_grants`, `check_deployment_ready`, `apply_platform_configuration`, entrypoints
+  `services/*/bin/matecart-entrypoint`, tests `test_alert_silence.py`,
+  `test_deployment_automation.py`, `test_deployment_commands.py`.
+- Changed: Control models/services/tasks/views/serializers/urls/settings/schema/OpenAPI,
+  `pyproject.toml`/`uv.lock` (gunicorn 26.2.0, dnspython 2.9.2); both service Dockerfiles; both
+  `next.config.ts`; Console workspace; Shared Contracts platform decoders/tests; `compose.yaml`
+  (include + `deploy-agent` tools service); `package.json` scripts; `ci.yml`; `.gitignore`; docs.
+- Compose services added (never started by `stack:up`): `deploy-agent` (profile `tools`) and the
+  `acc-*` services (profile `deploy-acceptance`).
+
+### Known limits and decisions needing the owner
+
+- Owner browser checklist in `CENTRAL_CONSOLE.md` (items 1-13) remains unverified by automation: no
+  usable development administrator credentials were available, and MFA was not bypassed.
+- Real-infrastructure acceptance (Phase 19, owner approval): VPS provider/Server, Linux host run of
+  `bootstrap.sh`, SSH bootstrap, GHCR publication (create `ghcr-release` environment first), real
+  domain/DNS, public ACME TLS, remote Agent install, off-site backup destination, final deployment
+  verification. Q2 (Redis vs Valkey licence) is still open and now relevant to client deployments.
+- The Agent does not report response time or visitor counts (shown as Not reported). Off-site
+  backups are not implemented until a provider is chosen. A preset change requested from the
+  Console is refused by the Store if existing products do not fit the new preset.
+
+### Exact next step
+
+Owner: review the uncommitted diff, complete the Console browser checklist, optionally run
+`pnpm deploy:acceptance` locally, commit and push, and verify GitHub Actions (now six job groups:
+frontend, backend ×2, agent, images ×4, compose). Do not start Phase 18 until Phase 17 is accepted.
+
+## Phase 16.1: Central Console integrity corrections (accepted)
+
+Accepted by the owner as the Phase 17 baseline (`f735f89`, GitHub Actions 42190440557). The
+record below is the preserved handoff; its two open items moved to Phase 17 above.
+
+Starting baseline `55e51a7af9f7b804d97275c3d16170e0e11e395f`
+(Phase 16, GitHub Actions 42172599083: 4/4 jobs, 1,609 tests).
 Reference: [CENTRAL_CONSOLE.md](CENTRAL_CONSOLE.md), decisions D-111 to D-115.
 
 ### Corrections delivered

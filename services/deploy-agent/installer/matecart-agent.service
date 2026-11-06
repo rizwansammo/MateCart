@@ -1,0 +1,33 @@
+[Unit]
+Description=MateCart Deployment Agent
+Documentation=https://github.com/rizwansammo/MateCart/blob/main/docs/DEPLOYMENT_AUTOMATION.md
+After=network-online.target docker.service
+Wants=network-online.target
+Requires=docker.service
+
+[Service]
+Type=simple
+User=matecart-agent
+Group=matecart-agent
+WorkingDirectory=/opt/matecart/agent/current
+Environment=PYTHONUNBUFFERED=1
+ExecStart=/usr/bin/python3 -m matecart_agent run --config /etc/matecart/agent.json
+Restart=on-failure
+RestartSec=15
+# Hardening: the Agent needs the Docker socket (via the docker group) and its own directories only.
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+LockPersonality=true
+ReadWritePaths=/opt/matecart/stores /opt/matecart/proxy /var/lib/matecart /etc/matecart
+CapabilityBoundingSet=
+AmbientCapabilities=
+UMask=0027
+
+[Install]
+WantedBy=multi-user.target

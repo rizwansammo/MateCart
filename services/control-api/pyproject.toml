@@ -16,6 +16,9 @@ dependencies = [
     "cryptography>=50.0.2",  # Fernet encryption of TOTP secrets at rest
     "redis>=6.4",  # rate limiting store
     "celery[redis]>=5.6.3",  # isolated Control worker for monitoring and retention
+    # Phase 17 (D-117, D-122): production WSGI server and DNS TXT/A/AAAA domain verification.
+    "gunicorn>=23.0.0",
+    "dnspython>=2.8.0",
 ]
 
 [dependency-groups]

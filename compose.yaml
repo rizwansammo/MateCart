@@ -12,6 +12,12 @@
 
 name: matecart-dev
 
+# Phase 17 local deployment acceptance (D-124): disposable acc-* services, all behind the
+# `deploy-acceptance` profile, so `pnpm stack:up` never starts them. See docs/DEPLOYMENT_AUTOMATION.md.
+include:
+  - path: services/deploy-agent/acceptance/compose.yaml
+    env_file: services/deploy-agent/acceptance/acceptance.env
+
 x-commerce-api-environment: &commerce-api-environment
   DJANGO_SETTINGS_MODULE: config.settings.development
   DJANGO_SECRET_KEY: ${MATECART_COMMERCE_SECRET_KEY:?run `pnpm setup:env` to create .env}
@@ -359,6 +365,19 @@ services:
       control-redis: { condition: service_healthy }
       control-worker: { condition: service_healthy }
     restart: unless-stopped
+
+  # ---------------------------------------------------------------- tools (never started by up)
+  # Phase 17: Deployment Agent tests and tooling. No Docker socket, no network services:
+  #   docker compose run --rm deploy-agent pytest
+  deploy-agent:
+    profiles: [tools]
+    build:
+      context: ./services/deploy-agent
+      target: dev
+    image: matecart-dev/deploy-agent:dev
+    volumes:
+      - ./services/deploy-agent:/app
+    network_mode: none
 
 volumes:
   commerce-db-data:

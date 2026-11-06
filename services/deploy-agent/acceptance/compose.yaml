@@ -1,0 +1,252 @@
+# Phase 17 local deployment acceptance (D-124). Included by the root compose.yaml, so every
+# container, network and volume belongs to the matecart-dev project and is named
+# matecart-dev-acc-*. Nothing here starts with `pnpm stack:up`: all services use the
+# `deploy-acceptance` profile and are driven by `pnpm deploy:acceptance`.
+#
+# Two disposable Stores (acc-store-a, acc-store-b) extend the real production template
+# (templates/store-compose.yaml), so they run the production images, commands, health checks,
+# read-only filesystems and dropped capabilities. Their env files are rendered by the Agent into
+# .acceptance/stores/<handle>/ (gitignored, generated secrets). Each Store has its own data,
+# egress and edge networks and its own volumes; the proxy joins only the two edge networks.
+# A disposable Control API (acc-control-*) is used for the real-HTTP Agent protocol checks.
+# Published ports are loopback-only: proxy 18480/18443, Control 18410.
+
+x-acc: &acc
+  profiles: [deploy-acceptance]
+
+services:
+  # ---------------------------------------------------------------- Store A
+  acc-a-db:
+    <<: *acc
+    extends: { file: ../templates/store-compose.yaml, service: db }
+    env_file: !override [{ path: ../../../.acceptance/stores/acc-store-a/db.env, required: false }]
+    volumes: !override
+      - acc-a-db-data:/var/lib/postgresql
+      - ../../../.acceptance/stores/acc-store-a/postgres-init:/docker-entrypoint-initdb.d:ro
+    networks: !override { acc-a-data: { aliases: [db] } }
+  acc-a-redis:
+    <<: *acc
+    extends: { file: ../templates/store-compose.yaml, service: redis }
+    env_file: !override [{ path: ../../../.acceptance/stores/acc-store-a/redis.env, required: false }]
+    volumes: !override [acc-a-redis-data:/data]
+    networks: !override { acc-a-data: { aliases: [redis] } }
+  acc-a-migrate:
+    <<: *acc
+    extends: { file: ../templates/store-compose.yaml, service: migrate }
+    image: ${ACC_STORE_A_MATECART_COMMERCE_API_IMAGE:-matecart-dev/commerce-api:acceptance-1}
+    env_file: !override
+      - { path: ../../../.acceptance/stores/acc-store-a/app.env, required: false }
+      - { path: ../../../.acceptance/stores/acc-store-a/migrate.env, required: false }
+    networks: !override [acc-a-data]
+    profiles: !override [deploy-acceptance]
+    depends_on: !reset []
+  acc-a-api:
+    <<: *acc
+    extends: { file: ../templates/store-compose.yaml, service: api }
+    image: ${ACC_STORE_A_MATECART_COMMERCE_API_IMAGE:-matecart-dev/commerce-api:acceptance-1}
+    env_file: !override [{ path: ../../../.acceptance/stores/acc-store-a/app.env, required: false }]
+    volumes: !override [acc-a-media:/var/lib/matecart/media]
+    networks: !override
+      acc-a-data: {}
+      acc-a-egress: { aliases: [api] }
+      acc-a-edge: { aliases: [store-acc-store-a-api] }
+    depends_on: !override
+      acc-a-db: { condition: service_healthy }
+      acc-a-redis: { condition: service_healthy }
+  acc-a-worker:
+    <<: *acc
+    extends: { file: ../templates/store-compose.yaml, service: worker }
+    image: ${ACC_STORE_A_MATECART_COMMERCE_API_IMAGE:-matecart-dev/commerce-api:acceptance-1}
+    env_file: !override [{ path: ../../../.acceptance/stores/acc-store-a/app.env, required: false }]
+    volumes: !override [acc-a-media:/var/lib/matecart/media]
+    networks: !override [acc-a-data, acc-a-egress]
+    depends_on: !override
+      acc-a-db: { condition: service_healthy }
+      acc-a-redis: { condition: service_healthy }
+  acc-a-beat:
+    <<: *acc
+    extends: { file: ../templates/store-compose.yaml, service: beat }
+    image: ${ACC_STORE_A_MATECART_COMMERCE_API_IMAGE:-matecart-dev/commerce-api:acceptance-1}
+    env_file: !override [{ path: ../../../.acceptance/stores/acc-store-a/app.env, required: false }]
+    networks: !override [acc-a-data]
+    depends_on: !override { acc-a-redis: { condition: service_healthy } }
+  acc-a-web:
+    <<: *acc
+    extends: { file: ../templates/store-compose.yaml, service: web }
+    image: ${ACC_STORE_A_MATECART_COMMERCE_WEB_IMAGE:-matecart-dev/commerce-web:acceptance-1}
+    env_file: !override [{ path: ../../../.acceptance/stores/acc-store-a/web.env, required: false }]
+    networks: !override
+      acc-a-egress: {}
+      acc-a-edge: { aliases: [store-acc-store-a-web] }
+    depends_on: !override { acc-a-api: { condition: service_healthy } }
+
+  # ---------------------------------------------------------------- Store B
+  acc-b-db:
+    <<: *acc
+    extends: { file: ../templates/store-compose.yaml, service: db }
+    env_file: !override [{ path: ../../../.acceptance/stores/acc-store-b/db.env, required: false }]
+    volumes: !override
+      - acc-b-db-data:/var/lib/postgresql
+      - ../../../.acceptance/stores/acc-store-b/postgres-init:/docker-entrypoint-initdb.d:ro
+    networks: !override { acc-b-data: { aliases: [db] } }
+  acc-b-redis:
+    <<: *acc
+    extends: { file: ../templates/store-compose.yaml, service: redis }
+    env_file: !override [{ path: ../../../.acceptance/stores/acc-store-b/redis.env, required: false }]
+    volumes: !override [acc-b-redis-data:/data]
+    networks: !override { acc-b-data: { aliases: [redis] } }
+  acc-b-migrate:
+    <<: *acc
+    extends: { file: ../templates/store-compose.yaml, service: migrate }
+    image: ${ACC_STORE_B_MATECART_COMMERCE_API_IMAGE:-matecart-dev/commerce-api:acceptance-1}
+    env_file: !override
+      - { path: ../../../.acceptance/stores/acc-store-b/app.env, required: false }
+      - { path: ../../../.acceptance/stores/acc-store-b/migrate.env, required: false }
+    networks: !override [acc-b-data]
+    profiles: !override [deploy-acceptance]
+    depends_on: !reset []
+  acc-b-api:
+    <<: *acc
+    extends: { file: ../templates/store-compose.yaml, service: api }
+    image: ${ACC_STORE_B_MATECART_COMMERCE_API_IMAGE:-matecart-dev/commerce-api:acceptance-1}
+    env_file: !override [{ path: ../../../.acceptance/stores/acc-store-b/app.env, required: false }]
+    volumes: !override [acc-b-media:/var/lib/matecart/media]
+    networks: !override
+      acc-b-data: {}
+      acc-b-egress: { aliases: [api] }
+      acc-b-edge: { aliases: [store-acc-store-b-api] }
+    depends_on: !override
+      acc-b-db: { condition: service_healthy }
+      acc-b-redis: { condition: service_healthy }
+  acc-b-worker:
+    <<: *acc
+    extends: { file: ../templates/store-compose.yaml, service: worker }
+    image: ${ACC_STORE_B_MATECART_COMMERCE_API_IMAGE:-matecart-dev/commerce-api:acceptance-1}
+    env_file: !override [{ path: ../../../.acceptance/stores/acc-store-b/app.env, required: false }]
+    volumes: !override [acc-b-media:/var/lib/matecart/media]
+    networks: !override [acc-b-data, acc-b-egress]
+    depends_on: !override
+      acc-b-db: { condition: service_healthy }
+      acc-b-redis: { condition: service_healthy }
+  acc-b-beat:
+    <<: *acc
+    extends: { file: ../templates/store-compose.yaml, service: beat }
+    image: ${ACC_STORE_B_MATECART_COMMERCE_API_IMAGE:-matecart-dev/commerce-api:acceptance-1}
+    env_file: !override [{ path: ../../../.acceptance/stores/acc-store-b/app.env, required: false }]
+    networks: !override [acc-b-data]
+    depends_on: !override { acc-b-redis: { condition: service_healthy } }
+  acc-b-web:
+    <<: *acc
+    extends: { file: ../templates/store-compose.yaml, service: web }
+    image: ${ACC_STORE_B_MATECART_COMMERCE_WEB_IMAGE:-matecart-dev/commerce-web:acceptance-1}
+    env_file: !override [{ path: ../../../.acceptance/stores/acc-store-b/web.env, required: false }]
+    networks: !override
+      acc-b-egress: {}
+      acc-b-edge: { aliases: [store-acc-store-b-web] }
+    depends_on: !override { acc-b-api: { condition: service_healthy } }
+
+  # ---------------------------------------------------------------- shared host proxy
+  acc-proxy:
+    <<: *acc
+    image: caddy:2.11.2-alpine
+    ports:
+      - '127.0.0.1:18480:80'
+      - '127.0.0.1:18443:443'
+    volumes:
+      - ../../../.acceptance/proxy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - ../../../.acceptance/proxy/sites:/etc/caddy/sites:ro
+      - ../../../.acceptance/proxy/data:/data
+    cap_drop: [ALL]
+    cap_add: [NET_BIND_SERVICE]
+    security_opt: ['no-new-privileges:true']
+    networks: [acc-proxy-public, acc-a-edge, acc-b-edge]
+    healthcheck:
+      test: ['CMD', 'wget', '-q', '-O', '/dev/null', 'http://127.0.0.1:2019/config/']
+      interval: 5s
+      timeout: 5s
+      retries: 12
+
+  # ---------------------------------------------------------------- disposable Control API
+  acc-control-db:
+    <<: *acc
+    image: postgres:18.6-alpine3.24
+    env_file: [{ path: ../../../.acceptance/control/db.env, required: false }]
+    volumes: [acc-control-db-data:/var/lib/postgresql]
+    networks: [acc-control]
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U "$$POSTGRES_USER" -d "$$POSTGRES_DB"']
+      interval: 5s
+      timeout: 5s
+      retries: 20
+  acc-control-redis:
+    <<: *acc
+    image: redis:8.10.2-alpine
+    env_file: [{ path: ../../../.acceptance/control/redis.env, required: false }]
+    command: ['sh', '-c', 'exec redis-server --requirepass "$$REDIS_PASSWORD"']
+    networks: [acc-control]
+    healthcheck:
+      test: ['CMD-SHELL', 'REDISCLI_AUTH="$$REDIS_PASSWORD" redis-cli ping | grep -q PONG']
+      interval: 5s
+      timeout: 5s
+      retries: 20
+  acc-control-api:
+    <<: *acc
+    image: ${ACC_CONTROL_API_IMAGE:-matecart-dev/control-api:acceptance-1}
+    command: [api]
+    init: true
+    read_only: true
+    tmpfs: ['/tmp:size=64m']
+    cap_drop: [ALL]
+    security_opt: ['no-new-privileges:true']
+    env_file: [{ path: ../../../.acceptance/control/app.env, required: false }]
+    ports: ['127.0.0.1:18410:8000']
+    networks: [acc-control]
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'python',
+          '-c',
+          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/health/ready/', timeout=4)",
+        ]
+      interval: 5s
+      timeout: 6s
+      retries: 20
+      start_period: 20s
+    depends_on:
+      acc-control-db: { condition: service_healthy }
+      acc-control-redis: { condition: service_healthy }
+  # Disposable restore target for the backup smoke test (never the owner's databases).
+  acc-restore-db:
+    <<: *acc
+    image: postgres:18.6-alpine3.24
+    environment:
+      POSTGRES_DB: restore_check
+      POSTGRES_USER: restore_check
+      POSTGRES_HOST_AUTH_METHOD: trust
+    tmpfs: ['/var/lib/postgresql:size=512m']
+    network_mode: none
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U restore_check -d restore_check']
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+networks:
+  acc-a-data: { name: matecart-dev-acc-a-data, internal: true }
+  acc-a-egress: { name: matecart-dev-acc-a-egress }
+  acc-a-edge: { name: matecart-dev-acc-a-edge, internal: true }
+  acc-b-data: { name: matecart-dev-acc-b-data, internal: true }
+  acc-b-egress: { name: matecart-dev-acc-b-egress }
+  acc-b-edge: { name: matecart-dev-acc-b-edge, internal: true }
+  acc-proxy-public: { name: matecart-dev-acc-proxy-public }
+  acc-control: { name: matecart-dev-acc-control }
+
+volumes:
+  acc-a-db-data: { name: matecart-dev-acc-a-db-data }
+  acc-a-redis-data: { name: matecart-dev-acc-a-redis-data }
+  acc-a-media: { name: matecart-dev-acc-a-media }
+  acc-b-db-data: { name: matecart-dev-acc-b-db-data }
+  acc-b-redis-data: { name: matecart-dev-acc-b-redis-data }
+  acc-b-media: { name: matecart-dev-acc-b-media }
+  acc-control-db-data: { name: matecart-dev-acc-control-db-data }

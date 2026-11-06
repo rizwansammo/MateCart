@@ -13,6 +13,8 @@ from .models import (
 from .services import validate_configuration, validate_country, validate_currency, validate_timezone
 
 HEALTH_STATES = ["healthy", "degraded", "unavailable"]
+BACKUP_RESULTS = ["successful", "failed"]
+AGENT_BACKUP_TYPES = ["database", "media", "full"]
 
 
 class PlatformSerializer(serializers.Serializer[dict[str, object]]):
@@ -142,6 +144,10 @@ class DeploymentSerializer(serializers.ModelSerializer[Deployment]):
             "last_observed_at",
             "last_healthy_at",
             "configuration_revision",
+            "state",
+            "rollback_version",
+            "verified_version",
+            "verified_at",
         )
 
 
@@ -158,7 +164,29 @@ class OperationSerializer(serializers.ModelSerializer[OperationalRequest]):
             "requested_by",
             "decided_by",
             "decided_at",
+            "completed_evidence",
         )
+
+    def validate_status(self, value: str) -> str:
+        # Requests start as a draft or submitted; approval and execution states are reachable
+        # only through the audited workflow transitions (Phase 17 makes approval executable).
+        if self.instance is None and value not in {"draft", "submitted"}:
+            raise serializers.ValidationError("New requests start as draft or submitted.")
+        return value
+
+    def validate(self, attrs: dict[str, object]) -> dict[str, object]:
+        from .deployment import validate_operation
+
+        kind = str(attrs.get("kind", self.instance.kind if self.instance else ""))
+        deployment = attrs.get("deployment", self.instance.deployment if self.instance else None)
+        parameters = attrs.get("parameters", self.instance.parameters if self.instance else {})
+        attrs["parameters"] = validate_operation(
+            kind, deployment if isinstance(deployment, Deployment) else None, parameters
+        )
+        if isinstance(deployment, Deployment):
+            attrs["store"] = deployment.store
+            attrs["client"] = deployment.store.client
+        return attrs
 
 
 class DomainSerializer(serializers.ModelSerializer[DomainRecord]):
@@ -175,7 +203,32 @@ class DomainSerializer(serializers.ModelSerializer[DomainRecord]):
             "tls_state",
             "certificate_expires_at",
             "last_verified_at",
+            "verification_token",
+            "verification_state",
+            "verification_checked_at",
+            "verification_detail",
+            "renewal_state",
+            "configured",
         )
+
+    def validate_domain(self, value: str) -> str:
+        from .deployment import normalize_domain
+
+        return normalize_domain(value)
+
+    def validate_tls_mode(self, value: str) -> str:
+        if value not in {"acme", "internal"}:
+            raise serializers.ValidationError("Choose acme (public) or internal (test CA).")
+        return value
+
+    def validate(self, attrs: dict[str, object]) -> dict[str, object]:
+        deployment = attrs.get("deployment")
+        store = attrs.get("store")
+        if isinstance(deployment, Deployment) and store is not None and deployment.store != store:
+            raise serializers.ValidationError(
+                {"deployment": "The Deployment belongs to another Store."}
+            )
+        return attrs
 
 
 class BackupSerializer(serializers.ModelSerializer[BackupObservation]):
@@ -210,8 +263,6 @@ class TelemetrySerializer(serializers.Serializer[dict[str, object]]):
         min_value=0, max_value=1000000000, required=False, allow_null=True
     )
     application_version = serializers.CharField(max_length=80, required=False, allow_blank=True)
-    backup_status = serializers.ChoiceField(
-        choices=["successful", "failed"], required=False, allow_null=True
-    )
+    backup_status = serializers.ChoiceField(choices=BACKUP_RESULTS, required=False, allow_null=True)
     backup_type = serializers.CharField(max_length=32, required=False, allow_blank=True)
     backup_at = serializers.DateTimeField(required=False, allow_null=True)

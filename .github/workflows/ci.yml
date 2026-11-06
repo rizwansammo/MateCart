@@ -1,4 +1,5 @@
-# Baseline quality gate. Checks only: nothing is deployed, published or pushed (Phase 17 adds releases).
+# Baseline quality gate. Checks only: nothing is deployed, published or pushed. Production images
+# are built but never pushed here; publishing is the manual release.yml workflow (D-121).
 name: CI
 
 on:
@@ -83,6 +84,61 @@ jobs:
           DJANGO_SETTINGS_MODULE: config.settings.test
       # Includes migration sync, OpenAPI drift and production deploy-check tests.
       - run: uv run pytest
+
+  agent:
+    name: Deployment Agent (lint, typecheck, test)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: services/deploy-agent
+    steps:
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
+        with:
+          version: '0.13.5'
+          enable-cache: true
+          cache-dependency-glob: services/deploy-agent/uv.lock
+      - run: uv sync --locked
+      - run: uv run ruff check .
+      - run: uv run ruff format --check .
+      - run: uv run mypy
+      - run: uv run pytest
+      # The release manifest tool must stay stdlib-only (it runs on the runner's system Python).
+      - run: python3 -m matecart_agent.manifest --help
+
+  images:
+    name: Production image build (${{ matrix.image }}, not pushed)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - {
+              image: commerce-api,
+              context: services/commerce-api,
+              file: services/commerce-api/Dockerfile,
+              app: '',
+            }
+          - {
+              image: control-api,
+              context: services/control-api,
+              file: services/control-api/Dockerfile,
+              app: '',
+            }
+          - { image: commerce-web, context: ., file: apps/web.Dockerfile, app: commerce-web }
+          - {
+              image: platform-console,
+              context: .,
+              file: apps/web.Dockerfile,
+              app: platform-console,
+            }
+    steps:
+      - uses: actions/checkout@v7
+      - run: >-
+          docker buildx build --file "${{ matrix.file }}" --target prod
+          --build-arg "APP=${{ matrix.app }}" --tag "ci/matecart-${{ matrix.image }}" "${{ matrix.context }}"
 
   compose:
     name: Docker Compose config

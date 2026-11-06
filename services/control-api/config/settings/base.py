@@ -141,6 +141,10 @@ CELERY_WORKER_HIJACK_ROOT_LOGGER = False
 CELERY_BEAT_SCHEDULE = {
     "platform-monitoring-evaluate": {"task": "platform.evaluate_monitoring", "schedule": 60.0},
     "platform-retention": {"task": "platform.retention", "schedule": 86400.0},
+    "platform-deployments-reconcile": {
+        "task": "platform.reconcile_deployments",
+        "schedule": 60.0,
+    },
 }
 
 # --- Templates (email bodies only; the console UI is the Next.js app) ---
@@ -185,6 +189,8 @@ SPECTACULAR_SETTINGS = {
         "SecondStepMethodEnum": "control.accounts.views.METHODS",
         "AdminRoleEnum": "control.accounts.models.AdminRole.values",
         "TelemetryHealthStateEnum": "control.platform.serializers.HEALTH_STATES",
+        "BackupResultEnum": "control.platform.serializers.BACKUP_RESULTS",
+        "AgentBackupTypeEnum": "control.platform.serializers.AGENT_BACKUP_TYPES",
     },
 }
 API_SCHEMA_ENABLED = env.bool("DJANGO_API_SCHEMA_ENABLED", default=False)

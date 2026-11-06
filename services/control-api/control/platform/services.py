@@ -1,5 +1,5 @@
 import hashlib
-from datetime import timedelta
+from datetime import datetime, timedelta
 from decimal import Decimal
 from typing import Any
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
@@ -21,6 +21,7 @@ from .models import (
     MonitoringCredential,
     MonitoringObservation,
     OperationalAlert,
+    Server,
     StoreConfigurationRevision,
     StoreRegistration,
 )
@@ -152,10 +153,7 @@ def ingest_observation(token: str, data: dict[str, Any]) -> MonitoringObservatio
         raise ValidationError(
             {"observed_at": "The telemetry timestamp is outside the accepted window."}
         )
-    for field in ("cpu_percent", "ram_percent", "disk_percent"):
-        value = data.get(field)
-        if value is not None and not Decimal("0") <= value <= Decimal("100"):
-            raise ValidationError({field: "Use a value between 0 and 100."})
+    validate_metrics(data)
     with transaction.atomic():
         credential = (
             MonitoringCredential.objects.select_for_update()
@@ -169,52 +167,191 @@ def ingest_observation(token: str, data: dict[str, Any]) -> MonitoringObservatio
             .select_related("store")
             .get(pk=credential.deployment_id)
         )
-        if str(data["deployment_id"]) != str(deployment.pk) or str(data["store_id"]) != str(
-            deployment.store_id
-        ):
-            raise ValidationError({"deployment_id": "The report is bound to another deployment."})
-        observation = MonitoringObservation.objects.create(
-            deployment=deployment,
-            credential=credential,
-            report_id=data["report_id"],
-            observed_at=observed_at,
-            store_status=data["store_status"],
-            api_status=data["api_status"],
-            response_ms=data.get("response_ms"),
-            cpu_percent=data.get("cpu_percent"),
-            ram_percent=data.get("ram_percent"),
-            disk_percent=data.get("disk_percent"),
-            visitor_count_24h=data.get("visitor_count_24h"),
-            application_version=data.get("application_version", ""),
-        )
+        observation = record_observation(deployment, data, now, credential=credential)
         MonitoringCredential.objects.filter(pk=credential.pk).update(last_used_at=now)
-        authoritative = (
-            deployment.last_observed_at is None or observed_at > deployment.last_observed_at
+    return observation
+
+
+def validate_metrics(data: dict[str, Any]) -> None:
+    for field in ("cpu_percent", "ram_percent", "disk_percent"):
+        value = data.get(field)
+        if value is not None and not Decimal("0") <= value <= Decimal("100"):
+            raise ValidationError({field: "Use a value between 0 and 100."})
+
+
+def record_observation(
+    deployment: Deployment,
+    data: dict[str, Any],
+    now: datetime,
+    *,
+    credential: MonitoringCredential | None = None,
+    agent: Any = None,
+) -> MonitoringObservation:
+    """Store one validated report and, if it is the newest, update state, alerts and pending
+    deployment verification. The caller holds the Deployment row lock (D-115)."""
+    observed_at = data["observed_at"]
+    if str(data["deployment_id"]) != str(deployment.pk) or str(data["store_id"]) != str(
+        deployment.store_id
+    ):
+        raise ValidationError({"deployment_id": "The report is bound to another deployment."})
+    observation = MonitoringObservation.objects.create(
+        deployment=deployment,
+        credential=credential,
+        agent=agent,
+        source="agent" if agent is not None else "reported",
+        report_id=data["report_id"],
+        observed_at=observed_at,
+        store_status=data["store_status"],
+        api_status=data["api_status"],
+        worker_status=data.get("worker_status") or "",
+        database_status=data.get("database_status") or "",
+        configuration_revision=data.get("configuration_revision"),
+        response_ms=data.get("response_ms"),
+        cpu_percent=data.get("cpu_percent"),
+        ram_percent=data.get("ram_percent"),
+        disk_percent=data.get("disk_percent"),
+        visitor_count_24h=data.get("visitor_count_24h"),
+        application_version=data.get("application_version", ""),
+    )
+    authoritative = deployment.last_observed_at is None or observed_at > deployment.last_observed_at
+    if authoritative:
+        deployment.observed_version = data.get("application_version", "")
+        deployment.last_observed_at = observed_at
+        if data["store_status"] == "healthy" and data["api_status"] == "healthy":
+            deployment.last_healthy_at = observed_at
+        deployment.save(
+            update_fields=["observed_version", "last_observed_at", "last_healthy_at", "updated_at"]
         )
-        if authoritative:
-            deployment.observed_version = data.get("application_version", "")
-            deployment.last_observed_at = observed_at
-            if data["store_status"] == "healthy" and data["api_status"] == "healthy":
-                deployment.last_healthy_at = observed_at
-            deployment.save(
+    if data.get("backup_status"):
+        BackupObservation.objects.create(
+            deployment=deployment,
+            backup_type=data.get("backup_type") or "database",
+            observed_at=observed_at,
+            backup_at=data.get("backup_at"),
+            status=data["backup_status"],
+        )
+    if authoritative:
+        evaluate_alerts(observation)
+        if agent is not None:
+            from .deployment import apply_domain_observations, verify_commands
+
+            apply_domain_observations(deployment, data.get("domains"))
+            verify_commands(observation)
+    return observation
+
+
+ACTIVE_ALERT_STATUSES = frozenset({"open", "acknowledged", "silenced"})
+
+
+def silence_in_effect(alert: OperationalAlert, now: datetime) -> bool:
+    return (
+        alert.status == "silenced"
+        and alert.silenced_until is not None
+        and alert.silenced_until > now
+    )
+
+
+def end_expired_silence(alert: OperationalAlert, now: datetime) -> bool:
+    """Return an alert whose silence has ended to a visible open incident (D-116).
+
+    An unresolved alert is still a failure: resolution needs recovery evidence, which is never
+    inferred from the end of a silence. One notification per silence period (keyed by its end)
+    keeps repeated evaluation idempotent.
+    """
+    if alert.status != "silenced" or silence_in_effect(alert, now):
+        return False
+    ended = alert.silenced_until
+    alert.status = "open"
+    alert.silenced_until = None
+    alert.details = {
+        **(alert.details or {}),
+        "silence_ended_at": (ended or now).isoformat(),
+    }
+    alert.save(update_fields=["status", "silenced_until", "details", "updated_at"])
+    audit(
+        None,
+        "alert.silence_expired",
+        alert,
+        {"status": "open", "silenced_until": ended.isoformat() if ended else ""},
+    )
+    notify_alert(alert, incident_key=f"silence-ended:{(ended or now).isoformat()}")
+    return True
+
+
+def apply_alert_condition(
+    *,
+    key: str,
+    active: bool | None,
+    now: datetime,
+    deployment: Deployment | None,
+    category: str,
+    severity: str,
+    title: str,
+    evidence: dict[str, Any],
+    source_observation: MonitoringObservation | None = None,
+    incident_at: datetime | None = None,
+    server: Server | None = None,
+) -> OperationalAlert | None:
+    """The single alert lifecycle used by telemetry and scheduled evaluation.
+
+    ``active`` is True for failure evidence, False for recovery evidence and None when the signal
+    was not reported (no state change is inferred, D-116).
+    """
+    with transaction.atomic():
+        alert = OperationalAlert.objects.select_for_update().filter(deduplication_key=key).first()
+        if active is None:
+            if alert is not None:
+                end_expired_silence(alert, now)
+            return alert
+        if not active:
+            if alert is not None and alert.status in ACTIVE_ALERT_STATUSES:
+                was_silenced = alert.status == "silenced"
+                alert.status = "resolved"
+                alert.resolved_at = incident_at or now
+                alert.silenced_until = None
+                alert.save(update_fields=["status", "resolved_at", "silenced_until", "updated_at"])
+                if was_silenced:
+                    audit(None, "alert.resolved_during_silence", alert, {"status": "resolved"})
+            return alert
+        if alert is None:
+            alert = OperationalAlert.objects.create(
+                deployment=deployment,
+                server=server,
+                category=category,
+                severity=severity,
+                deduplication_key=key,
+                title=title,
+                source_observation=source_observation,
+                details=evidence,
+            )
+            notify_alert(alert)
+        elif alert.status == "resolved":
+            alert.status = "open"
+            alert.resolved_at = None
+            alert.resolved_by = None
+            alert.acknowledged_at = None
+            alert.acknowledged_by = None
+            alert.silenced_until = None
+            if source_observation is not None:
+                alert.source_observation = source_observation
+            alert.details = {**evidence, "reactivated_at": (incident_at or now).isoformat()}
+            alert.save(
                 update_fields=[
-                    "observed_version",
-                    "last_observed_at",
-                    "last_healthy_at",
+                    "status",
+                    "resolved_at",
+                    "resolved_by",
+                    "acknowledged_at",
+                    "acknowledged_by",
+                    "silenced_until",
+                    "source_observation",
+                    "details",
                     "updated_at",
                 ]
             )
-        if data.get("backup_status"):
-            BackupObservation.objects.create(
-                deployment=deployment,
-                backup_type=data.get("backup_type") or "database",
-                observed_at=observed_at,
-                backup_at=data.get("backup_at"),
-                status=data["backup_status"],
-            )
-        if authoritative:
-            evaluate_alerts(observation)
-    return observation
+            notify_alert(alert, incident_at=incident_at or now)
+        else:
+            end_expired_silence(alert, now)
+        return alert
 
 
 def evaluate_alerts(observation: MonitoringObservation) -> None:
@@ -226,6 +363,21 @@ def evaluate_alerts(observation: MonitoringObservation) -> None:
             "Store unavailable",
         ),
         (observation.api_status == "unavailable", "api_unavailable", "critical", "API unavailable"),
+        # Phase 17 Agent signals; a blank value means "not reported" and changes nothing.
+        (
+            None if not observation.worker_status else observation.worker_status == "unavailable",
+            "worker_unavailable",
+            "critical",
+            "Background worker unavailable",
+        ),
+        (
+            None
+            if not observation.database_status
+            else observation.database_status == "unavailable",
+            "database_unavailable",
+            "critical",
+            "Store database unavailable",
+        ),
         (
             None if observation.response_ms is None else observation.response_ms > 2000,
             "high_response_time",
@@ -251,58 +403,25 @@ def evaluate_alerts(observation: MonitoringObservation) -> None:
             "Disk usage high",
         ),
     ]
+    now = timezone.now()
     for active, category, severity, title in rules:
-        key = f"deployment:{observation.deployment_id}:{category}"
-        alert = OperationalAlert.objects.filter(deduplication_key=key).first()
-        if active is True:
-            if alert is None:
-                alert = OperationalAlert.objects.create(
-                    deployment=observation.deployment,
-                    category=category,
-                    severity=severity,
-                    deduplication_key=key,
-                    title=title,
-                    source_observation=observation,
-                    details={
-                        "source": "reported",
-                        "observed_at": observation.observed_at.isoformat(),
-                    },
-                )
-                notify_alert(alert)
-            elif alert.status == "resolved":
-                alert.status = "open"
-                alert.resolved_at = None
-                alert.resolved_by = None
-                alert.acknowledged_at = None
-                alert.acknowledged_by = None
-                alert.silenced_until = None
-                alert.source_observation = observation
-                alert.details = {
-                    "source": "reported",
-                    "observed_at": observation.observed_at.isoformat(),
-                    "reactivated": True,
-                }
-                alert.save(
-                    update_fields=[
-                        "status",
-                        "resolved_at",
-                        "resolved_by",
-                        "acknowledged_at",
-                        "acknowledged_by",
-                        "silenced_until",
-                        "source_observation",
-                        "details",
-                        "updated_at",
-                    ]
-                )
-                notify_alert(alert, incident_at=observation.observed_at)
-        elif active is False and alert is not None and alert.status in {"open", "acknowledged"}:
-            alert.status = "resolved"
-            alert.resolved_at = observation.observed_at
-            alert.save(update_fields=["status", "resolved_at", "updated_at"])
+        apply_alert_condition(
+            key=f"deployment:{observation.deployment_id}:{category}",
+            active=active,
+            now=now,
+            deployment=observation.deployment,
+            category=category,
+            severity=severity,
+            title=title,
+            evidence={"source": "reported", "observed_at": observation.observed_at.isoformat()},
+            source_observation=observation,
+            incident_at=observation.observed_at,
+        )
 
 
-def notify_alert(alert: OperationalAlert, *, incident_at: Any = None) -> None:
+def notify_alert(
+    alert: OperationalAlert, *, incident_at: Any = None, incident_key: str = ""
+) -> None:
     from control.accounts.permissions import permissions_for
 
     for user in AdminUser.objects.filter(is_active=True):
@@ -310,6 +429,8 @@ def notify_alert(alert: OperationalAlert, *, incident_at: Any = None) -> None:
             deduplication_key = f"alert:{alert.pk}"
             if incident_at is not None:
                 deduplication_key = f"{deduplication_key}:{incident_at.isoformat()}"
+            if incident_key:
+                deduplication_key = f"{deduplication_key}:{incident_key}"
             ConsoleNotification.objects.get_or_create(
                 user=user,
                 deduplication_key=deduplication_key,

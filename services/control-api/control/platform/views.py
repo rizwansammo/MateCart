@@ -23,7 +23,9 @@ from control.core import ratelimit
 from control.core.http import client_ip
 
 from .constants import capabilities
+from .deployment import EXECUTABLE_KINDS, cancel_command, dispatch_operation
 from .models import (
+    AgentCommand,
     BackupObservation,
     Client,
     ClientContact,
@@ -470,6 +472,8 @@ class OperationCollectionView(ConsolePlatformView):
 
     def post(self, request: Request) -> Response:
         require_permission(self.admin, "operations.manage")
+        if str(request.data.get("kind", "")) in EXECUTABLE_KINDS:
+            require_permission(self.admin, "deployments.manage")
         serializer = body(OperationSerializer, request)
         with transaction.atomic():
             operation = serializer.save(requested_by=self.admin)
@@ -499,7 +503,22 @@ class OperationDetailView(ConsolePlatformView):
             target = str(request.data.get("status", ""))
             if target not in self.TRANSITIONS.get(operation.status, set()):
                 raise ValidationError({"status": "That workflow transition is not allowed."})
-            if target in {"approved", "rejected", "completed"}:
+            executable = operation.kind in EXECUTABLE_KINDS
+            if executable:
+                # Deployment operations also need deployment management rights (D-120).
+                require_permission(self.admin, "deployments.manage")
+                if target == "completed":
+                    raise ValidationError(
+                        {
+                            "status": (
+                                "Deployment operations complete only from verified Agent "
+                                "evidence, never manually."
+                            )
+                        }
+                    )
+            if target in {"approved", "rejected", "completed"} or (
+                executable and target == "pending_execution"
+            ):
                 require_recent_authentication(self.session)
                 if operation.requested_by_id == self.admin.pk and target == "approved":
                     raise ValidationError(
@@ -511,12 +530,21 @@ class OperationDetailView(ConsolePlatformView):
                 raise ValidationError(
                     {"completed_evidence": "Verified evidence is required before completion."}
                 )
+            if executable and target == "cancelled" and operation.status == "pending_execution":
+                command = (
+                    AgentCommand.objects.select_for_update().filter(operation=operation).first()
+                )
+                if command is not None:
+                    cancel_command(command, self.admin)
             operation.status = target
-            operation.completed_evidence = str(
-                request.data.get("completed_evidence", operation.completed_evidence)
-            )
+            if not executable:
+                operation.completed_evidence = str(
+                    request.data.get("completed_evidence", operation.completed_evidence)
+                )[:500]
             operation.save()
             audit(self.admin, f"operation.{target}", operation, {"status": target})
+            if executable and target == "pending_execution":
+                dispatch_operation(operation, self.admin)
         return Response(OperationSerializer(operation).data)
 
 
@@ -739,14 +767,20 @@ class AlertDetailView(ConsolePlatformView):
                 raise NotFound()
             action = str(request.data.get("action", ""))
             now = timezone.now()
+            if action in {"acknowledge", "silence"} and alert.status == "resolved":
+                # A resolved alert has no active incident to hide; silencing it would let the
+                # silence expiry reopen it without failure evidence (D-116).
+                raise ValidationError({"action": "Only an active alert can be changed this way."})
             if action == "acknowledge":
                 alert.status = "acknowledged"
                 alert.acknowledged_by = self.admin
                 alert.acknowledged_at = now
+                alert.silenced_until = None
             elif action == "resolve":
                 alert.status = "resolved"
                 alert.resolved_by = self.admin
                 alert.resolved_at = now
+                alert.silenced_until = None
             elif action == "silence":
                 until = serializers.DateTimeField().run_validation(request.data.get("until"))
                 if until <= now or until > now + timedelta(days=30):
@@ -756,7 +790,17 @@ class AlertDetailView(ConsolePlatformView):
             else:
                 raise ValidationError({"action": "Choose acknowledge, resolve, or silence."})
             alert.save()
-            audit(self.admin, f"alert.{action}", alert, {"status": alert.status})
+            audit(
+                self.admin,
+                f"alert.{action}",
+                alert,
+                {
+                    "status": alert.status,
+                    "silenced_until": (
+                        alert.silenced_until.isoformat() if alert.silenced_until else ""
+                    ),
+                },
+            )
         return Response(alert_row(alert))
 
 
