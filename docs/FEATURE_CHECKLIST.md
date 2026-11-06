@@ -269,8 +269,9 @@ Update the status in the same change that completes a feature.
 ## Traffic monitoring
 
 - [x] Rolling 24-hour visitor statistics in the merchant dashboard (12)
-- [ ] Rolling 24-hour visitors per store in the Central Console (16)
-- [ ] Console: recent active sessions, request rates, error rates, response times, database and queue health, resource utilisation (16)
+- [x] Rolling 24-hour visitors per store in the Central Console (16.1)
+- [~] Console operations: response time, CPU/RAM/disk, freshness and observed version are visible
+  (16.1); active sessions, request/error rates and database/queue health remain future scope
 - [ ] Capacity-aware alert thresholds per store, not one global visitor number (16)
 
 ## Email integrations (13)
@@ -301,9 +302,12 @@ Merchant-side:
 
 Central Console alerts:
 
-- [ ] Deployment failures · server or storefront downtime · traffic spikes · capacity warnings
-- [ ] High response times or error rates · database and background worker failures · backup failures
-- [ ] SSL expiry · security incidents · payment and courier integration failures
+- [~] Storefront/API downtime and resource capacity warnings (16.1); traffic spikes and generic
+  server-down signals need future authoritative inputs
+- [~] High response time and backup failure/overdue (16.1); error-rate, database and worker-health
+  signals need future authoritative inputs
+- [~] SSL expiry and renewal recovery (16.1); security, payment and courier incident feeds remain
+  future integrations
 - [ ] Deployment agent disconnections · recovery notifications
 
 Delivery requirements:
@@ -423,7 +427,9 @@ Accepted and closed with 10.1: `6fe1a8c`, GitHub Actions 41115310035, 4/4 jobs, 
 - [ ] Production PostgreSQL runtime/migration role separation and privilege hardening (17)
 - [ ] Final Django private-hook compatibility and tenant/authentication audit (18)
 
-- [x] Central Console: client registry, onboarding, store configuration, preset selection, feature and module configuration, server registry (16; locally implemented)
+- [x] Central Console: client registry, onboarding, browser-editable desired store configuration,
+      preset/module validation, both Server ownership types and essential monitoring fields
+      (16.1; automated gates passed, authenticated owner browser checklist pending)
 - [x] Control-side deployment/release requests, domain/TLS inventory and pending integration contracts (16); remote execution/provisioning remains 17
 - [x] Backup status visibility and secure support/administrative workflows (16); installation and restore drills remain 17–18
 - [ ] GHCR releases, dedicated deployments, client-owned VPS installer, deployment agent (17)

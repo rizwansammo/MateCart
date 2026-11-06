@@ -23,6 +23,11 @@ urlpatterns = [
         views.MonitoringCredentialView.as_view(),
         name="console-monitoring-credentials",
     ),
+    path(
+        "deployments/<uuid:deployment_id>/monitoring-credentials/<uuid:pk>/",
+        views.MonitoringCredentialDetailView.as_view(),
+        name="console-monitoring-credential",
+    ),
     path("operations/", views.OperationCollectionView.as_view(), name="console-operations"),
     path("operations/<uuid:pk>/", views.OperationDetailView.as_view(), name="console-operation"),
     path("domains/", views.DomainCollectionView.as_view(), name="console-domains"),

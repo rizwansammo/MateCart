@@ -7,12 +7,16 @@ import {
   auditPage,
   clientPage,
   deploymentPage,
+  monitoringCredentialPage,
+  monitoringObservationPage,
   operationPage,
+  platformCapabilities,
   platformOverview,
   serverPage,
   storePage,
   type ClientRecord,
   type DeploymentRecord,
+  type PlatformCapabilities,
   type ServerRecord,
   type StoreRecord,
 } from '@matecart/shared-contracts';
@@ -364,15 +368,17 @@ function CreateStore({ clients, done }: { clients: ClientRecord[]; done: () => v
   );
 }
 
-function CreateServer({ done }: { done: () => void }) {
+function CreateServer({ clients, done }: { clients: ClientRecord[]; done: () => void }) {
   const [error, setError] = useState('');
+  const [ownership, setOwnership] = useState('netamate');
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const form = new FormData(event.currentTarget);
     try {
       await api.post('/api/console/servers/', {
         name: String(form.get('name') ?? ''),
-        ownership: 'netamate',
+        ownership,
+        owner_client: ownership === 'client' ? String(form.get('owner_client') ?? '') : null,
         provider: String(form.get('provider') ?? ''),
         hostname: String(form.get('hostname') ?? ''),
         country: String(form.get('country') ?? 'BD'),
@@ -395,6 +401,31 @@ function CreateServer({ done }: { done: () => void }) {
           Server name
           <input className={inputClass} name="name" required />
         </label>
+        <label className="grid gap-1 text-sm font-semibold">
+          Ownership
+          <select
+            className={inputClass}
+            name="ownership"
+            value={ownership}
+            onChange={(event) => setOwnership(event.target.value)}
+          >
+            <option value="netamate">NetaMate-owned</option>
+            <option value="client">Client-owned</option>
+          </select>
+        </label>
+        {ownership === 'client' && (
+          <label className="grid gap-1 text-sm font-semibold">
+            Owning client
+            <select className={inputClass} name="owner_client" required>
+              <option value="">Choose a client</option>
+              {clients.map((client) => (
+                <option key={client.id} value={client.id}>
+                  {client.display_name}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
         <label className="grid gap-1 text-sm font-semibold">
           Provider
           <input className={inputClass} name="provider" />
@@ -557,6 +588,8 @@ function Overview() {
     ['Servers', data.servers],
     ['Deployments', data.deployments],
     ['Healthy', data.healthy],
+    ['Degraded', data.degraded],
+    ['Unavailable', data.unavailable],
     ['Stale', data.stale],
     ['Unknown', data.unknown],
     ['Critical alerts', data.critical_alerts],
@@ -726,22 +759,24 @@ function Servers({ canManage }: { canManage: boolean }) {
     serverPage,
     refresh,
   );
+  const clients = useData('/api/console/clients/', clientPage, refresh).data;
   return (
     <>
       <Heading
         title="Servers"
         description="NetaMate-owned and client-owned infrastructure inventory. Unknown capacity and health remain visibly unknown."
         action={
-          canManage ? (
+          canManage && clients ? (
             <Button onClick={() => setShow((value) => !value)}>
               {show ? 'Close form' : 'Register server'}
             </Button>
           ) : undefined
         }
       />
-      {show && (
+      {show && clients && (
         <div className="mb-5">
           <CreateServer
+            clients={clients.results}
             done={() => {
               setShow(false);
               setRefresh((value) => value + 1);
@@ -788,6 +823,11 @@ function Deployments({
   const [refresh, setRefresh] = useState(0);
   const [show, setShow] = useState(false);
   const { data, error } = useData('/api/console/deployments/', deploymentPage, refresh);
+  const { data: monitoringData, error: monitoringError } = useData(
+    '/api/console/monitoring/?latest=true',
+    monitoringObservationPage,
+    refresh,
+  );
   const stores = useData('/api/console/stores/', storePage, refresh).data;
   const servers = useData('/api/console/servers/', serverPage, refresh).data;
   const canCreate =
@@ -822,8 +862,57 @@ function Deployments({
         </div>
       )}
       {error && <Alert>{error}</Alert>}
-      {!data ? (
+      {monitoring && monitoringError && <Alert>{monitoringError}</Alert>}
+      {!data || (monitoring && !monitoringData) ? (
         <Loading>Loading deployments…</Loading>
+      ) : monitoring ? (
+        <Table
+          headers={[
+            'Store',
+            'Health',
+            'Latest report',
+            'Freshness',
+            'Response',
+            'CPU',
+            'RAM',
+            'Disk',
+            'Visitors (24h)',
+            'Version',
+          ]}
+          rows={data.results.map((item: DeploymentRecord) => {
+            const report = monitoringData?.results.find(
+              (observation) => observation.deployment_id === item.id,
+            );
+            const metric = (value: string | number | null | undefined, suffix = '') =>
+              value === null || value === undefined || value === ''
+                ? 'Not reported'
+                : `${value}${suffix}`;
+            const freshness =
+              item.health_state === 'unknown'
+                ? 'Not reported'
+                : item.health_state === 'stale'
+                  ? 'Stale'
+                  : 'Current';
+            return [
+              <a
+                key="deployment"
+                className="font-bold text-brand-deep"
+                href={`/deployments/${item.id}`}
+              >
+                {item.store_name}
+              </a>,
+              <Status key="health" value={item.health_state} />,
+              report ? new Date(report.observed_at).toLocaleString() : 'Never',
+              freshness,
+              metric(report?.response_ms, ' ms'),
+              metric(report?.cpu_percent, '%'),
+              metric(report?.ram_percent, '%'),
+              metric(report?.disk_percent, '%'),
+              metric(report?.visitor_count_24h),
+              item.observed_version || 'Unknown',
+            ];
+          })}
+        />
       ) : (
         <Table
           headers={[
@@ -1141,14 +1230,276 @@ function AuditLog() {
   );
 }
 
+function StoreConfiguration({
+  value,
+  canManage,
+  saved,
+}: {
+  value: Record<string, unknown>;
+  canManage: boolean;
+  saved: () => void;
+}) {
+  const { data: capabilities, error: capabilityError } = useData(
+    '/api/console/capabilities/',
+    platformCapabilities,
+  );
+  const [preset, setPreset] = useState(String(value.preset ?? 'general'));
+  const [theme, setTheme] = useState(String(value.desired_theme ?? ''));
+  const [modules, setModules] = useState<string[]>(
+    Array.isArray(value.desired_modules) ? value.desired_modules.map(String) : [],
+  );
+  const [error, setError] = useState('');
+  const [busy, setBusy] = useState(false);
+  function choosePreset(next: string, source: PlatformCapabilities) {
+    setPreset(next);
+    const selected = source.presets.find((item) => item.id === next);
+    if (selected) setTheme(selected.default_theme);
+    setModules((current) =>
+      current.filter((key) => {
+        const specification = source.modules.find((item) => item.key === key);
+        return Boolean(specification?.available && specification.presets.includes(next));
+      }),
+    );
+  }
+
+  function toggleModule(key: string, checked: boolean) {
+    setModules((current) =>
+      checked ? [...new Set([...current, key])] : current.filter((item) => item !== key),
+    );
+  }
+
+  async function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setBusy(true);
+    try {
+      await api.patch(`/api/console/stores/${String(value.id)}/`, {
+        preset,
+        desired_theme: theme,
+        desired_modules: modules,
+      });
+      setError('');
+      saved();
+    } catch (reason) {
+      setError(errorMessage(reason));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const desiredModules = Array.isArray(value.desired_modules)
+    ? value.desired_modules.map(String)
+    : [];
+  const appliedModules = Array.isArray(value.applied_modules)
+    ? value.applied_modules.map(String)
+    : [];
+  return (
+    <div className="mb-5">
+      <Card>
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h2 className="font-bold">Store configuration</h2>
+            <p className="mt-1 text-sm text-muted">
+              Desired revision {String(value.desired_revision ?? 'Unknown')} · Applied revision{' '}
+              {String(value.applied_revision ?? 'Unknown')}
+            </p>
+          </div>
+          <Status value={String(value.configuration_state ?? 'pending_application')} />
+        </div>
+        <dl className="mt-4 grid gap-4 md:grid-cols-2">
+          <div>
+            <dt className="text-xs font-bold tracking-wide text-muted uppercase">Desired</dt>
+            <dd className="mt-1 text-sm">
+              {title(String(value.preset ?? 'unknown'))} ·{' '}
+              {String(value.desired_theme ?? 'Unknown')}
+              <span className="mt-1 block text-muted">
+                {desiredModules.length ? desiredModules.map(title).join(', ') : 'No modules'}
+              </span>
+            </dd>
+          </div>
+          <div>
+            <dt className="text-xs font-bold tracking-wide text-muted uppercase">
+              Reported applied
+            </dt>
+            <dd className="mt-1 text-sm">
+              {String(value.applied_theme || 'Not reported')}
+              <span className="mt-1 block text-muted">
+                {appliedModules.length ? appliedModules.map(title).join(', ') : 'Not reported'}
+              </span>
+            </dd>
+          </div>
+        </dl>
+        {capabilityError && <Alert>{capabilityError}</Alert>}
+        {canManage && capabilities && (
+          <form onSubmit={submit} className="mt-5 grid gap-4 border-t border-line pt-5">
+            {error && <Alert>{error}</Alert>}
+            <div className="grid gap-3 md:grid-cols-2">
+              <label className="grid gap-1 text-sm font-semibold">
+                Preset
+                <select
+                  className={inputClass}
+                  value={preset}
+                  onChange={(event) => choosePreset(event.target.value, capabilities)}
+                >
+                  {capabilities.presets.map((item) => (
+                    <option key={item.id} value={item.id}>
+                      {item.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="grid gap-1 text-sm font-semibold">
+                Theme
+                <select
+                  className={inputClass}
+                  value={theme}
+                  onChange={(event) => setTheme(event.target.value)}
+                >
+                  {capabilities.themes
+                    .filter((item) => item.preset === preset)
+                    .map((item) => (
+                      <option key={item.id} value={item.id}>
+                        {item.name} ({item.id})
+                      </option>
+                    ))}
+                </select>
+              </label>
+            </div>
+            <fieldset>
+              <legend className="text-sm font-bold">Desired modules</legend>
+              <div className="mt-2 grid gap-2 md:grid-cols-2 xl:grid-cols-3">
+                {capabilities.modules
+                  .filter((item) => item.available && item.presets.includes(preset))
+                  .map((item) => (
+                    <label
+                      key={item.key}
+                      className="flex gap-2 rounded-base border border-line p-3"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={item.core || modules.includes(item.key)}
+                        disabled={item.core}
+                        onChange={(event) => toggleModule(item.key, event.target.checked)}
+                      />
+                      <span className="text-sm">
+                        <strong>{item.name}</strong>
+                        {item.requires.length > 0 && (
+                          <span className="block text-xs text-muted">
+                            Requires {item.requires.map(title).join(', ')}
+                          </span>
+                        )}
+                      </span>
+                    </label>
+                  ))}
+              </div>
+            </fieldset>
+            <div>
+              <Button type="submit" busy={busy}>
+                Save desired configuration
+              </Button>
+            </div>
+          </form>
+        )}
+      </Card>
+    </div>
+  );
+}
+
+function DeploymentCredentials({ deploymentId }: { deploymentId: string }) {
+  const [refresh, setRefresh] = useState(0);
+  const [error, setError] = useState('');
+  const [token, setToken] = useState('');
+  const { data, error: loadError } = useData(
+    `/api/console/deployments/${deploymentId}/monitoring-credentials/`,
+    monitoringCredentialPage,
+    refresh,
+  );
+  async function create(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const form = new FormData(event.currentTarget);
+    try {
+      const response = await api.post<unknown>(
+        `/api/console/deployments/${deploymentId}/monitoring-credentials/`,
+        { label: String(form.get('label') ?? '') },
+      );
+      if (!response || typeof response !== 'object' || !('token' in response))
+        throw new Error('The server returned an invalid credential.');
+      const raw = (response as Record<string, unknown>).token;
+      if (typeof raw !== 'string') throw new Error('The server returned an invalid credential.');
+      setToken(raw);
+      setError('');
+      event.currentTarget.reset();
+      setRefresh((item) => item + 1);
+    } catch (reason) {
+      setError(errorMessage(reason));
+    }
+  }
+  async function revoke(id: string) {
+    if (!window.confirm('Revoke this monitoring credential? Existing agents using it will stop.'))
+      return;
+    try {
+      await api.patch(`/api/console/deployments/${deploymentId}/monitoring-credentials/${id}/`, {
+        action: 'revoke',
+      });
+      setError('');
+      setRefresh((item) => item + 1);
+    } catch (reason) {
+      setError(errorMessage(reason));
+    }
+  }
+  return (
+    <div className="mt-5">
+      <h2 className="mb-3 text-lg font-bold">Monitoring credentials</h2>
+      <Card>
+        {(error || loadError) && <Alert>{error || loadError}</Alert>}
+        {token && (
+          <Alert>
+            Copy this credential now. It will not be shown again.
+            <code className="mt-2 block break-all">{token}</code>
+          </Alert>
+        )}
+        <form onSubmit={create} className="mb-4 flex flex-wrap items-end gap-3">
+          <label className="grid min-w-64 flex-1 gap-1 text-sm font-semibold">
+            Credential label
+            <input className={inputClass} name="label" defaultValue="Deployment telemetry" />
+          </label>
+          <Button type="submit">Issue credential</Button>
+        </form>
+        {!data ? (
+          <Loading>Loading credentials…</Loading>
+        ) : (
+          <Table
+            headers={['Label', 'Identifier', 'Status', 'Created', 'Last used', 'Action']}
+            rows={data.results.map((item) => [
+              item.label,
+              `••••${item.last_four}`,
+              <Status key="status" value={item.status} />,
+              new Date(item.created_at).toLocaleString(),
+              item.last_used_at ? new Date(item.last_used_at).toLocaleString() : 'Never',
+              item.revoked_at ? (
+                '—'
+              ) : (
+                <Button key="revoke" variant="danger" onClick={() => void revoke(item.id)}>
+                  Revoke
+                </Button>
+              ),
+            ])}
+          />
+        )}
+      </Card>
+    </div>
+  );
+}
+
 function Detail({
   kind,
   id,
   canManage,
+  canMonitor,
 }: {
   kind: 'clients' | 'stores' | 'servers' | 'deployments';
   id: string;
   canManage: boolean;
+  canMonitor: boolean;
 }) {
   const [value, setValue] = useState<Record<string, unknown> | null>(null);
   const [error, setError] = useState('');
@@ -1264,6 +1615,14 @@ function Detail({
           </Card>
         </div>
       )}
+      {kind === 'stores' && (
+        <StoreConfiguration
+          key={String(value.desired_revision ?? 'configuration')}
+          value={value}
+          canManage={canManage}
+          saved={() => setRefresh((item) => item + 1)}
+        />
+      )}
       <Card>
         <dl className="grid gap-x-6 gap-y-4 sm:grid-cols-2 xl:grid-cols-3">
           {safeEntries.map(([key, entry]) => (
@@ -1359,6 +1718,7 @@ function Detail({
               ['Recovery tested', 'recovery_tested_at'],
             ]}
           />
+          {canMonitor && <DeploymentCredentials deploymentId={id} />}
         </>
       )}
       {kind === 'stores' && (
@@ -1400,6 +1760,7 @@ export function PlatformWorkspace({ path, permissions }: { path: string; permiss
         canManage={permissions.includes(
           `${root === 'stores' ? 'store_configuration' : root}.manage`,
         )}
+        canMonitor={permissions.includes('monitoring.manage')}
       />
     );
   if (path === 'clients') return <Clients canManage={permissions.includes('clients.manage')} />;

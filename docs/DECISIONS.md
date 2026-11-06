@@ -1504,6 +1504,23 @@ certificate expiry, deduplicate alerts and apply bounded retention. They do not 
 Docker, change DNS, issue certificates, restore backups or apply configuration. Those execution
 channels remain Phase 17; Phase 16 records truthful pending requests and observed acknowledgments.
 
+### D-115 · Latest-observation authority and incident-preserving retention (2026-11-06, Phase 16.1)
+
+- **Current state:** telemetry reports are retained when they pass credential, binding, replay and
+  timestamp validation, but only a strictly newer `observed_at` may change Deployment state or
+  evaluate current alerts. Ingestion locks the credential and Deployment. If timestamps are equal,
+  the first accepted report remains authoritative; later equal reports stay historical. Fleet
+  health selects the same deterministic latest observation and evaluates its state and freshness
+  together.
+- **Incidents:** stable alert keys continue to represent one condition, but a new failure after
+  recovery reopens the resolved row, refreshes its evidence and creates one notification for that
+  incident transition. Repeated evaluation creates neither duplicate alerts nor notification
+  storms. Acknowledged and silenced active incidents keep their existing semantics.
+- **Retention and credentials:** the 90-day observation policy deletes only unreferenced rows;
+  observations protected as alert evidence remain available. Monitoring credentials have explicit,
+  recently authenticated metadata-list and audited revoke operations; raw credentials remain
+  one-time values and replacement remains an explicit create action.
+
 ## Open questions for the owner
 
 | #   | Question                                                                                                                                                                                                      | Status                                                                                                                | Needed by                    |

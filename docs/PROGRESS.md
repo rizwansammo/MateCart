@@ -1,67 +1,77 @@
 # Progress and handoff
 
-Updated: 2026-11-05 (Asia/Dhaka).
+Updated: 2026-11-06 (Asia/Dhaka).
 
-## Phase 16: Central Platform Console (implemented locally; final verification in progress)
+## Phase 16.1: Central Console integrity corrections (implemented locally; owner acceptance pending)
 
-**Active phase: 16.** Accepted baseline `2a9e448bf4282f11f98186982b9ee925947d936b`
-(Phase 15, GitHub Actions 42023846893: 4/4 jobs, 1,596 tests). Phases 01–15 are accepted
-and closed. Phase 17 has not started. Reference: [CENTRAL_CONSOLE.md](CENTRAL_CONSOLE.md),
-decisions D-111 to D-114.
+**Active phase: 16.1.** Starting baseline `55e51a7af9f7b804d97275c3d16170e0e11e395f`
+(Phase 16, GitHub Actions 42172599083: 4/4 jobs, 1,609 tests). Phase 17 has not started.
+Reference: [CENTRAL_CONSOLE.md](CENTRAL_CONSOLE.md), decisions D-111 to D-115.
 
-### Delivered
+### Corrections delivered
 
-- Control-side Client and Contact registry with lifecycle, search, pagination, associated Stores,
-  Servers, notes and append-only activity history.
-- Store Registry whose UUIDv7 primary key is the future `MATECART_TENANT_ID`; the five approved
-  presets, themes and synchronized module capability rules; safe provisioning manifest; distinct
-  desired/applied revisions and truthful pending-application state.
-- Server and Deployment registries for NetaMate- and client-owned infrastructure, multiple Stores
-  per Server, environments, desired/observed releases and unknown/stale health classification.
-- Fixed Console roles (Platform Owner, Platform Administrator, Operations Manager, Support
-  Operator, Read-only Auditor), backend permissions, mandatory-MFA preservation, recent-auth
-  gates, session revocation and last-owner protection.
-- Operational request approval workflow with requester/approver separation and verified evidence
-  before completion. No Execute action and no remote deployment code.
-- Per-Deployment telemetry credentials stored as SHA-256 digests and shown once; binding, timestamp,
-  payload, metric, rate and replay validation; observations contain only operational aggregates.
-- Alert deduplication, recovery, acknowledgment, silence and resolution; internal role-aware
-  notifications; backup observations; Domain/TLS inventory; append-only central audit events.
-- Isolated Control Celery worker and Beat using Control Redis only. Idempotent monitoring evaluation
-  covers stale heartbeats, backup failure/overdue and certificate expiry; bounded operational
-  retention preserves audit records.
-- Responsive Console navigation and real database-backed Overview, Clients, Stores, Servers,
-  Deployments, Monitoring, Alerts, Operations, Administrators and Audit Log screens. Registry and
-  request forms perform genuine API operations; unknown data is never displayed as success.
+- Fleet health now classifies every Deployment from its latest authoritative observation and that
+  observation's freshness. Overview, list and detail agree on Healthy, Degraded, Unavailable,
+  Stale and Unknown without matching an older Healthy report or issuing per-row observation queries.
+- Observation, missing-heartbeat, backup failure/overdue and TLS expiry alerts reactivate after a
+  resolved incident. Stable alert keys still prevent duplicate active rows; notifications are
+  emitted once per incident transition rather than once forever or on every evaluation.
+- Monitoring credentials can be listed as safe metadata and explicitly revoked by a recently
+  authenticated `monitoring.manage` operator. Raw values remain one-time only; revocation is
+  audited and immediately blocks ingestion while other credentials continue to work.
+- Observation retention skips rows referenced by alerts, preserving incident evidence while still
+  deleting unreferenced observations after 90 days. No migration was needed.
+- Telemetry ingestion locks the credential and Deployment. All valid reports remain as history,
+  but only a strictly newer observation updates authoritative Deployment state or evaluates alerts;
+  the first accepted report wins equal timestamps deterministically.
+- Store Detail now shows desired and reported-applied configuration, revisions and truthful Pending
+  Application state, and allows permitted desired preset/theme/module changes through the existing
+  Store PATCH API and capability registry.
+- Monitoring now shows health, latest report, freshness, response, CPU/RAM/disk, rolling visitors
+  and observed version with explicit missing values. Server registration supports NetaMate-owned
+  and client-owned records and requires the owning Client for the latter.
 
-### Verification so far (observed locally, 2026-11-05)
+### Verification (observed locally, 2026-11-06)
 
-- Focused Control platform tests: **9 passed** initially. Full Control suite after the first API
-  pass: **65 passed, 1 expected schema-drift failure**; `openapi.yaml` was then regenerated and
-  validated without warnings. The schema failure was not a product defect.
-- Control Ruff, formatting, strict Mypy (65 files), `manage.py check` and
-  `makemigrations --check`: passed.
-- Shared Contracts typecheck and tests: **97 passed** (4 new Phase 16 contract tests).
-- Platform Console strict TypeScript: passed.
-- Pending in this session: full repository gates, rebuilt running Control services, browser
-  acceptance, final totals and owner review data.
+- The initial focused reproduction run had **7 expected failures and 1 pass**, confirming the
+  reported overview, alert recurrence, credential workflow, retention, ordering and ownership
+  defects. After correction, the existing and new focused platform tests passed: **20/20**.
+- `pnpm api:test`: Commerce **1,195 passed**, Control **77 passed**, 0 failed. The Control run
+  includes real PostgreSQL concurrent telemetry submissions.
+- `pnpm check`: Prettier, ESLint and all strict TypeScript checks passed; Shared Contracts **98**,
+  Shared UI **78**, Commerce Web **168**, Node **5**, 0 failed.
+- **Total: 1,621 automated tests passed, 0 failed** (1,609 accepted baseline + 12 focused tests).
+- `pnpm api:lint`: Ruff, format and strict cold-cache Mypy passed for Commerce (353 files) and
+  Control (66 files). Both Django system checks and both `makemigrations --check --dry-run` checks
+  passed. Control Celery reported `platform.evaluate_monitoring` and `platform.retention` registered.
+- `pnpm build`: both Next.js applications built successfully. A prior restricted-process attempt
+  hit Windows `EPERM` on generated `.next` output; the normal-permission rerun passed and was not a
+  product failure. `pnpm api:schema` regenerated and validated both schemas without warnings.
+- `pnpm stack:up` rebuilt only `matecart-dev`; all 11 containers are running and healthy. Compose
+  validation passed, Control's two Celery tasks are registered, and final `pnpm health` passed all
+  six checks. Storefront is at http://127.0.0.1:3400 and Console at http://127.0.0.1:3410.
+- Browser automation reliably verified **1 of 15** required scenarios: unauthenticated protected
+  routing redirected `/` to `/sign-in`, and the Console sign-in page rendered at desktop width.
+  Scenarios 2–15 were not claimed: no usable password was available for an existing development
+  Console administrator, and acceptance did not bypass MFA, inject a session, create replacement
+  credentials or reset an owner's password. The owner checklist is in `CENTRAL_CONSOLE.md`.
 
-### Files and services
+### Changed areas
 
-- New Control domain: `control/platform/` (models, migrations, constants, services, serializers,
-  APIs, Celery tasks) and `tests/test_platform.py`.
-- Accounts: fixed role field, code-owned permissions and `bootstrap_platform_owner` command.
-- Frontend/contracts: `platform-workspace.tsx`, `platform.ts`, `platform.test.ts`, expanded Console
-  shell and generated Control `openapi.yaml`.
-- Compose: isolated `control-worker` and `control-beat`; Control dependency lock includes Celery.
-- Documentation: this handoff, D-111 to D-114, architecture/data/security/setup/checklist/roadmap,
-  and `CENTRAL_CONSOLE.md`.
+- Control platform services, monitoring tasks, serializers, views, URLs and generated OpenAPI.
+- Focused `test_platform_integrity.py` regression coverage.
+- Platform Console workspace and Shared Contracts platform decoders/tests.
+- This handoff, `CENTRAL_CONSOLE.md`, `FEATURE_CHECKLIST.md` and D-115.
 
-### Exact next step
+### Known limits and exact next step
 
-Finish all quality gates and local browser acceptance, record the observed results here, leave
-the MateCart stack and both web apps running, then hand the uncommitted Phase 16 working tree to
-the owner. Do not start Phase 17.
+- No Phase 16 implementation item is knowingly unfinished. Authenticated browser verification
+  remains owner work because credentials were unavailable to automation. Real VPS, DNS/TLS,
+  backup installation/restore and external alert delivery remain real-infrastructure or Phase
+  17–18 work; no Phase 17 execution path was added.
+- Owner: complete the authenticated checklist in `CENTRAL_CONSOLE.md`, review the uncommitted diff,
+  commit and push, then independently verify GitHub CI. Do not mark Phase 16 accepted or begin
+  Phase 17 until that review and CI pass.
 
 ## Phase 15: AI & Advanced Extensions (accepted and closed)
 

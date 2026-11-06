@@ -125,22 +125,27 @@ def create_monitoring_credential(
     return credential, raw
 
 
+def revoke_monitoring_credential(
+    credential: MonitoringCredential, actor: AdminUser
+) -> MonitoringCredential:
+    with transaction.atomic():
+        locked = MonitoringCredential.objects.select_for_update().get(pk=credential.pk)
+        if locked.revoked_at is None:
+            locked.revoked_at = timezone.now()
+            locked.save(update_fields=["revoked_at", "updated_at"])
+            audit(
+                actor,
+                "monitoring.credential.revoked",
+                locked,
+                {"deployment_id": str(locked.deployment_id), "label": locked.label},
+            )
+    return locked
+
+
 def ingest_observation(token: str, data: dict[str, Any]) -> MonitoringObservation:
     if not token or len(token) > 256:
         raise ValidationError({"credential": "Invalid telemetry credential."})
     digest = hashlib.sha256(token.encode()).hexdigest()
-    credential = (
-        MonitoringCredential.objects.select_related("deployment__store")
-        .filter(token_hash=digest, revoked_at__isnull=True)
-        .first()
-    )
-    if credential is None:
-        raise ValidationError({"credential": "Invalid telemetry credential."})
-    deployment = credential.deployment
-    if str(data["deployment_id"]) != str(deployment.pk) or str(data["store_id"]) != str(
-        deployment.store_id
-    ):
-        raise ValidationError({"deployment_id": "The report is bound to another deployment."})
     observed_at = data["observed_at"]
     now = timezone.now()
     if observed_at < now - timedelta(minutes=10) or observed_at > now + timedelta(minutes=2):
@@ -152,6 +157,22 @@ def ingest_observation(token: str, data: dict[str, Any]) -> MonitoringObservatio
         if value is not None and not Decimal("0") <= value <= Decimal("100"):
             raise ValidationError({field: "Use a value between 0 and 100."})
     with transaction.atomic():
+        credential = (
+            MonitoringCredential.objects.select_for_update()
+            .filter(token_hash=digest, revoked_at__isnull=True)
+            .first()
+        )
+        if credential is None:
+            raise ValidationError({"credential": "Invalid telemetry credential."})
+        deployment = (
+            Deployment.objects.select_for_update()
+            .select_related("store")
+            .get(pk=credential.deployment_id)
+        )
+        if str(data["deployment_id"]) != str(deployment.pk) or str(data["store_id"]) != str(
+            deployment.store_id
+        ):
+            raise ValidationError({"deployment_id": "The report is bound to another deployment."})
         observation = MonitoringObservation.objects.create(
             deployment=deployment,
             credential=credential,
@@ -167,15 +188,22 @@ def ingest_observation(token: str, data: dict[str, Any]) -> MonitoringObservatio
             application_version=data.get("application_version", ""),
         )
         MonitoringCredential.objects.filter(pk=credential.pk).update(last_used_at=now)
-        Deployment.objects.filter(pk=deployment.pk).update(
-            observed_version=data.get("application_version", ""),
-            last_observed_at=observed_at,
-            last_healthy_at=(
-                observed_at
-                if data["store_status"] == "healthy" and data["api_status"] == "healthy"
-                else deployment.last_healthy_at
-            ),
+        authoritative = (
+            deployment.last_observed_at is None or observed_at > deployment.last_observed_at
         )
+        if authoritative:
+            deployment.observed_version = data.get("application_version", "")
+            deployment.last_observed_at = observed_at
+            if data["store_status"] == "healthy" and data["api_status"] == "healthy":
+                deployment.last_healthy_at = observed_at
+            deployment.save(
+                update_fields=[
+                    "observed_version",
+                    "last_observed_at",
+                    "last_healthy_at",
+                    "updated_at",
+                ]
+            )
         if data.get("backup_status"):
             BackupObservation.objects.create(
                 deployment=deployment,
@@ -184,12 +212,13 @@ def ingest_observation(token: str, data: dict[str, Any]) -> MonitoringObservatio
                 backup_at=data.get("backup_at"),
                 status=data["backup_status"],
             )
-        evaluate_alerts(observation)
+        if authoritative:
+            evaluate_alerts(observation)
     return observation
 
 
 def evaluate_alerts(observation: MonitoringObservation) -> None:
-    rules: list[tuple[bool, str, str, str]] = [
+    rules: list[tuple[bool | None, str, str, str]] = [
         (
             observation.store_status == "unavailable",
             "store_unavailable",
@@ -198,19 +227,34 @@ def evaluate_alerts(observation: MonitoringObservation) -> None:
         ),
         (observation.api_status == "unavailable", "api_unavailable", "critical", "API unavailable"),
         (
-            (observation.response_ms or 0) > 2000,
+            None if observation.response_ms is None else observation.response_ms > 2000,
             "high_response_time",
             "warning",
             "High response time",
         ),
-        ((observation.cpu_percent or 0) >= 90, "cpu_high", "warning", "CPU usage high"),
-        ((observation.ram_percent or 0) >= 90, "ram_high", "warning", "RAM usage high"),
-        ((observation.disk_percent or 0) >= 85, "disk_high", "critical", "Disk usage high"),
+        (
+            None if observation.cpu_percent is None else observation.cpu_percent >= 90,
+            "cpu_high",
+            "warning",
+            "CPU usage high",
+        ),
+        (
+            None if observation.ram_percent is None else observation.ram_percent >= 90,
+            "ram_high",
+            "warning",
+            "RAM usage high",
+        ),
+        (
+            None if observation.disk_percent is None else observation.disk_percent >= 85,
+            "disk_high",
+            "critical",
+            "Disk usage high",
+        ),
     ]
     for active, category, severity, title in rules:
         key = f"deployment:{observation.deployment_id}:{category}"
         alert = OperationalAlert.objects.filter(deduplication_key=key).first()
-        if active:
+        if active is True:
             if alert is None:
                 alert = OperationalAlert.objects.create(
                     deployment=observation.deployment,
@@ -229,30 +273,46 @@ def evaluate_alerts(observation: MonitoringObservation) -> None:
                 alert.status = "open"
                 alert.resolved_at = None
                 alert.resolved_by = None
+                alert.acknowledged_at = None
+                alert.acknowledged_by = None
+                alert.silenced_until = None
                 alert.source_observation = observation
+                alert.details = {
+                    "source": "reported",
+                    "observed_at": observation.observed_at.isoformat(),
+                    "reactivated": True,
+                }
                 alert.save(
                     update_fields=[
                         "status",
                         "resolved_at",
                         "resolved_by",
+                        "acknowledged_at",
+                        "acknowledged_by",
+                        "silenced_until",
                         "source_observation",
+                        "details",
                         "updated_at",
                     ]
                 )
-        elif alert is not None and alert.status in {"open", "acknowledged"}:
+                notify_alert(alert, incident_at=observation.observed_at)
+        elif active is False and alert is not None and alert.status in {"open", "acknowledged"}:
             alert.status = "resolved"
             alert.resolved_at = observation.observed_at
             alert.save(update_fields=["status", "resolved_at", "updated_at"])
 
 
-def notify_alert(alert: OperationalAlert) -> None:
+def notify_alert(alert: OperationalAlert, *, incident_at: Any = None) -> None:
     from control.accounts.permissions import permissions_for
 
     for user in AdminUser.objects.filter(is_active=True):
         if "alerts.read" in permissions_for(user.role):
+            deduplication_key = f"alert:{alert.pk}"
+            if incident_at is not None:
+                deduplication_key = f"{deduplication_key}:{incident_at.isoformat()}"
             ConsoleNotification.objects.get_or_create(
                 user=user,
-                deduplication_key=f"alert:{alert.pk}",
+                deduplication_key=deduplication_key,
                 defaults={
                     "kind": "alert",
                     "title": alert.title,

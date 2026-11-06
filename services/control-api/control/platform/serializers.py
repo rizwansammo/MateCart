@@ -107,6 +107,24 @@ class ServerSerializer(serializers.ModelSerializer[Server]):
     def get_owner_name(self, obj: Server) -> str:
         return obj.owner_client.display_name if obj.owner_client else "NetaMate"
 
+    def validate(self, attrs: dict[str, object]) -> dict[str, object]:
+        current = self.instance
+        ownership = str(attrs.get("ownership", current.ownership if current else ""))
+        owner_client = attrs.get(
+            "owner_client", current.owner_client if current is not None else None
+        )
+        if ownership == "client" and owner_client is None:
+            raise serializers.ValidationError(
+                {"owner_client": "Choose the client that owns this server."}
+            )
+        if ownership == "netamate" and owner_client is not None:
+            raise serializers.ValidationError(
+                {"owner_client": "NetaMate-owned servers cannot be assigned to a client."}
+            )
+        if attrs.get("country"):
+            attrs["country"] = validate_country(str(attrs["country"]))
+        return attrs
+
 
 class DeploymentSerializer(serializers.ModelSerializer[Deployment]):
     store_name = serializers.CharField(source="store.name", read_only=True)

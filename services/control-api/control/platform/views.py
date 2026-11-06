@@ -3,7 +3,7 @@ from datetime import timedelta
 from typing import Any, ClassVar, cast
 
 from django.db import IntegrityError, transaction
-from django.db.models import Count, Q
+from django.db.models import Count, OuterRef, Q, Subquery
 from django.utils import timezone
 from drf_spectacular.utils import extend_schema
 from rest_framework import serializers, status
@@ -31,6 +31,7 @@ from .models import (
     ConsoleNotification,
     Deployment,
     DomainRecord,
+    MonitoringCredential,
     MonitoringObservation,
     OperationalAlert,
     OperationalRequest,
@@ -49,7 +50,13 @@ from .serializers import (
     StoreSerializer,
     TelemetrySerializer,
 )
-from .services import add_revision, audit, create_monitoring_credential, ingest_observation
+from .services import (
+    add_revision,
+    audit,
+    create_monitoring_credential,
+    ingest_observation,
+    revoke_monitoring_credential,
+)
 
 
 class ConsolePlatformView(CsrfProtectedAPIView):
@@ -90,28 +97,23 @@ def get_or_404(model: Any, pk: uuid.UUID, **filters: Any) -> Any:
 class OverviewView(ConsolePlatformView):
     def get(self, request: Request) -> Response:
         require_permission(self.admin, "monitoring.read")
-        cutoff = timezone.now() - timedelta(minutes=5)
-        deployments = Deployment.objects.all()
-        healthy = (
-            deployments.filter(
-                last_observed_at__gte=cutoff,
-                observations__store_status="healthy",
-                observations__api_status="healthy",
-            )
-            .distinct()
-            .count()
-        )
-        stale = deployments.filter(last_observed_at__lt=cutoff).count()
-        unknown = deployments.filter(last_observed_at__isnull=True).count()
+        deployments = list(deployments_with_health())
+        health_totals = {
+            "healthy": 0,
+            "degraded": 0,
+            "unavailable": 0,
+            "stale": 0,
+            "unknown": 0,
+        }
+        for deployment in deployments:
+            health_totals[deployment_health(deployment)] += 1
         return Response(
             {
                 "clients": Client.objects.count(),
                 "stores": StoreRegistration.objects.count(),
                 "servers": Server.objects.count(),
-                "deployments": deployments.count(),
-                "healthy": healthy,
-                "stale": stale,
-                "unknown": unknown,
+                "deployments": len(deployments),
+                **health_totals,
                 "critical_alerts": OperationalAlert.objects.filter(
                     status__in=["open", "acknowledged"], severity="critical"
                 ).count(),
@@ -371,17 +373,43 @@ class ServerDetailView(ConsolePlatformView):
         return Response(ServerSerializer(server).data)
 
 
-def deployment_health(row: Deployment) -> str:
-    if row.last_observed_at is None:
-        return "unknown"
-    if row.last_observed_at < timezone.now() - timedelta(minutes=5):
+def observation_health(observation: MonitoringObservation) -> str:
+    if observation.observed_at < timezone.now() - timedelta(minutes=5):
         return "stale"
-    latest = row.observations.first()
-    if latest is None:
-        return "unknown"
-    if "unavailable" in {latest.store_status, latest.api_status}:
+    if "unavailable" in {observation.store_status, observation.api_status}:
         return "unavailable"
-    if "degraded" in {latest.store_status, latest.api_status}:
+    if "degraded" in {observation.store_status, observation.api_status}:
+        return "degraded"
+    return "healthy"
+
+
+def deployments_with_health() -> Any:
+    latest = MonitoringObservation.objects.filter(deployment_id=OuterRef("pk")).order_by(
+        "-observed_at", "received_at", "id"
+    )
+    return Deployment.objects.select_related("store", "server").annotate(
+        authoritative_observed_at=Subquery(latest.values("observed_at")[:1]),
+        authoritative_store_status=Subquery(latest.values("store_status")[:1]),
+        authoritative_api_status=Subquery(latest.values("api_status")[:1]),
+    )
+
+
+def deployment_health(row: Deployment) -> str:
+    observed_at = getattr(row, "authoritative_observed_at", None)
+    store_status = getattr(row, "authoritative_store_status", None)
+    api_status = getattr(row, "authoritative_api_status", None)
+    if observed_at is None:
+        latest = row.observations.order_by("-observed_at", "received_at", "id").first()
+        if latest is None:
+            return "unknown"
+        observed_at = latest.observed_at
+        store_status = latest.store_status
+        api_status = latest.api_status
+    if observed_at < timezone.now() - timedelta(minutes=5):
+        return "stale"
+    if "unavailable" in {store_status, api_status}:
+        return "unavailable"
+    if "degraded" in {store_status, api_status}:
         return "degraded"
     return "healthy"
 
@@ -392,7 +420,7 @@ class DeploymentCollectionView(ConsolePlatformView):
     )
     def get(self, request: Request) -> Response:
         require_permission(self.admin, "deployments.read")
-        rows = list(Deployment.objects.select_related("store", "server"))
+        rows = list(deployments_with_health())
         data = DeploymentSerializer(rows, many=True).data
         for item, row in zip(data, rows, strict=True):
             item["health_state"] = deployment_health(row)
@@ -418,7 +446,9 @@ class DeploymentDetailView(ConsolePlatformView):
     )
     def get(self, request: Request, pk: uuid.UUID) -> Response:
         require_permission(self.admin, "deployments.read")
-        deployment = get_or_404(Deployment, pk)
+        deployment = deployments_with_health().filter(pk=pk).first()
+        if deployment is None:
+            raise NotFound()
         result = DeploymentSerializer(deployment).data
         result["health_state"] = deployment_health(deployment)
         result["observations"] = [
@@ -532,6 +562,22 @@ class BackupCollectionView(ConsolePlatformView):
 
 
 class MonitoringCredentialView(ConsolePlatformView):
+    def get(self, request: Request, deployment_id: uuid.UUID) -> Response:
+        require_permission(self.admin, "monitoring.manage")
+        require_recent_authentication(self.session)
+        get_or_404(Deployment, deployment_id)
+        rows = MonitoringCredential.objects.filter(deployment_id=deployment_id).order_by(
+            "-created_at", "id"
+        )
+        return Response(
+            {
+                "count": rows.count(),
+                "next": None,
+                "previous": None,
+                "results": [monitoring_credential_row(item) for item in rows],
+            }
+        )
+
     def post(self, request: Request, deployment_id: uuid.UUID) -> Response:
         require_permission(self.admin, "monitoring.manage")
         require_recent_authentication(self.session)
@@ -547,6 +593,30 @@ class MonitoringCredentialView(ConsolePlatformView):
             },
             status=status.HTTP_201_CREATED,
         )
+
+
+def monitoring_credential_row(item: MonitoringCredential) -> dict[str, Any]:
+    return {
+        "id": item.pk,
+        "deployment_id": item.deployment_id,
+        "label": item.label,
+        "last_four": item.last_four,
+        "created_at": item.created_at,
+        "last_used_at": item.last_used_at,
+        "revoked_at": item.revoked_at,
+        "status": "revoked" if item.revoked_at is not None else "active",
+    }
+
+
+class MonitoringCredentialDetailView(ConsolePlatformView):
+    def patch(self, request: Request, deployment_id: uuid.UUID, pk: uuid.UUID) -> Response:
+        require_permission(self.admin, "monitoring.manage")
+        require_recent_authentication(self.session)
+        if request.data.get("action") != "revoke":
+            raise ValidationError({"action": "Choose revoke."})
+        credential = get_or_404(MonitoringCredential, pk, deployment_id=deployment_id)
+        credential = revoke_monitoring_credential(credential, self.admin)
+        return Response(monitoring_credential_row(credential))
 
 
 class TelemetryIngestView(APIView):
@@ -575,6 +645,7 @@ class TelemetryIngestView(APIView):
 
 
 def observation_row(item: MonitoringObservation) -> dict[str, Any]:
+    health = observation_health(item)
     return {
         "id": item.pk,
         "deployment_id": item.deployment_id,
@@ -591,6 +662,8 @@ def observation_row(item: MonitoringObservation) -> dict[str, Any]:
         "disk_percent": item.disk_percent,
         "visitor_count_24h": item.visitor_count_24h,
         "application_version": item.application_version,
+        "health_state": health,
+        "freshness": "stale" if health == "stale" else "current",
     }
 
 
@@ -600,6 +673,19 @@ class MonitoringView(ConsolePlatformView):
         rows = MonitoringObservation.objects.select_related("deployment__store")
         if deployment_id := request.query_params.get("deployment"):
             rows = rows.filter(deployment_id=deployment_id)
+        if request.query_params.get("latest") == "true":
+            rows = rows.order_by("deployment_id", "-observed_at", "received_at", "id").distinct(
+                "deployment_id"
+            )
+            items = list(rows)
+            return Response(
+                {
+                    "count": len(items),
+                    "next": None,
+                    "previous": None,
+                    "results": [observation_row(item) for item in items],
+                }
+            )
         return Response(
             {
                 "count": rows.count(),

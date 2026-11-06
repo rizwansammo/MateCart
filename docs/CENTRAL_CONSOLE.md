@@ -1,7 +1,8 @@
 # Central Platform Console
 
-Status: Phase 16 implemented locally. This document describes the Control-side management plane;
-remote deployment execution remains Phase 17.
+Status: Phase 16.1 integrity corrections implemented locally; owner browser acceptance and GitHub
+CI remain pending. This document describes the Control-side management plane; remote deployment
+execution remains Phase 17.
 
 ## Boundary
 
@@ -60,8 +61,11 @@ cannot remove the last active owner.
 
 ## Monitoring contract
 
-An authorized operator creates a credential under a Deployment. The raw token is displayed once;
-Control stores only its SHA-256 digest and last four characters. Submit reports to:
+An authorized, recently authenticated operator can list credential metadata, explicitly revoke a
+credential, or create a replacement under a Deployment. Listing never returns a raw credential.
+The raw token is displayed once at creation; Control stores only its SHA-256 digest and last four
+characters. Revocation is audited and immediately blocks that credential without affecting other
+valid credentials. Submit reports to:
 
 ```text
 POST /api/console/telemetry/observations/
@@ -73,8 +77,11 @@ state and optional bounded response time, CPU/RAM/disk percentages, Store-calcul
 24-hour visitor count, application version and backup result. The endpoint rejects revoked or
 wrongly bound credentials, replays, timestamps outside the accepted window, oversized payloads,
 invalid metrics and rate excesses. It never accepts business records or acts as a command channel.
+Valid out-of-order reports remain as history, but a Deployment row lock ensures only a strictly
+newer report updates current health/version state or evaluates alerts. For equal timestamps the
+first accepted report remains authoritative.
 
-Health is calculated from actual observations:
+Health is calculated from the latest authoritative observation and its own freshness:
 
 - Healthy/Degraded/Unavailable: a fresh authenticated report says so.
 - Stale: the last report is older than five minutes.
@@ -88,9 +95,11 @@ credential. Phase 16 does not add a deployment agent or a synchronous Commerce d
 
 Observation rules cover Store/API unavailable, high response time, CPU/RAM/disk thresholds,
 missing heartbeats, backup failure/overdue and certificate expiry. A stable key deduplicates each
-condition; recovery resolves active alerts when evidence justifies it. Operators can acknowledge,
-silence for at most 30 days or resolve with audit attribution. Notifications are Control-only and
-role-aware; they never enter merchant notification tables.
+condition; recovery resolves active alerts when evidence justifies it, and a later failure
+reactivates the same alert as a new visible incident. One notification is created per incident
+transition, not per repeated evaluation. Operators can acknowledge, silence for at most 30 days or
+resolve with audit attribution. Notifications are Control-only and role-aware; they never enter
+merchant notification tables.
 
 Operational requests progress Draft → Submitted → Approved → Pending Execution → Completed, with
 Rejected/Cancelled branches. A requester cannot approve their own request. Completion requires
@@ -103,9 +112,11 @@ actor/system, action, resource, request ID and safe structured changes. ORM guar
 triggers refuse UPDATE and DELETE. Credentials, secret values and unnecessary personal/business
 data are excluded.
 
-Monitoring observations are retained for 90 days, read notifications for 90 days and resolved
-alerts for 400 days. Audit records are retained. The isolated `control-worker` and `control-beat`
-use Control Redis databases only and run idempotent evaluation/retention tasks.
+Unreferenced monitoring observations are retained for 90 days. An observation referenced by an
+alert remains available as incident evidence even after that age. Read notifications are retained
+for 90 days and resolved alerts for 400 days. Audit records are retained. The isolated
+`control-worker` and `control-beat` use Control Redis databases only and run idempotent
+evaluation/retention tasks.
 
 ## Phase 17 integration boundary
 
@@ -116,8 +127,30 @@ deployment/configuration/version requests stay pending and applied/observed fiel
 
 ## Local acceptance
 
-Run the isolated stack and Console, bootstrap or activate a development owner, then exercise
-Clients → Stores → Servers → Deployments. Generate a deployment telemetry credential through the
-API, post a controlled report, confirm its timestamp/source, trigger and recover an alert, and
-verify the Audit Log. Also verify a Support Operator cannot manage administrators and a Read-only
-Auditor cannot mutate registries. Local URLs are documented in DEVELOPMENT_SETUP.md.
+Automated browser verification on 2026-11-06 confirmed unauthenticated `/` redirects to
+`/sign-in` and the sign-in UI renders. Authenticated scenarios were not claimed because automation
+had no usable password for an existing development Console administrator and did not bypass MFA,
+inject a session, create replacement credentials or reset an owner's password.
+
+Owner checklist (use existing development accounts and Mailpit where required):
+
+1. Sign in through password plus the configured MFA method; confirm direct protected routes deny
+   an anonymous browser.
+2. Register and edit a labelled review Client; register a Store and change desired theme/modules.
+   Confirm the revision increments, applied values do not change and Pending Application remains.
+3. Register one NetaMate-owned and one Client-owned Server; confirm Client ownership is required.
+4. Register a Deployment; create a monitoring credential, copy it once, list only its metadata,
+   revoke it and confirm a replacement remains usable.
+5. Post controlled recent telemetry and confirm Monitoring shows health, timestamp, response,
+   CPU/RAM/disk, visitors, freshness and version. Confirm missing values say Not reported/Unknown.
+6. Confirm Fleet Overview matches Deployment detail, including Degraded/Unavailable and stale data.
+7. Trigger, acknowledge and recover a labelled review alert; trigger it again and confirm the same
+   alert reopens without duplicate rows or repeated notifications.
+8. Complete an Operational Request through its permitted workflow with a separate approver and
+   verified completion evidence.
+9. Confirm role restrictions with Support Operator and Read-only Auditor accounts, including no
+   registry/configuration/credential mutations for the auditor.
+10. Check all navigation at desktop and phone width, including no horizontal page overflow.
+
+Local URLs are documented in DEVELOPMENT_SETUP.md. Remove or retain only clearly labelled review
+records according to the owner's normal local-data practice.

@@ -47,6 +47,8 @@ export interface PlatformOverview {
   servers: number;
   deployments: number;
   healthy: number;
+  degraded: number;
+  unavailable: number;
   stale: number;
   unknown: number;
   critical_alerts: number;
@@ -61,6 +63,8 @@ export function platformOverview(value: unknown): PlatformOverview {
     servers: number(row.servers),
     deployments: number(row.deployments),
     healthy: number(row.healthy),
+    degraded: number(row.degraded),
+    unavailable: number(row.unavailable),
     stale: number(row.stale),
     unknown: number(row.unknown),
     critical_alerts: number(row.critical_alerts),
@@ -111,6 +115,9 @@ export interface StoreRecord {
   preset: string;
   default_currency: string;
   desired_theme: string;
+  desired_modules: string[];
+  applied_theme: string;
+  applied_modules: string[];
   desired_revision: number;
   applied_revision: number;
   configuration_state: string;
@@ -128,6 +135,9 @@ export function storeRecord(value: unknown): StoreRecord {
     preset: string(row.preset),
     default_currency: string(row.default_currency),
     desired_theme: string(row.desired_theme),
+    desired_modules: array(row.desired_modules, string),
+    applied_theme: string(row.applied_theme),
+    applied_modules: array(row.applied_modules, string),
     desired_revision: number(row.desired_revision),
     applied_revision: number(row.applied_revision),
     configuration_state: string(row.configuration_state),
@@ -141,6 +151,7 @@ export interface ServerRecord {
   id: string;
   name: string;
   ownership: string;
+  owner_client: string | null;
   owner_name: string;
   provider: string;
   hostname: string;
@@ -154,6 +165,7 @@ export function serverRecord(value: unknown): ServerRecord {
     id: string(row.id),
     name: string(row.name),
     ownership: string(row.ownership),
+    owner_client: nullable(string)(row.owner_client),
     owner_name: string(row.owner_name),
     provider: string(row.provider),
     hostname: string(row.hostname),
@@ -194,6 +206,111 @@ export function deploymentRecord(value: unknown): DeploymentRecord {
   };
 }
 export const deploymentPage = page(deploymentRecord);
+
+export interface PlatformCapabilities {
+  version: number;
+  presets: { id: string; name: string; default_theme: string }[];
+  themes: { id: string; preset: string; name: string }[];
+  modules: {
+    key: string;
+    name: string;
+    presets: string[];
+    available: boolean;
+    core: boolean;
+    requires: string[];
+  }[];
+}
+export function platformCapabilities(value: unknown): PlatformCapabilities {
+  const row = object(value);
+  return {
+    version: number(row.version),
+    presets: array(row.presets, (item) => {
+      const preset = object(item);
+      return {
+        id: string(preset.id),
+        name: string(preset.name),
+        default_theme: string(preset.default_theme),
+      };
+    }),
+    themes: array(row.themes, (item) => {
+      const theme = object(item);
+      return {
+        id: string(theme.id),
+        preset: string(theme.preset),
+        name: string(theme.name),
+      };
+    }),
+    modules: array(row.modules, (item) => {
+      const specification = object(item);
+      return {
+        key: string(specification.key),
+        name: string(specification.name),
+        presets: array(specification.presets, string),
+        available: boolean(specification.available),
+        core: boolean(specification.core),
+        requires: array(specification.requires, string),
+      };
+    }),
+  };
+}
+
+export interface MonitoringCredentialRecord {
+  id: string;
+  deployment_id: string;
+  label: string;
+  last_four: string;
+  created_at: string;
+  last_used_at: string | null;
+  revoked_at: string | null;
+  status: string;
+}
+export function monitoringCredentialRecord(value: unknown): MonitoringCredentialRecord {
+  const row = object(value);
+  return {
+    id: string(row.id),
+    deployment_id: string(row.deployment_id),
+    label: string(row.label),
+    last_four: string(row.last_four),
+    created_at: string(row.created_at),
+    last_used_at: nullable(string)(row.last_used_at),
+    revoked_at: nullable(string)(row.revoked_at),
+    status: string(row.status),
+  };
+}
+export const monitoringCredentialPage = page(monitoringCredentialRecord);
+
+export interface MonitoringObservationRecord {
+  id: string;
+  deployment_id: string;
+  store_name: string;
+  observed_at: string;
+  response_ms: number | null;
+  cpu_percent: string | null;
+  ram_percent: string | null;
+  disk_percent: string | null;
+  visitor_count_24h: number | null;
+  application_version: string;
+  health_state: string;
+  freshness: string;
+}
+export function monitoringObservationRecord(value: unknown): MonitoringObservationRecord {
+  const row = object(value);
+  return {
+    id: string(row.id),
+    deployment_id: string(row.deployment_id),
+    store_name: string(row.store_name),
+    observed_at: string(row.observed_at),
+    response_ms: nullable(number)(row.response_ms),
+    cpu_percent: nullable(string)(row.cpu_percent),
+    ram_percent: nullable(string)(row.ram_percent),
+    disk_percent: nullable(string)(row.disk_percent),
+    visitor_count_24h: nullable(number)(row.visitor_count_24h),
+    application_version: string(row.application_version),
+    health_state: string(row.health_state),
+    freshness: string(row.freshness),
+  };
+}
+export const monitoringObservationPage = page(monitoringObservationRecord);
 
 export interface OperationRecord {
   id: string;

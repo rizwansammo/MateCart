@@ -21,30 +21,26 @@ def evaluate_monitoring() -> None:
     now = timezone.now()
     stale_before = now - timedelta(minutes=5)
     for deployment in Deployment.objects.all().iterator():
-        key = f"deployment:{deployment.pk}:missing_heartbeat"
-        alert = OperationalAlert.objects.filter(deduplication_key=key).first()
         last_observed_at = deployment.last_observed_at
         stale = last_observed_at is not None and last_observed_at < stale_before
-        if stale and alert is None:
-            with transaction.atomic():
-                created = OperationalAlert.objects.create(
-                    deployment=deployment,
-                    category="missing_heartbeat",
-                    severity="critical",
-                    deduplication_key=key,
-                    title="Monitoring heartbeat is stale",
-                    details={
-                        "source": "control_evaluation",
-                        "last_observed_at": (
-                            last_observed_at.isoformat() if last_observed_at is not None else ""
-                        ),
-                    },
-                )
-                notify_alert(created)
-        elif not stale and alert is not None and alert.status in {"open", "acknowledged"}:
-            OperationalAlert.objects.filter(pk=alert.pk).update(status="resolved", resolved_at=now)
+        _set_alert(
+            deployment,
+            "missing_heartbeat",
+            stale,
+            "critical",
+            "Monitoring heartbeat is stale",
+            now,
+            details={
+                "source": "control_evaluation",
+                "last_observed_at": (
+                    last_observed_at.isoformat() if last_observed_at is not None else ""
+                ),
+            },
+        )
         backup = (
-            BackupObservation.objects.filter(deployment=deployment).order_by("-observed_at").first()
+            BackupObservation.objects.filter(deployment=deployment)
+            .order_by("-observed_at", "id")
+            .first()
         )
         backup_failed = backup is not None and backup.status == "failed"
         backup_overdue = (
@@ -101,29 +97,57 @@ def _set_alert(
     now: datetime,
     *,
     key_suffix: str = "",
+    details: dict[str, str] | None = None,
 ) -> None:
     deployment_key = str(deployment.pk) if deployment else "unassigned"
     key = f"deployment:{deployment_key}:{category}:{key_suffix}"
-    alert = OperationalAlert.objects.filter(deduplication_key=key).first()
-    if active and alert is None:
-        created = OperationalAlert.objects.create(
-            deployment=deployment,
-            category=category,
-            severity=severity,
-            deduplication_key=key,
-            title=title,
-            details={"source": "control_evaluation"},
-        )
-        notify_alert(created)
-    elif not active and alert is not None and alert.status in {"open", "acknowledged"}:
-        OperationalAlert.objects.filter(pk=alert.pk).update(status="resolved", resolved_at=now)
+    evidence = details or {"source": "control_evaluation"}
+    with transaction.atomic():
+        alert = OperationalAlert.objects.select_for_update().filter(deduplication_key=key).first()
+        if active and alert is None:
+            alert = OperationalAlert.objects.create(
+                deployment=deployment,
+                category=category,
+                severity=severity,
+                deduplication_key=key,
+                title=title,
+                details=evidence,
+            )
+            notify_alert(alert)
+        elif active and alert is not None and alert.status == "resolved":
+            alert.status = "open"
+            alert.resolved_at = None
+            alert.resolved_by = None
+            alert.acknowledged_at = None
+            alert.acknowledged_by = None
+            alert.silenced_until = None
+            alert.details = {**evidence, "reactivated_at": now.isoformat()}
+            alert.save(
+                update_fields=[
+                    "status",
+                    "resolved_at",
+                    "resolved_by",
+                    "acknowledged_at",
+                    "acknowledged_by",
+                    "silenced_until",
+                    "details",
+                    "updated_at",
+                ]
+            )
+            notify_alert(alert, incident_at=now)
+        elif not active and alert is not None and alert.status in {"open", "acknowledged"}:
+            alert.status = "resolved"
+            alert.resolved_at = now
+            alert.save(update_fields=["status", "resolved_at", "updated_at"])
 
 
 @shared_task(name="platform.retention", ignore_result=True)
 def retention() -> None:
     """Bound operational data while retaining audit history indefinitely."""
     now = timezone.now()
-    MonitoringObservation.objects.filter(observed_at__lt=now - timedelta(days=90)).delete()
+    MonitoringObservation.objects.filter(
+        observed_at__lt=now - timedelta(days=90), alerts__isnull=True
+    ).delete()
     ConsoleNotification.objects.filter(
         read_at__isnull=False, created_at__lt=now - timedelta(days=90)
     ).delete()

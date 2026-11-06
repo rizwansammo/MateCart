@@ -557,11 +557,50 @@ paths:
         '200':
           description: No response body
   /api/console/deployments/{deployment_id}/monitoring-credentials/:
+    get:
+      operationId: console_deployments_monitoring_credentials_retrieve
+      parameters:
+      - in: path
+        name: deployment_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - console
+      security:
+      - consoleSession: []
+      responses:
+        '200':
+          description: No response body
     post:
       operationId: console_deployments_monitoring_credentials_create
       parameters:
       - in: path
         name: deployment_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - console
+      security:
+      - consoleSession: []
+      responses:
+        '200':
+          description: No response body
+  /api/console/deployments/{deployment_id}/monitoring-credentials/{id}/:
+    patch:
+      operationId: console_deployments_monitoring_credentials_partial_update
+      parameters:
+      - in: path
+        name: deployment_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: id
         schema:
           type: string
           format: uuid
