@@ -274,7 +274,7 @@ Every table below is tenant-owned unless marked otherwise. Arrows are FKs and ca
 | **Analytics** (12, implemented)                                              | `EventCounter` (hourly) · `VisitorPresence` (48 h, consented) · `VisitorDailyStat` · `OrderAttribution` · `ConsentRecord` · `MetaEventDelivery`                                                                                                                                                                         | Aggregates and pseudonymous presence only; see "Phase 12" below.                                                                             |
 | **Audit** (02, ongoing)                                                      | `AuditEvent` (implemented)                                                                                                                                                                                                                                                                                              | Every phase adds its own `action` names (for example `order.cancelled`).                                                                     |
 
-### Control-plane blueprint (Phase 16, control-api database)
+### Control-plane schema (Phase 16, control-api database)
 
 | Table                             | Purpose and key relationships                                                                                         |
 | --------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
@@ -286,6 +286,15 @@ Every table below is tenant-owned unless marked otherwise. Arrows are FKs and ca
 | `FeatureConfiguration`            | Module availability per store registration, pushed to the store (the store keeps working without the console).        |
 | `HealthSnapshot` / `MetricRollup` | Aggregated operational metrics (rolling 24-hour visitors, error rates). No customer personal data.                    |
 | `AdminRole`, `ConsoleAuditEvent`  | Console RBAC and its own append-only audit log.                                                                       |
+
+Implemented names refine the earlier blueprint: `ClientContact`, `StoreConfigurationRevision`,
+`OperationalRequest`, `MonitoringCredential`, `MonitoringObservation`, `OperationalAlert`,
+`ConsoleNotification`, `DomainRecord` and `BackupObservation`. Store desired/applied revisions
+are independently constrained; one deployment environment exists per Store; observation report
+UUIDs are unique per Deployment; notifications and alerts have database deduplication keys.
+Client/Store/Server/Deployment history uses protected relationships. Central audit UPDATE/DELETE
+is refused by PostgreSQL triggers. Operational retention never removes audit records. See
+[CENTRAL_CONSOLE.md](CENTRAL_CONSOLE.md) and D-111 to D-114.
 
 Cross-service references use opaque UUIDs only. There are no foreign keys between the two databases, and a store never needs the console to serve customers.
 

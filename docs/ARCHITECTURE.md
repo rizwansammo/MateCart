@@ -1,9 +1,8 @@
 # Architecture
 
-Status: Phase 14 (social commerce and unified inbox) pushed as `ee7d11c` with green CI; its
-messaging integrity corrections (14.1, D-099, D-100) are local, and acceptance follows their CI.
-Phases 01–13 and their corrective subphases are accepted and closed. Sections marked **(planned)** describe later
-work. Schema: [DATA_MODEL.md](DATA_MODEL.md). Authentication: [AUTHENTICATION.md](AUTHENTICATION.md),
+Status: Phases 01–15 are accepted and closed. Phase 16 Central Platform Console is implemented
+locally on accepted commit `2a9e448`; owner review and CI are pending. Sections marked **(planned)**
+describe later work. Schema: [DATA_MODEL.md](DATA_MODEL.md). Authentication: [AUTHENTICATION.md](AUTHENTICATION.md),
 security controls: [SECURITY.md](SECURITY.md).
 
 ## 1. System overview
@@ -27,6 +26,7 @@ security controls: [SECURITY.md](SECURITY.md).
 | `commerce-api`     | `services/commerce-api`     | Commerce domain API for a single store: catalogue, orders, payments and so on        |
 | `commerce-worker`  | same image as commerce-api  | Celery worker: notifications, integrations, imports and other async work             |
 | `control-api`      | `services/control-api`      | Console backend: client registry, servers, deployments, monitoring (Phase 16+)       |
+| `control-worker`   | same image as control-api   | Monitoring/alert evaluation and bounded operational retention                        |
 | `shared-ui`        | `packages/shared-ui`        | Design tokens (Tailwind v4 theme) and shared React components                        |
 | `shared-contracts` | `packages/shared-contracts` | Typed API contracts and runtime guards shared by the frontends                       |
 
@@ -248,7 +248,20 @@ Outside the database: cache keys use `tenant_cache_key(...)` (`tenant:<id>:...`)
 
 - Stores never need `control-api` at runtime. Licensing and configuration must not depend on a continuously reachable central endpoint.
 - **(planned)** The console manages stores through a deployment agent and SSH-based installer (Phase 17) with signed, narrowly scoped operations.
-- **(planned)** Stores report aggregate operational metrics (health, request and error rates, rolling 24-hour visitors) to the console. They send no customer personal data and no business records.
+- The Console accepts authenticated aggregate operational metrics (health, resource values and
+  rolling 24-hour visitors) and no customer personal/business records. An optional Store publisher
+  or deployment agent remains Phase 17; Commerce has no runtime dependency on this channel.
+
+### Central management plane (Phase 16)
+
+`control.platform` owns Client/Contact, StoreRegistration/configuration revisions, Server,
+Deployment, Domain, backup, operational request, monitoring, alert, notification and audit rows.
+The Store UUID is the deliberate cross-system identifier; no Commerce table is referenced.
+Fixed Console roles are checked by the backend, with existing mandatory MFA and recent-auth
+preserved. Telemetry credentials are per Deployment and hashed; bounded aggregate observations
+feed honest health states and deduplicated alerts. Control Worker/Beat use only Control Redis.
+There is no remote execution, and desired configuration is distinct from reported applied state.
+Details: [CENTRAL_CONSOLE.md](CENTRAL_CONSOLE.md), D-111 to D-114.
 
 ## 4. Runtime topology (local development)
 
@@ -329,5 +342,5 @@ Redis broker, JSON-only serialisation, `acks_late` + `reject_on_worker_lost` + p
 | Theme showcase (themes.matecart.pro), premium theme licences, console assignment UI | later; console 16, operations 17 |
 | Production reverse proxy, production images, GHCR releases, installer, agent, TLS   | 17                               |
 | Rate limiting, bot protection, CDN, horizontal scaling validation                   | 12, 17, 18                       |
-| Store → console metrics channel, alerting                                           | 12, 13, 16                       |
+| Optional Store telemetry publisher / deployment agent                               | 17                               |
 | Row-level security and verified domain → tenant resolution (pooled mode)            | if approved                      |

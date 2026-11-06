@@ -118,6 +118,13 @@ class AdminSerializer(serializers.Serializer[AdminUser]):
     id = serializers.UUIDField()
     email = serializers.EmailField()
     full_name = serializers.CharField()
+    role = serializers.CharField()
+    permissions = serializers.SerializerMethodField()
+
+    def get_permissions(self, obj: AdminUser) -> list[str]:
+        from .permissions import permissions_for
+
+        return sorted(permissions_for(obj.role))
 
 
 class ActivationPreviewSerializer(serializers.Serializer[AdminUser]):

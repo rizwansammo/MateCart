@@ -15,6 +15,7 @@ dependencies = [
     "segno>=1.6.6",  # QR codes for authenticator setup (BSD-3-Clause, no dependencies)
     "cryptography>=50.0.2",  # Fernet encryption of TOTP secrets at rest
     "redis>=6.4",  # rate limiting store
+    "celery[redis]>=5.6.3",  # isolated Control worker for monitoring and retention
 ]
 
 [dependency-groups]
@@ -25,6 +26,7 @@ dev = [
     "mypy",
     "django-stubs[compatible-mypy]>=5.2.9,<5.3",
     "djangorestframework-stubs[compatible-mypy]",
+    "celery-types>=0.26.0",
 ]
 
 [tool.uv]

@@ -20,8 +20,8 @@
 | 12  | Marketing, SEO & Analytics                  | C — Growth & Integrations     | **Accepted and closed**, including corrections (`bdcac40`, CI 41777281655: 4/4, 1,258 tests). |
 | 13  | Mail & Notification Engine                  | C — Growth & Integrations     | **Accepted and closed**, including 13.1 (`7b4db22`)                                           |
 | 14  | Social Commerce & Unified Inbox             | C — Growth & Integrations     | **Accepted and closed**, including 14.1 (`029b7bf`, CI 42000616679: 4/4, 1,474 tests).        |
-| 15  | AI & Advanced Extensions                    | C — Growth & Integrations     | **Implemented locally**; owner review, commit and CI pending                                  |
-| 16  | Central Platform Console                    | D — Platform & Infrastructure | Pending                                                                                       |
+| 15  | AI & Advanced Extensions                    | C — Growth & Integrations     | **Accepted and closed** (`2a9e448`, CI 42023846893: 4/4, 1,596 tests).                        |
+| 16  | Central Platform Console                    | D — Platform & Infrastructure | **Implemented locally**; final verification and owner review pending                          |
 | 17  | Deployment Automation                       | D — Platform & Infrastructure | Pending                                                                                       |
 | 18  | Final Quality, Performance & Security       | D — Platform & Infrastructure | Pending                                                                                       |
 | 19  | Production Deployment & Private Beta Launch | E — Production Launch         | Pending (never before 01–18 are accepted)                                                     |
@@ -248,6 +248,10 @@ orders kept as read-only history. No live GroqCloud, WooCommerce or Shopify acco
 ### Phase 16 — Central Platform Console
 
 Internal console: client registry, store configuration, operational dashboards, permissions, management workflows, fleet monitoring and alerts.
+
+**Implemented locally:** Control registries, desired/applied configuration, fixed Console RBAC,
+operations approvals, deployment-scoped monitoring, alert/notification engine, backup/domain
+visibility, isolated Control worker and complete Console workspaces. Remote execution remains 17.
 
 ### Phase 17 — Deployment Automation
 

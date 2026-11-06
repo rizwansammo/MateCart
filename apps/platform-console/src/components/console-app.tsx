@@ -1,8 +1,8 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import type { UserSummary } from '@matecart/shared-contracts';
-import { userSummary } from '@matecart/shared-contracts';
+import type { ConsoleSession } from '@matecart/shared-contracts';
+import { consoleSession } from '@matecart/shared-contracts';
 import {
   ActivationForm,
   Alert,
@@ -23,6 +23,7 @@ import {
   errorMessage,
 } from '@matecart/shared-ui';
 import { authApi as api } from '@/lib/auth-client';
+import { PlatformWorkspace } from './platform-workspace';
 
 function Enrollment() {
   const [mode, setMode] = useState<'totp' | 'email' | null>(null);
@@ -87,15 +88,15 @@ function Enrollment() {
   );
 }
 
-function ProtectedConsole({ security }: { security: boolean }) {
-  const [user, setUser] = useState<UserSummary | null>(null);
+function ProtectedConsole({ path }: { path: string }) {
+  const [user, setUser] = useState<ConsoleSession | null>(null);
   const [error, setError] = useState('');
   useEffect(() => {
     let live = true;
     void api
       .get<unknown>('/api/console/auth/session/')
       .then((v) => {
-        if (live) setUser(userSummary(v));
+        if (live) setUser(consoleSession(v));
       })
       .catch((e) => {
         if (e instanceof ApiError && e.status === 401) window.location.replace('/sign-in');
@@ -121,34 +122,61 @@ function ProtectedConsole({ security }: { security: boolean }) {
       realm="console"
       name="NetaMate Console"
       subtitle={user.full_name || user.email || 'Administrator'}
+      current={path ? `/${path}` : '/'}
+      groups={[
+        {
+          links: [
+            { href: '/', label: 'Overview' },
+            ...(user.permissions.includes('clients.read')
+              ? [{ href: '/clients', label: 'Clients' }]
+              : []),
+            ...(user.permissions.includes('stores.read')
+              ? [{ href: '/stores', label: 'Stores' }]
+              : []),
+          ],
+        },
+        {
+          heading: 'Infrastructure',
+          links: [
+            ...(user.permissions.includes('servers.read')
+              ? [{ href: '/servers', label: 'Servers' }]
+              : []),
+            ...(user.permissions.includes('deployments.read')
+              ? [{ href: '/deployments', label: 'Deployments' }]
+              : []),
+            ...(user.permissions.includes('monitoring.read')
+              ? [{ href: '/monitoring', label: 'Monitoring' }]
+              : []),
+            ...(user.permissions.includes('alerts.read')
+              ? [{ href: '/alerts', label: 'Alerts' }]
+              : []),
+          ],
+        },
+        {
+          heading: 'Administration',
+          links: [
+            ...(user.permissions.includes('operations.read')
+              ? [{ href: '/operations', label: 'Operations' }]
+              : []),
+            ...(user.permissions.includes('administrators.read')
+              ? [{ href: '/administrators', label: 'Administrators' }]
+              : []),
+            ...(user.permissions.includes('audit.read')
+              ? [{ href: '/audit', label: 'Audit log' }]
+              : []),
+            { href: '/account/security', label: 'Account security' },
+          ],
+        },
+      ]}
       onLogout={async () => {
         await api.post('/api/console/auth/logout/');
         window.location.assign('/sign-in');
       }}
     >
-      {security ? (
+      {path === 'account/security' ? (
         <SecuritySettings api={api} base="/api/console/account" mandatory />
       ) : (
-        <div className="max-w-3xl">
-          <p className="text-xs font-bold tracking-widest text-brand-deep uppercase">
-            NetaMate operations
-          </p>
-          <h1 className="mt-2 text-[28px] font-bold tracking-tight">
-            Welcome, {user.full_name || 'administrator'}.
-          </h1>
-          <p className="mt-3 text-sm leading-6 text-muted">
-            Your account is protected with two-step verification.
-          </p>
-          <a
-            href="/account/security"
-            className="mt-8 block rounded-base border border-line bg-surface p-6 hover:border-ink"
-          >
-            <h2 className="text-lg font-bold">Account security →</h2>
-            <p className="mt-3 text-sm leading-6 text-muted">
-              Manage your sign-in methods and recovery codes.
-            </p>
-          </a>
-        </div>
+        <PlatformWorkspace path={path} permissions={user.permissions} />
       )}
     </DashboardShell>
   );
@@ -169,5 +197,5 @@ export function ConsoleApp({ path }: { path: string }) {
         loginPath="/sign-in"
       />
     );
-  return <ProtectedConsole security={path === 'account/security'} />;
+  return <ProtectedConsole path={path} />;
 }

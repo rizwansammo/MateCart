@@ -2,13 +2,72 @@
 
 Updated: 2026-11-05 (Asia/Dhaka).
 
-## Phase 15: AI & Advanced Extensions (implemented locally; owner review, commit and CI pending)
+## Phase 16: Central Platform Console (implemented locally; final verification in progress)
 
-**Active phase: 15.** Baseline `029b7bff6f7f69c9915fa5901b5074c8f5c82756` (Phase 14 with 14.1,
-GitHub Actions 42000616679: 4/4 jobs, 1,474 tests). Phases 01 to 14 are accepted and closed.
-All Phase 15 work is in the local working tree only: not committed or pushed. Phase 16 has not
-been started. Reference: [AI_AND_DATA.md](AI_AND_DATA.md); decisions D-101 to D-110; owner
-questions Q11 to Q13.
+**Active phase: 16.** Accepted baseline `2a9e448bf4282f11f98186982b9ee925947d936b`
+(Phase 15, GitHub Actions 42023846893: 4/4 jobs, 1,596 tests). Phases 01–15 are accepted
+and closed. Phase 17 has not started. Reference: [CENTRAL_CONSOLE.md](CENTRAL_CONSOLE.md),
+decisions D-111 to D-114.
+
+### Delivered
+
+- Control-side Client and Contact registry with lifecycle, search, pagination, associated Stores,
+  Servers, notes and append-only activity history.
+- Store Registry whose UUIDv7 primary key is the future `MATECART_TENANT_ID`; the five approved
+  presets, themes and synchronized module capability rules; safe provisioning manifest; distinct
+  desired/applied revisions and truthful pending-application state.
+- Server and Deployment registries for NetaMate- and client-owned infrastructure, multiple Stores
+  per Server, environments, desired/observed releases and unknown/stale health classification.
+- Fixed Console roles (Platform Owner, Platform Administrator, Operations Manager, Support
+  Operator, Read-only Auditor), backend permissions, mandatory-MFA preservation, recent-auth
+  gates, session revocation and last-owner protection.
+- Operational request approval workflow with requester/approver separation and verified evidence
+  before completion. No Execute action and no remote deployment code.
+- Per-Deployment telemetry credentials stored as SHA-256 digests and shown once; binding, timestamp,
+  payload, metric, rate and replay validation; observations contain only operational aggregates.
+- Alert deduplication, recovery, acknowledgment, silence and resolution; internal role-aware
+  notifications; backup observations; Domain/TLS inventory; append-only central audit events.
+- Isolated Control Celery worker and Beat using Control Redis only. Idempotent monitoring evaluation
+  covers stale heartbeats, backup failure/overdue and certificate expiry; bounded operational
+  retention preserves audit records.
+- Responsive Console navigation and real database-backed Overview, Clients, Stores, Servers,
+  Deployments, Monitoring, Alerts, Operations, Administrators and Audit Log screens. Registry and
+  request forms perform genuine API operations; unknown data is never displayed as success.
+
+### Verification so far (observed locally, 2026-11-05)
+
+- Focused Control platform tests: **9 passed** initially. Full Control suite after the first API
+  pass: **65 passed, 1 expected schema-drift failure**; `openapi.yaml` was then regenerated and
+  validated without warnings. The schema failure was not a product defect.
+- Control Ruff, formatting, strict Mypy (65 files), `manage.py check` and
+  `makemigrations --check`: passed.
+- Shared Contracts typecheck and tests: **97 passed** (4 new Phase 16 contract tests).
+- Platform Console strict TypeScript: passed.
+- Pending in this session: full repository gates, rebuilt running Control services, browser
+  acceptance, final totals and owner review data.
+
+### Files and services
+
+- New Control domain: `control/platform/` (models, migrations, constants, services, serializers,
+  APIs, Celery tasks) and `tests/test_platform.py`.
+- Accounts: fixed role field, code-owned permissions and `bootstrap_platform_owner` command.
+- Frontend/contracts: `platform-workspace.tsx`, `platform.ts`, `platform.test.ts`, expanded Console
+  shell and generated Control `openapi.yaml`.
+- Compose: isolated `control-worker` and `control-beat`; Control dependency lock includes Celery.
+- Documentation: this handoff, D-111 to D-114, architecture/data/security/setup/checklist/roadmap,
+  and `CENTRAL_CONSOLE.md`.
+
+### Exact next step
+
+Finish all quality gates and local browser acceptance, record the observed results here, leave
+the MateCart stack and both web apps running, then hand the uncommitted Phase 16 working tree to
+the owner. Do not start Phase 17.
+
+## Phase 15: AI & Advanced Extensions (accepted and closed)
+
+Accepted at `2a9e448bf4282f11f98186982b9ee925947d936b`, GitHub Actions 42023846893
+(4/4 jobs, 1,596 tests, 0 failed). The record below is the preserved implementation handoff.
+Reference: [AI_AND_DATA.md](AI_AND_DATA.md); decisions D-101 to D-110; owner questions Q11 to Q13.
 
 ### Delivered
 

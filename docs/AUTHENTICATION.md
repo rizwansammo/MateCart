@@ -53,6 +53,13 @@ password dialog, which keeps the selected action available for retry.
 Console administrators choose a password from their activation link and must finish
 MFA enrollment before accessing even the minimal console shell.
 
+Phase 16 assigns every Console administrator one fixed NetaMate role. The active session response
+contains the role and allowed permission names for navigation, while every Control endpoint checks
+the permission again. Administrator role/suspension changes require recent authentication, revoke
+sessions on suspension, cannot change the caller's own role and preserve at least one active
+Platform Owner under a row lock. Bootstrap only the first owner with
+`bootstrap_platform_owner`; public signup and API self-promotion do not exist.
+
 ## MFA user experience
 
 Merchant MFA is optional. Once enabled, password sign-in yields a restricted

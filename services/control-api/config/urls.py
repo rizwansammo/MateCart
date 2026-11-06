@@ -8,6 +8,7 @@ urlpatterns: list[URLPattern | URLResolver] = [
     path("api/health/", include("control.core.urls")),
     path("api/csrf/", CsrfView.as_view(), name="csrf"),
     path("api/console/", include("control.accounts.urls")),
+    path("api/console/", include("control.platform.urls")),
 ]
 
 if settings.API_SCHEMA_ENABLED:

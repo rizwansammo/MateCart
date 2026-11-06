@@ -34,6 +34,7 @@ INSTALLED_APPS = [
     "drf_spectacular",
     "control.core",
     "control.accounts",
+    "control.platform",
 ]
 
 MIDDLEWARE = [
@@ -121,6 +122,27 @@ CACHES = {
     },
 }
 
+# --- Celery (Control Redis only; never the Commerce broker) ---
+CELERY_BROKER_URL = env("CELERY_BROKER_URL", default=env("REDIS_URL"))
+CELERY_RESULT_BACKEND = env("CELERY_RESULT_BACKEND", default=None)
+CELERY_ACCEPT_CONTENT = ["json"]
+CELERY_TASK_SERIALIZER = "json"
+CELERY_RESULT_SERIALIZER = "json"
+CELERY_TIMEZONE = "UTC"
+CELERY_RESULT_EXPIRES = 3600
+CELERY_TASK_TIME_LIMIT = 120
+CELERY_TASK_SOFT_TIME_LIMIT = 90
+CELERY_TASK_ACKS_LATE = True
+CELERY_TASK_REJECT_ON_WORKER_LOST = True
+CELERY_WORKER_PREFETCH_MULTIPLIER = 1
+CELERY_BROKER_CONNECTION_RETRY_ON_STARTUP = True
+CELERY_BROKER_TRANSPORT_OPTIONS = {"visibility_timeout": 1800}
+CELERY_WORKER_HIJACK_ROOT_LOGGER = False
+CELERY_BEAT_SCHEDULE = {
+    "platform-monitoring-evaluate": {"task": "platform.evaluate_monitoring", "schedule": 60.0},
+    "platform-retention": {"task": "platform.retention", "schedule": 86400.0},
+}
+
 # --- Templates (email bodies only; the console UI is the Next.js app) ---
 TEMPLATES = [
     {
@@ -147,6 +169,8 @@ REST_FRAMEWORK = {
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
     "EXCEPTION_HANDLER": "control.core.exceptions.api_exception_handler",
     "TEST_REQUEST_DEFAULT_FORMAT": "json",
+    "DEFAULT_PAGINATION_CLASS": "rest_framework.pagination.PageNumberPagination",
+    "PAGE_SIZE": 25,
 }
 
 # --- OpenAPI schema (the API contract; exported to openapi.yaml and checked for drift in tests) ---
@@ -159,6 +183,8 @@ SPECTACULAR_SETTINGS = {
     "ENUM_NAME_OVERRIDES": {
         "CheckStateEnum": "control.core.serializers.CHECK_STATES",
         "SecondStepMethodEnum": "control.accounts.views.METHODS",
+        "AdminRoleEnum": "control.accounts.models.AdminRole.values",
+        "TelemetryHealthStateEnum": "control.platform.serializers.HEALTH_STATES",
     },
 }
 API_SCHEMA_ENABLED = env.bool("DJANGO_API_SCHEMA_ENABLED", default=False)

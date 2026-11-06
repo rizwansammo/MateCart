@@ -261,6 +261,8 @@ services:
       DJANGO_LOG_FORMAT: console
       DATABASE_URL: postgres://matecart_control:${MATECART_CONTROL_DB_PASSWORD}@control-db:5432/matecart_control
       REDIS_URL: redis://:${MATECART_CONTROL_REDIS_PASSWORD}@control-redis:6379/0
+      CELERY_BROKER_URL: redis://:${MATECART_CONTROL_REDIS_PASSWORD}@control-redis:6379/1
+      CELERY_RESULT_BACKEND: redis://:${MATECART_CONTROL_REDIS_PASSWORD}@control-redis:6379/2
       MATECART_ENCRYPTION_KEY: ${MATECART_CONTROL_ENCRYPTION_KEY:?run `pnpm setup:env`}
       MATECART_SECURE_COOKIES: 'false'
       MATECART_CONSOLE_PUBLIC_BASE_URL: http://127.0.0.1:3410
@@ -289,6 +291,73 @@ services:
       timeout: 5s
       retries: 6
       start_period: 30s
+    restart: unless-stopped
+
+  control-worker:
+    build:
+      context: ./services/control-api
+      target: dev
+    image: matecart-dev/control-api:dev
+    command:
+      [
+        'celery',
+        '-A',
+        'config',
+        'worker',
+        '--loglevel=INFO',
+        '--concurrency=2',
+        '--hostname=control-worker@%h',
+      ]
+    environment:
+      DJANGO_SETTINGS_MODULE: config.settings.development
+      DJANGO_SECRET_KEY: ${MATECART_CONTROL_SECRET_KEY:?run `pnpm setup:env`}
+      DJANGO_LOG_FORMAT: console
+      DATABASE_URL: postgres://matecart_control:${MATECART_CONTROL_DB_PASSWORD}@control-db:5432/matecart_control
+      REDIS_URL: redis://:${MATECART_CONTROL_REDIS_PASSWORD}@control-redis:6379/0
+      CELERY_BROKER_URL: redis://:${MATECART_CONTROL_REDIS_PASSWORD}@control-redis:6379/1
+      CELERY_RESULT_BACKEND: redis://:${MATECART_CONTROL_REDIS_PASSWORD}@control-redis:6379/2
+      MATECART_ENCRYPTION_KEY: ${MATECART_CONTROL_ENCRYPTION_KEY:?run `pnpm setup:env`}
+    volumes:
+      - ./services/control-api:/app
+    networks: [control]
+    depends_on:
+      control-db: { condition: service_healthy }
+      control-redis: { condition: service_healthy }
+    healthcheck:
+      test:
+        [
+          'CMD-SHELL',
+          'celery -A config inspect ping --destination control-worker@$$HOSTNAME --timeout 5',
+        ]
+      interval: 30s
+      timeout: 15s
+      retries: 3
+      start_period: 30s
+    restart: unless-stopped
+
+  control-beat:
+    build:
+      context: ./services/control-api
+      target: dev
+    image: matecart-dev/control-api:dev
+    command:
+      ['celery', '-A', 'config', 'beat', '--loglevel=INFO', '--schedule=/tmp/celerybeat-schedule']
+    environment:
+      DJANGO_SETTINGS_MODULE: config.settings.development
+      DJANGO_SECRET_KEY: ${MATECART_CONTROL_SECRET_KEY:?run `pnpm setup:env`}
+      DJANGO_LOG_FORMAT: console
+      DATABASE_URL: postgres://matecart_control:${MATECART_CONTROL_DB_PASSWORD}@control-db:5432/matecart_control
+      REDIS_URL: redis://:${MATECART_CONTROL_REDIS_PASSWORD}@control-redis:6379/0
+      CELERY_BROKER_URL: redis://:${MATECART_CONTROL_REDIS_PASSWORD}@control-redis:6379/1
+      CELERY_RESULT_BACKEND: redis://:${MATECART_CONTROL_REDIS_PASSWORD}@control-redis:6379/2
+      MATECART_ENCRYPTION_KEY: ${MATECART_CONTROL_ENCRYPTION_KEY:?run `pnpm setup:env`}
+    volumes:
+      - ./services/control-api:/app
+    networks: [control]
+    depends_on:
+      control-db: { condition: service_healthy }
+      control-redis: { condition: service_healthy }
+      control-worker: { condition: service_healthy }
     restart: unless-stopped
 
 volumes:

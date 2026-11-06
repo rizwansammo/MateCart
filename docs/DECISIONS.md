@@ -1466,6 +1466,44 @@ shown. No visitor profiles or other customers' purchases are used. AI ranking is
 the deterministic list is explainable and keeps working without a provider. The storefront
 falls back to the category listing if the list is unavailable.
 
+### D-111 · One cohesive Control domain with immutable operational identities (2026-11-05, Phase 16)
+
+Phase 16 uses one `control.platform` Django app for the interdependent client, store,
+infrastructure, operations, monitoring and alert records. It avoids artificial app boundaries
+while keeping accounts separate. Every operational primary key is UUIDv7. A StoreRegistration's
+immutable UUID is the value installed later as `MATECART_TENANT_ID`; Control and Commerce have no
+database foreign keys. Important historical relationships use `PROTECT` and are not automatically
+deleted. Phase 17 may consume these records but cannot change their identity semantics.
+
+### D-112 · Fixed Console roles and an append-only central audit (2026-11-05, Phase 16)
+
+Console authorization is a code-owned role matrix: Platform Owner, Platform Administrator,
+Operations Manager, Support Operator and Read-only Auditor. The backend checks permissions on
+every operational endpoint. Sensitive changes also require the existing recent-authentication
+state; an administrator cannot change their own role, and row locks preserve at least one active
+Platform Owner. `ConsoleAuditEvent` is written in the business transaction and is immutable both
+in the ORM and by PostgreSQL UPDATE/DELETE triggers. Audit changes are explicit, safe metadata,
+never credentials or copied Store business data.
+
+### D-113 · Deployment-scoped telemetry, PostgreSQL observations and honest health (2026-11-05, Phase 16)
+
+Each deployment gets independently rotatable telemetry credentials; only a SHA-256 digest and
+last four characters are stored, and the raw value is returned once. Reports must bind the Store
+and Deployment, pass freshness, size, metric and rate limits, and use a unique report UUID for
+replay protection. Control stores bounded observations and aggregated visitor totals only—never
+customer, order, payment, session, message or prompt data. Freshness plus reported Store/API state
+produces Healthy, Degraded, Unavailable, Stale or Unknown. Registration alone is never health.
+Reported evidence remains labelled; applied configuration changes only after authoritative future
+acknowledgment.
+
+### D-114 · An isolated Control worker evaluates operations but never deploys (2026-11-05, Phase 16)
+
+Control gets its own Celery worker and Beat on the existing Control Redis, separate from every
+Commerce deployment. Idempotent schedules evaluate stale heartbeats, backup failure/overdue and
+certificate expiry, deduplicate alerts and apply bounded retention. They do not SSH, run remote
+Docker, change DNS, issue certificates, restore backups or apply configuration. Those execution
+channels remain Phase 17; Phase 16 records truthful pending requests and observed acknowledgments.
+
 ## Open questions for the owner
 
 | #   | Question                                                                                                                                                                                                      | Status                                                                                                                | Needed by                    |

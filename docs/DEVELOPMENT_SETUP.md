@@ -42,7 +42,9 @@ are in [AUTHENTICATION.md](AUTHENTICATION.md).
 | control-db          | `127.0.0.1:15441`, db/user `matecart_control`       | password in `.env`                        |
 | commerce-redis      | `127.0.0.1:16380` (password in `.env`)              | db 0 cache, 1 broker, 2 results           |
 | commerce-worker     | not published                                       | `celery inspect ping` healthcheck         |
-| control-redis       | not published, own password/volume                  | internal console rate limits              |
+| control-redis       | not published, own password/volume                  | rate limits, Control broker/results       |
+| control-worker      | not published                                       | monitoring/alert/retention tasks          |
+| control-beat        | not published                                       | isolated Control scheduler                |
 | mailpit             | http://127.0.0.1:18025                              | development inbox only; SMTP internal     |
 
 API and database ports can be changed in `.env`. The Next.js ports live in `apps/*/package.json` (and in `scripts/check-health.mjs`).

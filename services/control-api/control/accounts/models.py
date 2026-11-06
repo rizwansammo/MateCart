@@ -29,6 +29,14 @@ class AdminUserManager(BaseUserManager["AdminUser"]):
         return user
 
 
+class AdminRole(models.TextChoices):
+    PLATFORM_OWNER = "platform_owner", "Platform Owner"
+    PLATFORM_ADMIN = "platform_admin", "Platform Administrator"
+    OPERATIONS_MANAGER = "operations_manager", "Operations Manager"
+    SUPPORT_OPERATOR = "support_operator", "Support Operator"
+    READ_ONLY_AUDITOR = "read_only_auditor", "Read-only Auditor"
+
+
 class AdminUser(UUIDModel, TimestampedModel, AbstractBaseUser):
     """A NetaMate team member who operates the Central Platform Console.
 
@@ -45,6 +53,9 @@ class AdminUser(UUIDModel, TimestampedModel, AbstractBaseUser):
     activated_at = models.DateTimeField(null=True, blank=True)
     # Second step by email code. Authenticator apps live in AdminTotpDevice.
     email_mfa_enabled_at = models.DateTimeField(null=True, blank=True)
+    role = models.CharField(
+        max_length=32, choices=AdminRole.choices, default=AdminRole.READ_ONLY_AUDITOR
+    )
 
     objects: ClassVar[AdminUserManager] = AdminUserManager()
 

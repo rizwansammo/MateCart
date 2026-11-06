@@ -423,9 +423,9 @@ Accepted and closed with 10.1: `6fe1a8c`, GitHub Actions 41115310035, 4/4 jobs, 
 - [ ] Production PostgreSQL runtime/migration role separation and privilege hardening (17)
 - [ ] Final Django private-hook compatibility and tenant/authentication audit (18)
 
-- [ ] Central Console: client registry, onboarding, store configuration, preset selection, feature and module configuration, server registry (16)
-- [ ] Deployment orchestration, release and update management, domain and SSL workflows, integration provisioning (16, 17)
-- [ ] Backup and recovery status; secure support and administrative operations (16, 17, 18)
+- [x] Central Console: client registry, onboarding, store configuration, preset selection, feature and module configuration, server registry (16; locally implemented)
+- [x] Control-side deployment/release requests, domain/TLS inventory and pending integration contracts (16); remote execution/provisioning remains 17
+- [x] Backup status visibility and secure support/administrative workflows (16); installation and restore drills remain 17–18
 - [ ] GHCR releases, dedicated deployments, client-owned VPS installer, deployment agent (17)
 - [ ] Tenant isolation verification, load tests, vulnerability assessment, backup and restore drills (18)
 - [ ] Production deployment and private beta launch (19)

@@ -16,3 +16,4 @@ export * from './notifications';
 export * from './communications';
 export * from './ai';
 export * from './transfers';
+export * from './platform';

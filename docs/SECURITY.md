@@ -223,6 +223,21 @@ Details: [COMMUNICATIONS.md](COMMUNICATIONS.md), D-092 to D-098.
 - **Development aids** (AI test provider, migration simulator) are labelled and refused by
   production settings.
 
+## Central Platform Console (Phase 16)
+
+- Console roles are fixed in code and enforced by Control API permissions. Existing mandatory MFA,
+  CSRF, session state and recent authentication protect sensitive administrator, configuration,
+  telemetry-credential and approval changes. Row locks protect the last active Platform Owner.
+- Telemetry credentials are independently scoped to a Deployment, stored only as SHA-256 digests,
+  returned once, rotatable/revocable and excluded from logs/audit. Reports verify Store/Deployment
+  binding, timestamp, report UUID, payload size, metric ranges and rate limits; duplicates fail.
+- Telemetry is observations only. It cannot change configuration, roles or execute commands and
+  contains no customer, order, payment, session, message or prompt data.
+- Central audit events are transactional and append-only in the ORM and PostgreSQL. Changes are
+  explicit safe metadata. Control data never contains Store provider secrets or server login keys.
+- Control Worker/Beat use the Control Redis/database only. No health probe accepts an arbitrary
+  browser URL, and Phase 16 performs no SSH, remote Docker, DNS, certificate or restore action.
+
 ## Limits and scheduled follow-up
 
 - Phase 04 public catalogue and media routes have no dedicated rate limits or CDN

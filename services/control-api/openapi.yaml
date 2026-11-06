@@ -169,6 +169,79 @@ paths:
               schema:
                 $ref: '#/components/schemas/SecurityStatus'
           description: ''
+  /api/console/administrators/:
+    get:
+      operationId: console_administrators_retrieve
+      tags:
+      - console
+      security:
+      - consoleSession: []
+      responses:
+        '200':
+          description: No response body
+    post:
+      operationId: console_administrators_create
+      tags:
+      - console
+      security:
+      - consoleSession: []
+      responses:
+        '200':
+          description: No response body
+  /api/console/administrators/{id}/:
+    patch:
+      operationId: console_administrators_partial_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - console
+      security:
+      - consoleSession: []
+      responses:
+        '200':
+          description: No response body
+  /api/console/alerts/:
+    get:
+      operationId: console_alerts_retrieve
+      tags:
+      - console
+      security:
+      - consoleSession: []
+      responses:
+        '200':
+          description: No response body
+  /api/console/alerts/{id}/:
+    patch:
+      operationId: console_alerts_partial_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - console
+      security:
+      - consoleSession: []
+      responses:
+        '200':
+          description: No response body
+  /api/console/audit/:
+    get:
+      operationId: console_audit_retrieve
+      tags:
+      - console
+      security:
+      - consoleSession: []
+      responses:
+        '200':
+          description: No response body
   /api/console/auth/activate/:
     post:
       operationId: console_activate
@@ -324,6 +397,222 @@ paths:
               schema:
                 $ref: '#/components/schemas/Admin'
           description: ''
+  /api/console/backups/:
+    get:
+      operationId: console_backups_retrieve
+      tags:
+      - console
+      security:
+      - consoleSession: []
+      responses:
+        '200':
+          description: No response body
+    post:
+      operationId: console_backups_create
+      tags:
+      - console
+      security:
+      - consoleSession: []
+      responses:
+        '200':
+          description: No response body
+  /api/console/capabilities/:
+    get:
+      operationId: console_capabilities_retrieve
+      tags:
+      - console
+      security:
+      - consoleSession: []
+      responses:
+        '200':
+          description: No response body
+  /api/console/clients/:
+    get:
+      operationId: console_client_list
+      tags:
+      - console
+      security:
+      - consoleSession: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Client'
+          description: ''
+    post:
+      operationId: console_client_create
+      tags:
+      - console
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ClientRequest'
+        required: true
+      security:
+      - consoleSession: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Client'
+          description: ''
+  /api/console/clients/{client_id}/contacts/:
+    get:
+      operationId: console_clients_contacts_retrieve
+      parameters:
+      - in: path
+        name: client_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - console
+      security:
+      - consoleSession: []
+      responses:
+        '200':
+          description: No response body
+    post:
+      operationId: console_clients_contacts_create
+      parameters:
+      - in: path
+        name: client_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - console
+      security:
+      - consoleSession: []
+      responses:
+        '200':
+          description: No response body
+  /api/console/clients/{id}/:
+    get:
+      operationId: console_client_retrieve
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - console
+      security:
+      - consoleSession: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Client'
+          description: ''
+    patch:
+      operationId: console_clients_partial_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - console
+      security:
+      - consoleSession: []
+      responses:
+        '200':
+          description: No response body
+  /api/console/deployments/:
+    get:
+      operationId: console_deployment_list
+      tags:
+      - console
+      security:
+      - consoleSession: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Deployment'
+          description: ''
+    post:
+      operationId: console_deployments_create
+      tags:
+      - console
+      security:
+      - consoleSession: []
+      responses:
+        '200':
+          description: No response body
+  /api/console/deployments/{deployment_id}/monitoring-credentials/:
+    post:
+      operationId: console_deployments_monitoring_credentials_create
+      parameters:
+      - in: path
+        name: deployment_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - console
+      security:
+      - consoleSession: []
+      responses:
+        '200':
+          description: No response body
+  /api/console/deployments/{id}/:
+    get:
+      operationId: console_deployment_retrieve
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - console
+      security:
+      - consoleSession: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Deployment'
+          description: ''
+  /api/console/domains/:
+    get:
+      operationId: console_domains_retrieve
+      tags:
+      - console
+      security:
+      - consoleSession: []
+      responses:
+        '200':
+          description: No response body
+    post:
+      operationId: console_domains_create
+      tags:
+      - console
+      security:
+      - consoleSession: []
+      responses:
+        '200':
+          description: No response body
   /api/console/enroll/email/confirm/:
     post:
       operationId: console_enroll_email_confirm
@@ -396,6 +685,225 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/TotpSetup'
+          description: ''
+  /api/console/monitoring/:
+    get:
+      operationId: console_monitoring_retrieve
+      tags:
+      - console
+      security:
+      - consoleSession: []
+      responses:
+        '200':
+          description: No response body
+  /api/console/notifications/:
+    get:
+      operationId: console_notifications_retrieve
+      tags:
+      - console
+      security:
+      - consoleSession: []
+      responses:
+        '200':
+          description: No response body
+    post:
+      operationId: console_notifications_create
+      tags:
+      - console
+      security:
+      - consoleSession: []
+      responses:
+        '200':
+          description: No response body
+  /api/console/operations/:
+    get:
+      operationId: console_operations_retrieve
+      tags:
+      - console
+      security:
+      - consoleSession: []
+      responses:
+        '200':
+          description: No response body
+    post:
+      operationId: console_operations_create
+      tags:
+      - console
+      security:
+      - consoleSession: []
+      responses:
+        '200':
+          description: No response body
+  /api/console/operations/{id}/:
+    patch:
+      operationId: console_operations_partial_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - console
+      security:
+      - consoleSession: []
+      responses:
+        '200':
+          description: No response body
+  /api/console/overview/:
+    get:
+      operationId: console_overview_retrieve
+      tags:
+      - console
+      security:
+      - consoleSession: []
+      responses:
+        '200':
+          description: No response body
+  /api/console/servers/:
+    get:
+      operationId: console_server_list
+      tags:
+      - console
+      security:
+      - consoleSession: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Server'
+          description: ''
+    post:
+      operationId: console_servers_create
+      tags:
+      - console
+      security:
+      - consoleSession: []
+      responses:
+        '200':
+          description: No response body
+  /api/console/servers/{id}/:
+    get:
+      operationId: console_server_retrieve
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - console
+      security:
+      - consoleSession: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Server'
+          description: ''
+    patch:
+      operationId: console_servers_partial_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - console
+      security:
+      - consoleSession: []
+      responses:
+        '200':
+          description: No response body
+  /api/console/stores/:
+    get:
+      operationId: console_store_list
+      tags:
+      - console
+      security:
+      - consoleSession: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Store'
+          description: ''
+    post:
+      operationId: console_stores_create
+      tags:
+      - console
+      security:
+      - consoleSession: []
+      responses:
+        '200':
+          description: No response body
+  /api/console/stores/{id}/:
+    get:
+      operationId: console_store_retrieve
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - console
+      security:
+      - consoleSession: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Store'
+          description: ''
+    patch:
+      operationId: console_stores_partial_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - console
+      security:
+      - consoleSession: []
+      responses:
+        '200':
+          description: No response body
+  /api/console/telemetry/observations/:
+    post:
+      operationId: console_telemetry_observations_create
+      tags:
+      - console
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TelemetryRequest'
+        required: true
+      security:
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Telemetry'
           description: ''
   /api/csrf/:
     get:
@@ -471,10 +979,27 @@ components:
           format: email
         full_name:
           type: string
+        role:
+          type: string
+        permissions:
+          type: array
+          items:
+            type: string
+          readOnly: true
       required:
       - email
       - full_name
       - id
+      - permissions
+      - role
+    BackupStatusEnum:
+      enum:
+      - successful
+      - failed
+      type: string
+      description: |-
+        * `successful` - successful
+        * `failed` - failed
     Challenge:
       type: object
       properties:
@@ -520,6 +1045,154 @@ components:
       description: |-
         * `ok` - ok
         * `error` - error
+    Client:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        stores_count:
+          type: integer
+          readOnly: true
+        servers_count:
+          type: integer
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+        display_name:
+          type: string
+          maxLength: 160
+        legal_name:
+          type: string
+          maxLength: 200
+        client_type:
+          type: string
+          maxLength: 32
+        primary_contact_name:
+          type: string
+          maxLength: 160
+        contact_email:
+          oneOf:
+          - type: string
+            format: email
+            maxLength: 254
+          - type: string
+            maxLength: 0
+        contact_phone:
+          type: string
+          maxLength: 32
+        country:
+          type: string
+          maxLength: 2
+        time_zone:
+          type: string
+          maxLength: 64
+        address:
+          type: string
+          maxLength: 1000
+        internal_reference:
+          type: string
+          nullable: true
+          maxLength: 80
+        status:
+          $ref: '#/components/schemas/ClientStatusEnum'
+        onboarding_date:
+          type: string
+          format: date
+          nullable: true
+        notes:
+          type: string
+          maxLength: 4000
+        account_manager:
+          type: string
+          format: uuid
+          nullable: true
+      required:
+      - country
+      - created_at
+      - display_name
+      - id
+      - servers_count
+      - stores_count
+      - updated_at
+    ClientRequest:
+      type: object
+      properties:
+        display_name:
+          type: string
+          minLength: 1
+          maxLength: 160
+        legal_name:
+          type: string
+          maxLength: 200
+        client_type:
+          type: string
+          minLength: 1
+          maxLength: 32
+        primary_contact_name:
+          type: string
+          maxLength: 160
+        contact_email:
+          oneOf:
+          - type: string
+            format: email
+            maxLength: 254
+          - type: string
+            maxLength: 0
+        contact_phone:
+          type: string
+          maxLength: 32
+        country:
+          type: string
+          minLength: 1
+          maxLength: 2
+        time_zone:
+          type: string
+          maxLength: 64
+        address:
+          type: string
+          maxLength: 1000
+        internal_reference:
+          type: string
+          nullable: true
+          maxLength: 80
+        status:
+          $ref: '#/components/schemas/ClientStatusEnum'
+        onboarding_date:
+          type: string
+          format: date
+          nullable: true
+        notes:
+          type: string
+          maxLength: 4000
+        account_manager:
+          type: string
+          format: uuid
+          nullable: true
+      required:
+      - country
+      - display_name
+    ClientStatusEnum:
+      enum:
+      - prospect
+      - onboarding
+      - active
+      - on_hold
+      - archived
+      type: string
+      description: |-
+        * `prospect` - Prospect
+        * `onboarding` - Onboarding
+        * `active` - Active
+        * `on_hold` - On hold
+        * `archived` - Archived
     CodeRequest:
       type: object
       properties:
@@ -536,6 +1209,89 @@ components:
           type: string
       required:
       - csrf_token
+    Deployment:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        store_name:
+          type: string
+          readOnly: true
+        server_name:
+          type: string
+          readOnly: true
+        health_state:
+          type: string
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+        environment:
+          type: string
+          maxLength: 24
+        reference:
+          type: string
+          maxLength: 100
+        desired_version:
+          type: string
+          maxLength: 80
+        observed_version:
+          type: string
+          readOnly: true
+        state:
+          type: string
+          maxLength: 32
+        public_origin:
+          oneOf:
+          - type: string
+            format: uri
+            maxLength: 200
+          - type: string
+            maxLength: 0
+        internal_reference:
+          type: string
+          maxLength: 100
+        last_observed_at:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+        last_healthy_at:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+        configuration_revision:
+          type: integer
+          readOnly: true
+        store:
+          type: string
+          format: uuid
+        server:
+          type: string
+          format: uuid
+      required:
+      - configuration_revision
+      - created_at
+      - environment
+      - health_state
+      - id
+      - last_healthy_at
+      - last_observed_at
+      - observed_version
+      - reference
+      - server
+      - server_name
+      - store
+      - store_name
+      - updated_at
     EmailRequest:
       type: object
       properties:
@@ -577,6 +1333,17 @@ components:
       required:
       - email
       - password
+    NullEnum:
+      enum:
+      - null
+    OwnershipEnum:
+      enum:
+      - netamate
+      - client
+      type: string
+      description: |-
+        * `netamate` - NetaMate
+        * `client` - Client
     PasswordChangeRequest:
       type: object
       properties:
@@ -700,6 +1467,89 @@ components:
       - reauthenticated
       - recovery_codes_remaining
       - totp
+    Server:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        owner_name:
+          type: string
+          readOnly: true
+        deployments_count:
+          type: integer
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+        name:
+          type: string
+          maxLength: 160
+        ownership:
+          $ref: '#/components/schemas/OwnershipEnum'
+        provider:
+          type: string
+          maxLength: 100
+        hostname:
+          type: string
+          maxLength: 253
+        public_ip:
+          type: string
+          nullable: true
+        region:
+          type: string
+          maxLength: 100
+        country:
+          type: string
+          maxLength: 2
+        operating_system:
+          type: string
+          maxLength: 120
+        cpu_cores:
+          type: integer
+          maximum: 32767
+          minimum: 0
+          nullable: true
+        ram_mb:
+          type: integer
+          maximum: 2147483647
+          minimum: 0
+          nullable: true
+        disk_gb:
+          type: integer
+          maximum: 2147483647
+          minimum: 0
+          nullable: true
+        environment:
+          type: string
+          maxLength: 24
+        asset_reference:
+          type: string
+          maxLength: 80
+        status:
+          type: string
+          maxLength: 24
+        notes:
+          type: string
+          maxLength: 2000
+        owner_client:
+          type: string
+          format: uuid
+          nullable: true
+      required:
+      - created_at
+      - deployments_count
+      - id
+      - name
+      - owner_name
+      - ownership
+      - updated_at
     SignInStatus:
       type: object
       properties:
@@ -725,6 +1575,261 @@ components:
         * `signed_in` - signed_in
         * `mfa_required` - mfa_required
         * `enrollment_required` - enrollment_required
+    Store:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        client_name:
+          type: string
+          readOnly: true
+        configuration_state:
+          type: string
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+        name:
+          type: string
+          maxLength: 160
+        handle:
+          type: string
+          maxLength: 80
+          pattern: ^[-a-zA-Z0-9_]+$
+        preset:
+          type: string
+          maxLength: 24
+        country:
+          type: string
+          maxLength: 2
+        default_currency:
+          type: string
+          maxLength: 3
+        time_zone:
+          type: string
+          maxLength: 64
+        default_language:
+          type: string
+          maxLength: 12
+        supported_languages: {}
+        desired_theme:
+          type: string
+          maxLength: 80
+        desired_modules: {}
+        applied_theme:
+          type: string
+          readOnly: true
+        applied_modules:
+          readOnly: true
+        desired_revision:
+          type: integer
+          readOnly: true
+        applied_revision:
+          type: integer
+          readOnly: true
+        applied_at:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+        status:
+          $ref: '#/components/schemas/StoreStatusEnum'
+        onboarding_status:
+          type: string
+          maxLength: 32
+        environment_designation:
+          type: string
+          maxLength: 24
+        client:
+          type: string
+          format: uuid
+      required:
+      - applied_at
+      - applied_modules
+      - applied_revision
+      - applied_theme
+      - client
+      - client_name
+      - configuration_state
+      - country
+      - created_at
+      - default_currency
+      - default_language
+      - desired_revision
+      - desired_theme
+      - handle
+      - id
+      - name
+      - preset
+      - time_zone
+      - updated_at
+    StoreStatusEnum:
+      enum:
+      - draft
+      - registered
+      - ready_for_deployment
+      - deployment_pending
+      - active
+      - suspended
+      - archived
+      type: string
+      description: |-
+        * `draft` - Draft
+        * `registered` - Registered
+        * `ready_for_deployment` - Ready for deployment
+        * `deployment_pending` - Deployment pending
+        * `active` - Active
+        * `suspended` - Administratively suspended
+        * `archived` - Archived
+    Telemetry:
+      type: object
+      properties:
+        deployment_id:
+          type: string
+          format: uuid
+        store_id:
+          type: string
+          format: uuid
+        report_id:
+          type: string
+          format: uuid
+        observed_at:
+          type: string
+          format: date-time
+        store_status:
+          $ref: '#/components/schemas/TelemetryHealthStateEnum'
+        api_status:
+          $ref: '#/components/schemas/TelemetryHealthStateEnum'
+        response_ms:
+          type: integer
+          maximum: 120000
+          minimum: 0
+          nullable: true
+        cpu_percent:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,3}(?:\.\d{0,2})?$
+          nullable: true
+        ram_percent:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,3}(?:\.\d{0,2})?$
+          nullable: true
+        disk_percent:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,3}(?:\.\d{0,2})?$
+          nullable: true
+        visitor_count_24h:
+          type: integer
+          maximum: 1000000000
+          minimum: 0
+          nullable: true
+        application_version:
+          type: string
+          maxLength: 80
+        backup_status:
+          nullable: true
+          oneOf:
+          - $ref: '#/components/schemas/BackupStatusEnum'
+          - $ref: '#/components/schemas/NullEnum'
+        backup_type:
+          type: string
+          maxLength: 32
+        backup_at:
+          type: string
+          format: date-time
+          nullable: true
+      required:
+      - api_status
+      - deployment_id
+      - observed_at
+      - report_id
+      - store_id
+      - store_status
+    TelemetryHealthStateEnum:
+      enum:
+      - healthy
+      - degraded
+      - unavailable
+      type: string
+      description: |-
+        * `healthy` - healthy
+        * `degraded` - degraded
+        * `unavailable` - unavailable
+    TelemetryRequest:
+      type: object
+      properties:
+        deployment_id:
+          type: string
+          format: uuid
+        store_id:
+          type: string
+          format: uuid
+        report_id:
+          type: string
+          format: uuid
+        observed_at:
+          type: string
+          format: date-time
+        store_status:
+          $ref: '#/components/schemas/TelemetryHealthStateEnum'
+        api_status:
+          $ref: '#/components/schemas/TelemetryHealthStateEnum'
+        response_ms:
+          type: integer
+          maximum: 120000
+          minimum: 0
+          nullable: true
+        cpu_percent:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,3}(?:\.\d{0,2})?$
+          nullable: true
+        ram_percent:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,3}(?:\.\d{0,2})?$
+          nullable: true
+        disk_percent:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,3}(?:\.\d{0,2})?$
+          nullable: true
+        visitor_count_24h:
+          type: integer
+          maximum: 1000000000
+          minimum: 0
+          nullable: true
+        application_version:
+          type: string
+          maxLength: 80
+        backup_status:
+          nullable: true
+          oneOf:
+          - $ref: '#/components/schemas/BackupStatusEnum'
+          - $ref: '#/components/schemas/NullEnum'
+        backup_type:
+          type: string
+          maxLength: 32
+        backup_at:
+          type: string
+          format: date-time
+          nullable: true
+      required:
+      - api_status
+      - deployment_id
+      - observed_at
+      - report_id
+      - store_id
+      - store_status
     TokenPasswordRequest:
       type: object
       properties:
